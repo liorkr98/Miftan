@@ -64,12 +64,13 @@ for money and dates.
 
 ## CC track
 
-### Phase 0 — Workspace · ~1 session
-- [ ] `git init` and commit the prototype as a return point
-- [ ] npm workspaces monorepo; current app → `apps/web`
-- [ ] Create `packages/shared`; move `types`, `i18n`, `lib/format`, `lib/screening`, `lib/rtl`
-- [ ] Rewire imports; **the app must still build and run identically**
-- [ ] Root scripts: `dev`, `dev:api`, `typecheck`, `test`
+### Phase 0 — Workspace · ~1 session · **DONE**
+- [x] `git init` and commit the prototype as a return point
+- [x] npm workspaces monorepo; current app → `apps/web`
+- [x] Create `packages/shared`; move `types`, `i18n`, `lib/format`, `lib/screening`
+      *(`lib/rtl` stayed in `apps/web` — it returns CSS objects, so it's presentation, not domain)*
+- [x] Rewire imports; **the app must still build and run identically**
+- [x] Root scripts: `dev`, `dev:api`, `typecheck`, `test`
 
 > Nothing user-visible changes in Phase 0. If the prototype looks different afterwards, I broke something.
 

@@ -2,10 +2,10 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "miftach",
+      "name": "miftach-web",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
-      "port": 5173
+      "runtimeArgs": ["run", "dev", "-w", "@miftach/web", "--", "--port", "5178", "--strictPort"],
+      "port": 5178
     }
   ]
 }
