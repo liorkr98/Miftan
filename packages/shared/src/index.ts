@@ -10,5 +10,6 @@
 
 export * from './types';
 export * from './i18n/he';
+export * from './lib/money';
 export * from './lib/format';
 export * from './lib/screening';

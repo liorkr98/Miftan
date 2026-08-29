@@ -1,18 +1,10 @@
-import { owner, tenants, seekers } from './seed/people';
-import { properties } from './seed/properties';
-import { leases } from './seed/leases';
-import { tickets } from './seed/tickets';
-import { vendors } from './seed/vendors';
-import { leads } from './seed/leads';
-import { expenses, rentPayments } from './seed/finance';
-import { threads } from './seed/messages';
-import { screeningPresets } from './seed/screening';
-import { inquiries } from './seed/inquiries';
-import { protocolItems, protocolRuns } from './seed/protocol';
-import { seasonalTemplates } from './seed/seasonal';
-import { affiliateOffers, revenueStreams } from './seed/revenue';
+import {
+  owner, tenants, seekers, properties, leases, tickets, vendors, leads,
+  expenses, rentPayments, threads, screeningPresets, inquiries,
+  protocolItems, protocolRuns, seasonalTemplates, affiliateOffers,
+  revenueStreams, daysAgo,
+} from '@miftach/fixtures';
 import { type AuditEntry } from '@miftach/shared';
-import { daysAgo } from './seed/clock';
 
 /**
  * Every boot and every resetDemo() call goes through here. Seed modules are

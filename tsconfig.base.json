@@ -16,7 +16,8 @@
     "noFallthroughCasesInSwitch": true,
 
     "paths": {
-      "@miftach/shared": ["./packages/shared/src/index.ts"]
+      "@miftach/shared": ["./packages/shared/src/index.ts"],
+      "@miftach/fixtures": ["./packages/fixtures/src/index.ts"]
     }
   }
 }

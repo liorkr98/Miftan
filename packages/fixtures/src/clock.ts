@@ -16,10 +16,21 @@ export function addDays(base: Date, days: number): Date {
   return new Date(base.getTime() + days * DAY);
 }
 
+/**
+ * Add months, clamping to the end of the target month rather than rolling over.
+ *
+ * `setMonth` alone overflows: 29 January minus one month asks for 29 February,
+ * which in a non-leap year silently becomes 1 March. That produced a rent roll
+ * with no February in it and two Marches — invisible in a chart that aggregates
+ * by month, and a duplicate-key error the moment it hit a real database.
+ */
 export function addMonths(base: Date, months: number): Date {
   const d = new Date(base);
-  const targetMonth = d.getMonth() + months;
-  d.setMonth(targetMonth);
+  const day = d.getDate();
+  d.setDate(1);
+  d.setMonth(d.getMonth() + months);
+  const lastDayOfTarget = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+  d.setDate(Math.min(day, lastDayOfTarget));
   return d;
 }
 

@@ -40,7 +40,16 @@ miftach/
     api/        Fastify · Drizzle · Postgres · Zod
     web/        the current Vite app → the product
   packages/
-    shared/     types · i18n · format · screening · API client
+    shared/     types · i18n · money · format · screening · API client
+    fixtures/   the demo portfolio + config templates, shared by api and web
+```
+
+### Database commands
+
+```bash
+npm run db:migrate -w @miftach/api   # apply migrations
+npm run db:seed    -w @miftach/api   # load the demo portfolio
+npm run db:reset   -w @miftach/api   # drop everything and start over
 ```
 
 `packages/shared` is the point: `types/index.ts`, `i18n/he.ts`, `lib/format.ts`
@@ -74,11 +83,11 @@ for money and dates.
 
 > Nothing user-visible changes in Phase 0. If the prototype looks different afterwards, I broke something.
 
-### Phase 1 — Database · ~2 sessions
-- [ ] Drizzle schema derived from `packages/shared/types`
-- [ ] Migrations wired through `drizzle-kit`
-- [ ] **Seed script that loads the existing demo data into real Postgres** — the 22 properties, 18 leases and 14 tickets become dev fixtures instead of throwaway mocks
-- [ ] Decide and document: soft deletes, audit columns, **money as integer agorot**
+### Phase 1 — Database · ~2 sessions · **DONE**
+- [x] Drizzle schema derived from `packages/shared/types`
+- [x] Migrations wired through `drizzle-kit`
+- [x] **Seed script that loads the existing demo data into real Postgres** — the 22 properties, 18 leases and 14 tickets become dev fixtures instead of throwaway mocks
+- [x] Decide and document: soft deletes, audit columns, **money as integer agorot**
 
 ### Phase 2 — API + auth · ~2 sessions
 - [ ] Fastify app: Zod type provider, error envelope, request logging, health check
