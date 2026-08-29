@@ -1,0 +1,236 @@
+import type { Ticket } from '@/types';
+import { hoursAgo, daysAgo, slotAt, photo } from './clock';
+
+const OWNER_NAME = 'רן אלמוג';
+
+export const tickets: Ticket[] = [
+  /* ── new ─────────────────────────────────────────────── */
+  {
+    id: 'tk01', property_id: 'p11', tenant_id: 't11',
+    category: 'leak', severity: 'urgent', status: 'new',
+    title: 'נזילה מתחת לכיור במטבח',
+    description: 'מאתמול בערב יש שלולית מתחת לארון הכיור. שמתי דלי אבל הוא מתמלא כל כמה שעות והארון כבר מתחיל להתנפח.',
+    photos: [photo('miftach-tk01-a', 900, 700), photo('miftach-tk01-b', 900, 700)],
+    created_at: hoursAgo(5),
+    tenant_availability: [slotAt(0, 17), slotAt(1, 9), slotAt(1, 16)],
+    messages: [
+      { author_role: 'tenant', author_name: 'מיכל שטרן', body: 'מאתמול בערב יש שלולית מתחת לארון הכיור. שמתי דלי אבל הוא מתמלא כל כמה שעות והארון כבר מתחיל להתנפח.', at: hoursAgo(5), photos: [photo('miftach-tk01-a', 900, 700)] },
+    ],
+  },
+  {
+    id: 'tk02', property_id: 'p13', tenant_id: 't13',
+    category: 'ac', severity: 'medium', status: 'new',
+    title: 'המזגן בסלון מטפטף על הרצפה',
+    description: 'המזגן עובד ומקרר, אבל מטפטף מים מהצד הימני. שמנו מגבת מתחת.',
+    photos: [photo('miftach-tk02-a', 900, 700)],
+    created_at: daysAgo(2),
+    tenant_availability: [slotAt(2, 10), slotAt(3, 10)],
+    messages: [
+      { author_role: 'tenant', author_name: 'ליאור נחמיאס', body: 'המזגן עובד ומקרר, אבל מטפטף מים מהצד הימני. שמנו מגבת מתחת.', at: daysAgo(2) },
+    ],
+  },
+  {
+    id: 'tk03', property_id: 'p10', tenant_id: 't10',
+    category: 'lock', severity: 'low', status: 'new',
+    title: 'הצילינדר בדלת הכניסה תקוע',
+    description: 'צריך לסובב את המפתח כמה פעמים עד שנפתח. לא נתקענו בחוץ עדיין אבל זה הולך ומחמיר.',
+    photos: [],
+    created_at: daysAgo(4),
+    tenant_availability: [slotAt(3, 18)],
+    messages: [
+      { author_role: 'tenant', author_name: 'אלון פרץ', body: 'צריך לסובב את המפתח כמה פעמים עד שנפתח. לא נתקענו בחוץ עדיין אבל זה הולך ומחמיר.', at: daysAgo(4) },
+    ],
+  },
+
+  /* ── approved ────────────────────────────────────────── */
+  {
+    id: 'tk04', property_id: 'p05', tenant_id: 't05',
+    category: 'boiler', severity: 'medium', status: 'approved',
+    title: 'אין מים חמים מדוד השמש',
+    description: 'כבר שלושה ימים שאין מים חמים בבוקר. הגיבוי החשמלי עובד אבל החשבון קופץ.',
+    photos: [photo('miftach-tk04-a', 900, 700)],
+    created_at: daysAgo(3),
+    tenant_availability: [slotAt(1, 8), slotAt(2, 8)],
+    messages: [
+      { author_role: 'tenant', author_name: 'משפחת רוזנברג', body: 'כבר שלושה ימים שאין מים חמים בבוקר. הגיבוי החשמלי עובד אבל החשבון קופץ.', at: daysAgo(3) },
+      { author_role: 'owner', author_name: OWNER_NAME, body: 'מאשר טיפול. מחפש אינסטלטור שמכיר דודי שמש ואחזור אליכם היום.', at: daysAgo(2) },
+    ],
+  },
+  {
+    id: 'tk05', property_id: 'p17', tenant_id: 't17',
+    category: 'electrical', severity: 'medium', status: 'approved',
+    title: 'שקע בחדר השינה מקצר את הפחת',
+    description: 'כל פעם שמחברים משהו לשקע ליד המיטה, הפחת יורד. שאר הבית תקין.',
+    photos: [],
+    created_at: daysAgo(5),
+    tenant_availability: [slotAt(2, 16), slotAt(4, 16)],
+    messages: [
+      { author_role: 'tenant', author_name: 'הילה ורדי', body: 'כל פעם שמחברים משהו לשקע ליד המיטה, הפחת יורד. שאר הבית תקין.', at: daysAgo(5) },
+      { author_role: 'owner', author_name: OWNER_NAME, body: 'זה נשמע כמו קצר בשקע עצמו. אל תשתמשו בו בינתיים, אני שולח חשמלאי.', at: daysAgo(5) },
+      { author_role: 'tenant', author_name: 'הילה ורדי', body: 'סבבה, ניתקנו הכל משם.', at: daysAgo(4) },
+    ],
+  },
+
+  /* ── assigned ────────────────────────────────────────── */
+  {
+    id: 'tk06', property_id: 'p18', tenant_id: 't18',
+    category: 'plumbing', severity: 'medium', status: 'assigned',
+    title: 'סתימה בשירותים',
+    description: 'האסלה מתנקזת לאט מאוד מאז שבת. פומפה לא עזרה.',
+    photos: [],
+    created_at: daysAgo(2),
+    vendor_id: 'v01', scheduled_at: slotAt(1, 11),
+    tenant_availability: [slotAt(1, 11), slotAt(1, 15)],
+    tenant_confirmed_slot: true,
+    messages: [
+      { author_role: 'tenant', author_name: 'משפחת דהן', body: 'האסלה מתנקזת לאט מאוד מאז שבת. פומפה לא עזרה.', at: daysAgo(2) },
+      { author_role: 'owner', author_name: OWNER_NAME, body: 'אישרתי. שיבצתי את אבי כהן למחר ב־11:00.', at: daysAgo(1) },
+      { author_role: 'vendor', author_name: 'אבי כהן — אינסטלציה', body: 'מגיע מחר ב־11. אם זה שורש מהחצר יכול להיות שנצטרך ביובית, אעדכן במקום.', at: hoursAgo(20) },
+      { author_role: 'tenant', author_name: 'משפחת דהן', body: 'מאשרים, נהיה בבית.', at: hoursAgo(18) },
+    ],
+  },
+  {
+    id: 'tk07', property_id: 'p06', tenant_id: 't06',
+    category: 'appliance', severity: 'low', status: 'assigned',
+    title: 'התנור לא מתחמם מעל 150 מעלות',
+    description: 'התנור נדלק אבל לא מגיע לטמפרטורה. הגוף העליון לא מאדים בכלל.',
+    photos: [photo('miftach-tk07-a', 900, 700)],
+    created_at: daysAgo(6),
+    vendor_id: 'v07', scheduled_at: slotAt(3, 14),
+    tenant_availability: [slotAt(3, 14)],
+    messages: [
+      { author_role: 'tenant', author_name: 'דנה קלמן', body: 'התנור נדלק אבל לא מגיע לטמפרטורה. הגוף העליון לא מאדים בכלל.', at: daysAgo(6) },
+      { author_role: 'owner', author_name: OWNER_NAME, body: 'נשמע כמו גוף חימום שרוף. שלחתי את איציק להסתכל, אם צריך להחליף גוף נדבר על עלות.', at: daysAgo(5) },
+      { author_role: 'vendor', author_name: 'איציק אבו — שיפוצניק', body: 'אגיע ביום רביעי אחה״צ. אם זה גוף חימום אני מביא אחד מתאים איתי.', at: daysAgo(4) },
+    ],
+  },
+
+  /* ── in_progress ─────────────────────────────────────── */
+  {
+    id: 'tk08', property_id: 'p09', tenant_id: 't09',
+    category: 'ac', severity: 'urgent', status: 'in_progress',
+    title: 'המזגן לא מקרר בכלל בגל החום',
+    description: 'המזגן מנשב אוויר בטמפרטורת החדר. בדירה 34 מעלות ויש אצלנו תינוקת.',
+    photos: [photo('miftach-tk08-a', 900, 700), photo('miftach-tk08-b', 900, 700)],
+    created_at: daysAgo(1),
+    vendor_id: 'v03', scheduled_at: slotAt(0, 13),
+    tenant_availability: [slotAt(0, 13), slotAt(0, 18)],
+    tenant_confirmed_slot: true,
+    messages: [
+      { author_role: 'tenant', author_name: 'רותם אזולאי', body: 'המזגן מנשב אוויר בטמפרטורת החדר. בדירה 34 מעלות ויש אצלנו תינוקת.', at: daysAgo(1), photos: [photo('miftach-tk08-a', 900, 700)] },
+      { author_role: 'owner', author_name: OWNER_NAME, body: 'מטפל עכשיו. קור־טק אמורים להגיע היום, הם עובדים איתי הרבה ובגל חום הם בעדיפות.', at: hoursAgo(22) },
+      { author_role: 'vendor', author_name: 'קור־טק מיזוג אוויר', body: 'מגיעים היום ב־13:00. אם זה גז נטפל במקום, אם זה מדחס זה יהיה הזמנת חלק.', at: hoursAgo(20) },
+      { author_role: 'vendor', author_name: 'קור־טק מיזוג אוויר', body: 'בשטח. אין גז בכלל — יש נזילה בצנרת במרפסת. מתקן ומטעין, נסיים היום.', at: hoursAgo(2) },
+      { author_role: 'tenant', author_name: 'רותם אזולאי', body: 'תודה ענקית על המהירות.', at: hoursAgo(1) },
+    ],
+  },
+  {
+    id: 'tk09', property_id: 'p11', tenant_id: 't11',
+    category: 'paint', severity: 'low', status: 'in_progress',
+    title: 'כתמי רטיבות בתקרת חדר האמבטיה',
+    description: 'הצבע מתקלף בפינה מעל המקלחת. לא נראה שיש נזילה פעילה, זה נראה כמו לחות.',
+    photos: [photo('miftach-tk09-a', 900, 700)],
+    created_at: daysAgo(11),
+    vendor_id: 'v05', scheduled_at: slotAt(-1, 9),
+    tenant_availability: [slotAt(-1, 9)],
+    tenant_confirmed_slot: true,
+    messages: [
+      { author_role: 'tenant', author_name: 'מיכל שטרן', body: 'הצבע מתקלף בפינה מעל המקלחת. לא נראה שיש נזילה פעילה, זה נראה כמו לחות.', at: daysAgo(11) },
+      { author_role: 'owner', author_name: OWNER_NAME, body: 'אישרתי. ניר יבדוק אם זה רק צבע או שצריך גם איטום.', at: daysAgo(9) },
+      { author_role: 'vendor', author_name: 'ניר צביעה ושיפוצים', body: 'התחלתי אתמול. גירדתי, זה רק לחות מאדים. שם פריימר אנטי־עובש ומסיים מחר.', at: hoursAgo(26) },
+    ],
+  },
+
+  /* ── awaiting_receipt ────────────────────────────────── */
+  {
+    id: 'tk10', property_id: 'p01', tenant_id: 't01',
+    category: 'electrical', severity: 'medium', status: 'awaiting_receipt',
+    title: 'תאורת חדר מדרגות לא עובדת',
+    description: 'הנורה בכניסה לדירה שרופה כבר שבועיים, וגם המפסק לא מגיב.',
+    photos: [],
+    created_at: daysAgo(9),
+    vendor_id: 'v09', scheduled_at: slotAt(-2, 15),
+    tenant_availability: [slotAt(-2, 15)],
+    tenant_confirmed_slot: true,
+    messages: [
+      { author_role: 'tenant', author_name: 'נועה בן־חיים', body: 'הנורה בכניסה לדירה שרופה כבר שבועיים, וגם המפסק לא מגיב.', at: daysAgo(9) },
+      { author_role: 'owner', author_name: OWNER_NAME, body: 'שלחתי את ליאור. אם זה חלק מהוועד נתחשבן איתם בנפרד.', at: daysAgo(8) },
+      { author_role: 'vendor', author_name: 'ליאור חשמל ותאורה', body: 'סיימתי. היה מפסק שבור, החלפתי. נורה חדשה גם.', at: daysAgo(2) },
+      { author_role: 'owner', author_name: OWNER_NAME, body: 'מעולה. ליאור, תעלה בבקשה קבלה ואסגור.', at: daysAgo(2) },
+    ],
+  },
+  {
+    id: 'tk11', property_id: 'p20', tenant_id: 't20',
+    category: 'plumbing', severity: 'medium', status: 'awaiting_receipt',
+    title: 'ברז המקלחת מטפטף כל הזמן',
+    description: 'טפטוף קבוע שלא נפסק גם כשסוגרים חזק.',
+    photos: [],
+    created_at: daysAgo(14),
+    vendor_id: 'v01', scheduled_at: slotAt(-4, 10),
+    tenant_availability: [slotAt(-4, 10)],
+    tenant_confirmed_slot: true,
+    messages: [
+      { author_role: 'tenant', author_name: 'יעל צור', body: 'טפטוף קבוע שלא נפסק גם כשסוגרים חזק.', at: daysAgo(14) },
+      { author_role: 'owner', author_name: OWNER_NAME, body: 'אבי יגיע ביום ראשון.', at: daysAgo(12) },
+      { author_role: 'vendor', author_name: 'אבי כהן — אינסטלציה', body: 'הוחלפה מערכת פנימית בברז. עובד תקין.', at: daysAgo(4) },
+    ],
+  },
+
+  /* ── closed ──────────────────────────────────────────── */
+  {
+    id: 'tk12', property_id: 'p11', tenant_id: 't11',
+    category: 'ac', severity: 'medium', status: 'closed',
+    title: 'ניקוי וטיפול שנתי למזגן',
+    description: 'המזגן מריח רע כשמדליקים, נראה שצריך ניקוי.',
+    photos: [],
+    created_at: daysAgo(52),
+    vendor_id: 'v03', scheduled_at: slotAt(-46, 12),
+    tenant_availability: [slotAt(-46, 12)],
+    tenant_confirmed_slot: true,
+    receipt: { amount: 420, file: photo('miftach-rc12', 700, 900), uploaded_at: daysAgo(45), uploaded_by: 'tenant', vendor_name: 'קור־טק מיזוג אוויר' },
+    expense_id: 'ex12',
+    messages: [
+      { author_role: 'tenant', author_name: 'מיכל שטרן', body: 'המזגן מריח רע כשמדליקים, נראה שצריך ניקוי.', at: daysAgo(52) },
+      { author_role: 'owner', author_name: OWNER_NAME, body: 'אישרתי, זה טיפול שנתי שממילא צריך.', at: daysAgo(51) },
+      { author_role: 'vendor', author_name: 'קור־טק מיזוג אוויר', body: 'נוקה מסננים ומאייד, חוטא. עובד מצוין.', at: daysAgo(46) },
+      { author_role: 'tenant', author_name: 'מיכל שטרן', body: 'העליתי את הקבלה. תודה!', at: daysAgo(45) },
+    ],
+  },
+  {
+    id: 'tk13', property_id: 'p15', tenant_id: 't15',
+    category: 'plumbing', severity: 'urgent', status: 'closed',
+    title: 'סתימה בצנרת הראשית — מים עלו במקלחת',
+    description: 'מים מלוכלכים עלו מהניקוז במקלחת. לא ניתן להשתמש בשירותים.',
+    photos: [photo('miftach-tk13-a', 900, 700)],
+    created_at: daysAgo(38),
+    vendor_id: 'v01', scheduled_at: slotAt(-38, 19),
+    tenant_availability: [slotAt(-38, 19)],
+    tenant_confirmed_slot: true,
+    receipt: { amount: 1250, file: photo('miftach-rc13', 700, 900), uploaded_at: daysAgo(36), uploaded_by: 'vendor', vendor_name: 'אבי כהן — אינסטלציה' },
+    expense_id: 'ex13',
+    messages: [
+      { author_role: 'tenant', author_name: 'אורי ביטון', body: 'מים מלוכלכים עלו מהניקוז במקלחת. לא ניתן להשתמש בשירותים.', at: daysAgo(38), photos: [photo('miftach-tk13-a', 900, 700)] },
+      { author_role: 'owner', author_name: OWNER_NAME, body: 'זה דחוף. אבי בדרך אליכם הערב.', at: daysAgo(38) },
+      { author_role: 'vendor', author_name: 'אבי כהן — אינסטלציה', body: 'הייתה סתימת שורשים בקו הראשי. פתחתי עם סליל, צילמתי צנרת. ממליץ לוועד הבית לבדוק את הקו בחצר.', at: daysAgo(37) },
+      { author_role: 'owner', author_name: OWNER_NAME, body: 'מעביר לוועד. סוגר את הקריאה.', at: daysAgo(36) },
+    ],
+  },
+  {
+    id: 'tk14', property_id: 'p21', tenant_id: 't21',
+    category: 'appliance', severity: 'low', status: 'closed',
+    title: 'מכונת הכביסה לא מנקזת',
+    description: 'הכביסה נשארת במים בסוף המחזור.',
+    photos: [],
+    created_at: daysAgo(24),
+    vendor_id: 'v07', scheduled_at: slotAt(-21, 16),
+    tenant_availability: [slotAt(-21, 16)],
+    tenant_confirmed_slot: true,
+    receipt: { amount: 340, file: photo('miftach-rc14', 700, 900), uploaded_at: daysAgo(20), uploaded_by: 'tenant', vendor_name: 'איציק אבו — שיפוצניק' },
+    expense_id: 'ex14',
+    messages: [
+      { author_role: 'tenant', author_name: 'עדי חסון', body: 'הכביסה נשארת במים בסוף המחזור.', at: daysAgo(24) },
+      { author_role: 'owner', author_name: OWNER_NAME, body: 'איציק יבדוק. בדרך כלל זה מסנן סתום.', at: daysAgo(23) },
+      { author_role: 'vendor', author_name: 'איציק אבו — שיפוצניק', body: 'מסנן משאבה היה חסום לגמרי. נוקה, עובד.', at: daysAgo(21) },
+    ],
+  },
+];
