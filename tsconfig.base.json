@@ -1,6 +1,10 @@
 {
   "compilerOptions": {
     "target": "es2023",
+    /* fetch/Headers/Response are universal now and the shared API client uses
+       them. The "no platform code" rule is enforced by a test in
+       packages/shared rather than by withholding the lib. */
+    "lib": ["ES2023", "DOM"],
     "module": "esnext",
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,

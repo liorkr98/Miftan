@@ -1,7 +1,6 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "lib": ["ES2023"],
     "types": [],
     "paths": { "@miftach/shared": ["../shared/src/index.ts"] }
   },

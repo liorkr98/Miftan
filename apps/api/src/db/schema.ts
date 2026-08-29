@@ -490,3 +490,38 @@ export const contractScans = pgTable('contract_scans', {
   uploadedAt: timestamp('uploaded_at', { withTimezone: true }).notNull().defaultNow(),
   committedAt: timestamp('committed_at', { withTimezone: true }),
 });
+
+/* ── Sessions ──────────────────────────────────────────── */
+
+/**
+ * Refresh-token sessions.
+ *
+ * The access token is a short-lived JWT that is never stored — it is verified
+ * by signature alone. The refresh token is a long random string that *is*
+ * stored, hashed, so that a database leak does not hand out live sessions and
+ * so that "sign out everywhere" is a single UPDATE.
+ *
+ * Rotation: every refresh issues a new token and revokes the old one. If a
+ * revoked token is presented again it means someone replayed a stolen one, and
+ * every session for that user is killed.
+ */
+export const sessions = pgTable(
+  'sessions',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    /** sha-256 of the refresh token. The token itself is never stored. */
+    tokenHash: text('token_hash').notNull(),
+    userAgent: text('user_agent'),
+    ip: text('ip'),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    revokedAt: timestamp('revoked_at', { withTimezone: true }),
+    /** Set when this token was rotated, pointing at its replacement. */
+    replacedBySessionId: text('replaced_by_session_id'),
+    createdAt,
+  },
+  (t) => [
+    uniqueIndex('sessions_token_hash_key').on(t.tokenHash),
+    index('sessions_user_idx').on(t.userId),
+  ],
+);

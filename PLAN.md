@@ -50,7 +50,13 @@ miftach/
 npm run db:migrate -w @miftach/api   # apply migrations
 npm run db:seed    -w @miftach/api   # load the demo portfolio
 npm run db:reset   -w @miftach/api   # drop everything and start over
+npm run dev        -w @miftach/api   # API on :4000
+npm test                             # every workspace
 ```
+
+Seeded accounts share the password `miftach-dev-2026`:
+`ran@almog-nadlan.co.il` (owner), `michal.stern@gmail.com` (tenant),
+`tal.aviram@gmail.com` (seeker).
 
 `packages/shared` is the point: `types/index.ts`, `i18n/he.ts`, `lib/format.ts`
 and `lib/screening.ts` are platform-agnostic TypeScript today. The API and the
@@ -89,12 +95,12 @@ for money and dates.
 - [x] **Seed script that loads the existing demo data into real Postgres** — the 22 properties, 18 leases and 14 tickets become dev fixtures instead of throwaway mocks
 - [x] Decide and document: soft deletes, audit columns, **money as integer agorot**
 
-### Phase 2 — API + auth · ~2 sessions
-- [ ] Fastify app: Zod type provider, error envelope, request logging, health check
-- [ ] Users, sessions, JWT access + refresh, argon2 password hashing
-- [ ] **Role model** — one account can be owner *and* tenant *and* seeker; roles are per-property, not per-user
-- [ ] `POST /auth/register|login|refresh|logout`, `GET /me`
-- [ ] Typed API client in `packages/shared`
+### Phase 2 — API + auth · ~2 sessions · **DONE**
+- [x] Fastify app: Zod type provider, error envelope, request logging, health check
+- [x] Users, sessions, JWT access + refresh, argon2 password hashing
+- [x] **Role model** — one account can be owner *and* tenant *and* seeker; roles are per-property, not per-user
+- [x] `POST /auth/register|login|refresh|logout`, `GET /me`
+- [x] Typed API client in `packages/shared`
 
 ### Phase 3 — The privacy boundary · ~1 session
 Its own phase because it is the product.

@@ -24,6 +24,7 @@ export const ID_PREFIX = {
   screeningPreset: 'spre',
   audit: 'aud',
   contractScan: 'scan',
+  session: 'sess',
 } as const;
 
 export type IdKind = keyof typeof ID_PREFIX;

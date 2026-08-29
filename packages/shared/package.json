@@ -8,9 +8,14 @@
   },
   "types": "./src/index.ts",
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
-    "date-fns": "^4.1.0"
+    "date-fns": "^4.1.0",
+    "zod": "^4.5.4"
+  },
+  "devDependencies": {
+    "vitest": "^3.2.4"
   }
 }

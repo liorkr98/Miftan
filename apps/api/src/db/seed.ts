@@ -18,6 +18,7 @@ import {
 import { toAgorot } from '@miftach/shared';
 import { db, sql, schema as s } from './client.ts';
 import { seedId } from '../lib/ids.ts';
+import { hashPassword } from '../lib/auth.ts';
 
 /**
  * Loads the demo portfolio into Postgres as development fixtures.
@@ -40,8 +41,15 @@ if (process.env.NODE_ENV === 'production') {
   throw new Error('db:seed refuses to run with NODE_ENV=production');
 }
 
-/** Placeholder. Phase 2 replaces this with a real argon2 hash. */
-const DEV_PASSWORD_HASH = null;
+/**
+ * Every seeded account shares one throwaway password so you can sign in as the
+ * owner, then as a tenant, then as a seeker and see the same data from three
+ * sides. Hashed properly rather than stored plain, because a seed script is
+ * exactly the kind of file that gets copied into production by accident — and
+ * the guard above is the other half of that defence.
+ */
+export const DEV_PASSWORD = 'miftach-dev-2026';
+const DEV_PASSWORD_HASH = await hashPassword(DEV_PASSWORD);
 
 const userId = (k: string) => seedId('user', k);
 const propId = (k: string) => seedId('property', k);
@@ -379,4 +387,9 @@ const counts = await Promise.all(
   ).map(async ([name, table]) => `${name}: ${(await db.select().from(table)).length}`),
 );
 console.log('seeded —', counts.join(', '));
+console.log('');
+console.log(`sign in with password: ${DEV_PASSWORD}`);
+console.log(`  owner   ${fxOwner.email}`);
+console.log(`  tenant  ${fxTenants.find((t) => t.id === 't11')?.email}  (נחלת בנימין 55)`);
+console.log(`  seeker  ${fxSeekers.find((x) => x.id === 's01')?.email}`);
 await sql.end();
