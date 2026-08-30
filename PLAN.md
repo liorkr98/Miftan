@@ -109,12 +109,12 @@ Its own phase because it is the product.
 - [x] Enforce: the availability signal is derived server-side; raw `renewal_intent` never leaves owner/tenant scope
 - [x] Tests asserting a seeker token gets 403 or a redacted field on every tenant attribute
 
-### Phase 4 — Ticket flow API · ~2 sessions
-- [ ] `properties`, `leases`, `tickets`, `vendors`, `expenses` endpoints
-- [ ] Server-side **state machine** for ticket status — the client cannot skip steps
-- [ ] Presigned upload for photos and receipts
-- [ ] Receipt → expense auto-creation, in one transaction
-- [ ] Integration tests over the whole flow
+### Phase 4 — Ticket flow API · ~2 sessions · **DONE**
+- [x] `properties`, `leases`, `tickets`, `vendors`, `expenses` endpoints
+- [x] Server-side **state machine** for ticket status — the client cannot skip steps
+- [x] Presigned upload for photos and receipts
+- [x] Receipt → expense auto-creation, in one transaction
+- [x] Integration tests over the whole flow
 
 ### Phase 5 — Wire the app to real data · ~3 sessions
 - [ ] Replace zustand mock actions with TanStack Query against the API

@@ -12,6 +12,9 @@ import { authenticatePlugin } from './plugins/authenticate.ts';
 import { authRoutes } from './routes/auth.ts';
 import { meRoutes } from './routes/me.ts';
 import { propertyRoutes } from './routes/properties.ts';
+import { ticketRoutes } from './routes/tickets.ts';
+import { directoryRoutes } from './routes/directory.ts';
+import { uploadRoutes } from './routes/uploads.ts';
 
 /**
  * Built as a factory so tests can spin up an app without binding a port.
@@ -32,6 +35,21 @@ export async function buildApp(): Promise<FastifyInstance> {
 
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
+
+  /* A POST with a JSON content-type and no body is what most HTTP clients send
+     for an action endpoint that takes no arguments — fetch sets the header from
+     a Headers object whether or not there is a payload. Fastify rejects it by
+     default; treating it as `{}` is both what the caller meant and what the
+     route schemas already expect. */
+  app.addContentTypeParser('application/json', { parseAs: 'string' }, (_req, body, done) => {
+    const text = typeof body === 'string' ? body.trim() : '';
+    if (text.length === 0) return done(null, {});
+    try {
+      done(null, JSON.parse(text));
+    } catch {
+      done(new ApiError('validation_failed', 'body is not valid JSON'), undefined);
+    }
+  });
 
   await app.register(cors, {
     /* Credentials mode means the origin cannot be '*'. */
@@ -61,6 +79,21 @@ export async function buildApp(): Promise<FastifyInstance> {
       return reply.code(422).send(new ApiError('validation_failed', 'request failed validation', details).toBody());
     }
 
+    /* Fastify raises its own errors for malformed requests — a body too large,
+       an unsupported content type — and those are the caller's problem, not
+       ours. Returning 500 for them both misleads the client and buries the
+       cause. Anything without a 4xx status is genuinely unexpected. */
+    const status =
+      typeof (error as { statusCode?: unknown }).statusCode === 'number'
+        ? ((error as { statusCode: number }).statusCode)
+        : 500;
+    if (status >= 400 && status < 500) {
+      request.log.warn({ err: error }, 'bad request');
+      return reply
+        .code(status)
+        .send(new ApiError('validation_failed', String((error as Error).message)).toBody());
+    }
+
     request.log.error({ err: error }, 'unhandled error');
     /* Never leak an internal message to a client. */
     return reply.code(500).send(new ApiError('internal', 'something went wrong').toBody());
@@ -75,6 +108,9 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(authRoutes);
   await app.register(meRoutes);
   await app.register(propertyRoutes);
+  await app.register(ticketRoutes);
+  await app.register(directoryRoutes);
+  await app.register(uploadRoutes);
 
   return app;
 }

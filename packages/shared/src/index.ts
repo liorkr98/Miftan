@@ -20,4 +20,6 @@ export * from './lib/screening';
 export * from './api/errors';
 export * from './api/schemas';
 export * from './api/views';
+export * from './api/tickets';
+export * from './api/directory';
 export * from './api/client';
