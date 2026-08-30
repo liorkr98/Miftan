@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore, useStoreShallow } from '@/data/store';
-import { t, formatAge, formatDate, type AvailabilityInquiry, type InquiryStatus } from '@miftach/shared';
+import { t, formatAge, formatDate, type AvailabilityInquiry, type InquiryStatus } from '@miftan/shared';
 import { availabilityKind, leaseForProperty } from '@/data/selectors';
 import { AvailabilityChip } from '@/components/shared/status';
 import { Num, PageHeader } from '@/components/shared/typography';

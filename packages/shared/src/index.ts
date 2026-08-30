@@ -1,5 +1,5 @@
 /**
- * @miftach/shared — the domain, with no platform in it.
+ * @miftan/shared — the domain, with no platform in it.
  *
  * Everything here is plain TypeScript that the API, the web app and (later) a
  * Capacitor wrapper all consume. One dictionary, one set of screening rules,

@@ -1,4 +1,4 @@
-import { ApiError, type TicketStatus } from '@miftach/shared';
+import { ApiError, type TicketStatus } from '@miftan/shared';
 import type { Scope } from './viewer.ts';
 
 /**

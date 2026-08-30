@@ -1,4 +1,4 @@
-import { type AvailabilityInquiry } from '@miftach/shared';
+import { type AvailabilityInquiry } from '@miftan/shared';
 import { daysAgo, monthsOut } from './clock';
 
 /**

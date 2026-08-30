@@ -2,7 +2,7 @@ import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { hash as argonHash, verify as argonVerify } from '@node-rs/argon2';
 import { SignJWT, jwtVerify } from 'jose';
 import { and, eq, gt, isNull } from 'drizzle-orm';
-import { ApiError } from '@miftach/shared';
+import { ApiError } from '@miftan/shared';
 import { db, schema as s } from '../db/client.ts';
 import { newId } from './ids.ts';
 import { env } from './env.ts';
@@ -53,14 +53,14 @@ export async function signAccessToken(userId: string): Promise<string> {
     .setProtectedHeader({ alg: 'HS256' })
     .setSubject(userId)
     .setIssuedAt()
-    .setIssuer('miftach')
+    .setIssuer('miftan')
     .setExpirationTime(`${ACCESS_TTL_SECONDS}s`)
     .sign(secret);
 }
 
 export async function verifyAccessToken(token: string): Promise<string> {
   try {
-    const { payload } = await jwtVerify(token, secret, { issuer: 'miftach' });
+    const { payload } = await jwtVerify(token, secret, { issuer: 'miftan' });
     if (!payload.sub) throw new Error('no subject');
     return payload.sub;
   } catch {

@@ -13,7 +13,7 @@ import {
 } from 'drizzle-orm/pg-core';
 
 /**
- * Miftach schema.
+ * Miftan schema.
  *
  * Three rules run through all of it:
  *
@@ -31,7 +31,7 @@ import {
  *
  * Deliberately *not* here: protocol item templates, seasonal task templates,
  * revenue streams and affiliate offers. Those are configuration, they ship with
- * the code in `@miftach/shared`, and putting them in Postgres would only mean
+ * the code in `@miftan/shared`, and putting them in Postgres would only mean
  * migrating them every time we edit a sentence.
  */
 
@@ -417,7 +417,7 @@ export const protocolEntries = pgTable(
   {
     id: text('id').primaryKey(),
     runId: text('run_id').notNull().references(() => protocolRuns.id, { onDelete: 'cascade' }),
-    /** References a template id in @miftach/shared, not a table */
+    /** References a template id in @miftan/shared, not a table */
     itemId: text('item_id').notNull(),
     done: boolean('done').notNull().default(false),
     value: text('value'),
@@ -431,7 +431,7 @@ export const seasonalTasks = pgTable(
   'seasonal_tasks',
   {
     id: text('id').primaryKey(),
-    /** References a template id in @miftach/shared, not a table */
+    /** References a template id in @miftan/shared, not a table */
     templateId: text('template_id').notNull(),
     propertyId: text('property_id').notNull().references(() => properties.id),
     dueDate: date('due_date').notNull(),

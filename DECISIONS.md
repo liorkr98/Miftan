@@ -1,4 +1,4 @@
-# Design decisions · מפתח
+# Design decisions · מפתן
 
 ## The scene sentence
 
@@ -15,7 +15,7 @@ developers. Dark is reserved for the app chrome.
 ## The concept: לוח יציאות, a departures board
 
 The product's whole thesis is a claim about **time**: every apartment has a
-date, occupied ones included. Yad2 shows you flights already boarding; Miftach
+date, occupied ones included. Yad2 shows you flights already boarding; Miftan
 shows the schedule. So the organising metaphor is a departures board — a list of
 things leaving at known future times that you can get in line for.
 

@@ -1,4 +1,4 @@
-import { DEFAULT_CRITERIA, type ScreeningPreset } from '@miftach/shared';
+import { DEFAULT_CRITERIA, type ScreeningPreset } from '@miftan/shared';
 import { daysAgo } from './clock';
 
 export const screeningPresets: ScreeningPreset[] = [

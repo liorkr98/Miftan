@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useStore, useStoreShallow } from '@/data/store';
-import { t, formatAge, formatDate, formatUntil, daysUntil, type LeadStage } from '@miftach/shared';
+import { t, formatAge, formatDate, formatUntil, daysUntil, type LeadStage } from '@miftan/shared';
 import { leadsForProperty, scoreLeads, type ScoredLead } from '@/data/selectors';
 import { Money, Num, PageHeader, Phone } from '@/components/shared/typography';
 import { EmptyState } from '@/components/shared/empty-state';

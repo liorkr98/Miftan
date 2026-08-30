@@ -7,7 +7,7 @@ import {
   loginSchema,
   okSchema,
   registerSchema,
-} from '@miftach/shared';
+} from '@miftan/shared';
 import { db, schema as s } from '../db/client.ts';
 import { newId } from '../lib/ids.ts';
 import {

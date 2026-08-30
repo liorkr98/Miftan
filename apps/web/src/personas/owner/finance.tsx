@@ -10,7 +10,7 @@ import {
   YAxis,
 } from 'recharts';
 import { useStore, useStoreShallow } from '@/data/store';
-import { t, expenseCategoryLabel, formatDate, formatMoneyShort, formatMonthTick, formatMonthYear } from '@miftach/shared';
+import { t, expenseCategoryLabel, formatDate, formatMoneyShort, formatMonthTick, formatMonthYear } from '@miftan/shared';
 import { expensesByCategory, expensesByUnit, rentByMonth } from '@/data/selectors';
 import { Money, Num, PageHeader } from '@/components/shared/typography';
 import { EmptyState } from '@/components/shared/empty-state';

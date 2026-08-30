@@ -17,7 +17,7 @@ export interface ClientOptions {
   onSignedOut?: () => void;
 }
 
-export class MiftachClient {
+export class MiftanClient {
   #baseUrl: string;
   #accessToken: string | null = null;
   #refreshing: Promise<boolean> | null = null;

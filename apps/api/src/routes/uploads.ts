@@ -4,7 +4,7 @@ import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { z } from 'zod';
-import { ApiError } from '@miftach/shared';
+import { ApiError } from '@miftan/shared';
 import { MAX_UPLOAD_BYTES, assertUploadable, createStorage, localDriver } from '../storage/index.ts';
 import { env } from '../lib/env.ts';
 

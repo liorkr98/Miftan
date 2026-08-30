@@ -1,5 +1,5 @@
 /**
- * @miftach/fixtures — the demo portfolio, as data.
+ * @miftan/fixtures — the demo portfolio, as data.
  *
  * 22 real Tel Aviv / Ramat Gan / Givatayim addresses with honest coordinates,
  * 18 leases, 14 tickets with full message threads, 30 leads, and the seasonal

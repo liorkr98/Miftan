@@ -4,8 +4,8 @@
     "types": ["node"],
     "paths": {
       "@/*": ["./src/*"],
-      "@miftach/shared": ["../../packages/shared/src/index.ts"],
-      "@miftach/fixtures": ["../../packages/fixtures/src/index.ts"]
+      "@miftan/shared": ["../../packages/shared/src/index.ts"],
+      "@miftan/fixtures": ["../../packages/fixtures/src/index.ts"]
     }
   },
   "include": ["src", "drizzle.config.ts"]

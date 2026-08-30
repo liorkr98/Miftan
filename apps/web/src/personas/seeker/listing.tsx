@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useStore, useStoreShallow } from '@/data/store';
-import { t, formatFloor, formatRooms, formatSqm, formatUntil, formatDate, type TrackRow } from '@miftach/shared';
+import { t, formatFloor, formatRooms, formatSqm, formatUntil, formatDate, type TrackRow } from '@miftan/shared';
 import { availabilityKind, leaseForProperty } from '@/data/selectors';
 import { DepartureTrack } from '@/components/shared/departure-track';
 import { AvailabilityChip } from '@/components/shared/status';

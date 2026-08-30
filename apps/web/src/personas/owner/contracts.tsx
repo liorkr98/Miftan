@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useStore, useStoreShallow } from '@/data/store';
-import { t, formatDate, type ContractScan } from '@miftach/shared';
+import { t, formatDate, type ContractScan } from '@miftan/shared';
 import { Money, Num, PageHeader, SectionTitle } from '@/components/shared/typography';
 import { EmptyState } from '@/components/shared/empty-state';
 import { OfferRail, RevenueMarker } from '@/components/shared/revenue';

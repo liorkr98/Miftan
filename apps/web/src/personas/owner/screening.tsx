@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore, useStoreShallow } from '@/data/store';
-import { t, formatDateTime, type ScreeningCriterion, type ScreeningCriterionId } from '@miftach/shared';
+import { t, formatDateTime, type ScreeningCriterion, type ScreeningCriterionId } from '@miftan/shared';
 import { Num, PageHeader, SectionTitle } from '@/components/shared/typography';
 import { EmptyState } from '@/components/shared/empty-state';
 import { Button } from '@/components/ui/button';

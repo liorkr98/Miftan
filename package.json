@@ -1,5 +1,5 @@
 {
-  "name": "miftach",
+  "name": "miftan",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -8,8 +8,8 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "npm run dev -w @miftach/web",
-    "build": "npm run build -w @miftach/web",
+    "dev": "npm run dev -w @miftan/web",
+    "build": "npm run build -w @miftan/web",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
     "test": "npm run test --workspaces --if-present"

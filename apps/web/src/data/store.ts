@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
-import { evaluateLead, t, type AffiliateOffer, type AuditEntry, type AvailabilityInquiry, type ContractScan, type ExtractedField, type ProtocolItem, type ProtocolKind, type ProtocolRun, type RevenueStream, type SeasonalTask, type SeasonalTaskTemplate, type Expense, type Lead, type LeadStage, type Lease, type MessageThread, type Persona, type Property, type RentPayment, type ScreeningCriterion, type ScreeningPreset, type ScreeningProfile, type Seeker, type Severity, type Tenant, type Ticket, type TicketCategory, type Vendor, type RenewalIntent } from '@miftach/shared';
+import { evaluateLead, t, type AffiliateOffer, type AuditEntry, type AvailabilityInquiry, type ContractScan, type ExtractedField, type ProtocolItem, type ProtocolKind, type ProtocolRun, type RevenueStream, type SeasonalTask, type SeasonalTaskTemplate, type Expense, type Lead, type LeadStage, type Lease, type MessageThread, type Persona, type Property, type RentPayment, type ScreeningCriterion, type ScreeningPreset, type ScreeningProfile, type Seeker, type Severity, type Tenant, type Ticket, type TicketCategory, type Vendor, type RenewalIntent } from '@miftan/shared';
 import { addMonths } from 'date-fns';
 import { buildSeed } from './reset';
 

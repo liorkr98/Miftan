@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useStore, useStoreShallow } from '@/data/store';
-import { t, formatMoney, type AffiliateOffer } from '@miftach/shared';
+import { t, formatMoney, type AffiliateOffer } from '@miftan/shared';
 import { cn } from '@/lib/utils';
 import { Money, Num } from './typography';
 import { Badge } from '@/components/ui/badge';

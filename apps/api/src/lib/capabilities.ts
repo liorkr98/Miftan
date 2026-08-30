@@ -1,5 +1,5 @@
 import { and, count, eq, gte, isNull, sql } from 'drizzle-orm';
-import type { Capabilities } from '@miftach/shared';
+import type { Capabilities } from '@miftan/shared';
 import { db, schema as s } from '../db/client.ts';
 
 /**

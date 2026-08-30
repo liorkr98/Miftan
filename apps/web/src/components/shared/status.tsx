@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { Badge, type BadgeProps } from '@/components/ui/badge';
 import { Num } from './typography';
-import { t, formatDate, formatUntil, type AvailabilityConfidence, type LeadStage, type Severity, type TicketStatus, type UnitStatus } from '@miftach/shared';
+import { t, formatDate, formatUntil, type AvailabilityConfidence, type LeadStage, type Severity, type TicketStatus, type UnitStatus } from '@miftan/shared';
 import type { AvailabilityKind } from '@/data/selectors';
 import { CalendarClock, CircleDot, Clock3, Wrench } from 'lucide-react';
 import { cn } from '@/lib/utils';

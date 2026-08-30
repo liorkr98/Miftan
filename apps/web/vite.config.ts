@@ -9,8 +9,8 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
-      '@miftach/shared': path.join(shared, 'index.ts'),
-      '@miftach/fixtures': path.resolve(__dirname, '../../packages/fixtures/src/index.ts'),
+      '@miftan/shared': path.join(shared, 'index.ts'),
+      '@miftan/fixtures': path.resolve(__dirname, '../../packages/fixtures/src/index.ts'),
       '@': path.resolve(__dirname, './src'),
     },
   },

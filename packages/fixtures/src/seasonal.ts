@@ -1,4 +1,4 @@
-import { type SeasonalTaskTemplate } from '@miftach/shared';
+import { type SeasonalTaskTemplate } from '@miftan/shared';
 
 /**
  * Preventive maintenance, scheduled by month rather than by complaint.

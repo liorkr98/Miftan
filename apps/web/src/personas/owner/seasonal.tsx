@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore, useStoreShallow } from '@/data/store';
-import { t, daysUntil, formatMonthYear, formatUntil, type Season, type SeasonalTaskTemplate } from '@miftach/shared';
+import { t, daysUntil, formatMonthYear, formatUntil, type Season, type SeasonalTaskTemplate } from '@miftan/shared';
 import { Money, Num, PageHeader } from '@/components/shared/typography';
 import { EmptyState } from '@/components/shared/empty-state';
 import { Meter } from '@/components/shared/meter';

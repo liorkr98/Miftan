@@ -1,4 +1,4 @@
-# Miftach · build plan
+# Miftan · build plan
 
 Working document. We tick items off as we go. Two tracks — **CC** is Claude Code,
 **YOU** is what only you can do (accounts, money, legal, decisions).
@@ -35,7 +35,7 @@ iOS web push only works if the user adds the site to their Home Screen. For this
 ## Target shape
 
 ```
-miftach/
+miftan/
   apps/
     api/        Fastify · Drizzle · Postgres · Zod
     web/        the current Vite app → the product
@@ -47,14 +47,14 @@ miftach/
 ### Database commands
 
 ```bash
-npm run db:migrate -w @miftach/api   # apply migrations
-npm run db:seed    -w @miftach/api   # load the demo portfolio
-npm run db:reset   -w @miftach/api   # drop everything and start over
-npm run dev        -w @miftach/api   # API on :4000
+npm run db:migrate -w @miftan/api   # apply migrations
+npm run db:seed    -w @miftan/api   # load the demo portfolio
+npm run db:reset   -w @miftan/api   # drop everything and start over
+npm run dev        -w @miftan/api   # API on :4000
 npm test                             # every workspace
 ```
 
-Seeded accounts share the password `miftach-dev-2026`:
+Seeded accounts share the password `miftan-dev-2026`:
 `ran@almog-nadlan.co.il` (owner), `michal.stern@gmail.com` (tenant),
 `tal.aviram@gmail.com` (seeker).
 
@@ -150,7 +150,7 @@ Its own phase because it is the product.
 Ordered by lead time. The store items are no longer on the critical path.
 
 ### Start now
-- [ ] **Domain + email** (`miftach.co.il` or similar). This is now the launch dependency — the product lives at a URL
+- [ ] **Domain + email** (`miftan.co.il` or similar). This is now the launch dependency — the product lives at a URL
 - [ ] **Legal entity** — personal or חברה בע״מ? Contracts, payouts and invoicing all hang off it
 - [ ] **WhatsApp Business API** — needs Meta business verification, which takes real calendar time. Start it early; it gates Phase 7
 - [ ] **Lawyer, two questions:**

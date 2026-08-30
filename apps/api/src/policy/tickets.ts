@@ -1,5 +1,5 @@
 import { and, asc, eq, inArray, isNull } from 'drizzle-orm';
-import type { OwnerTicket, TenantTicket, TicketView } from '@miftach/shared';
+import type { OwnerTicket, TenantTicket, TicketView } from '@miftan/shared';
 import { db, schema as s } from '../db/client.ts';
 import { availableActions } from './ticket-state.ts';
 import { scopeFor, type Viewer } from './viewer.ts';

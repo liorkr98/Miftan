@@ -2,7 +2,7 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "types": [],
-    "paths": { "@miftach/shared": ["../shared/src/index.ts"] }
+    "paths": { "@miftan/shared": ["../shared/src/index.ts"] }
   },
   "include": ["src"]
 }

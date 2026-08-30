@@ -1,4 +1,4 @@
-import { type AffiliateOffer, type RevenueStream } from '@miftach/shared';
+import { type AffiliateOffer, type RevenueStream } from '@miftan/shared';
 
 /**
  * The business model as data.
@@ -205,7 +205,7 @@ export const affiliateOffers: AffiliateOffer[] = [
     platform_revenue: 315,
     placement: 'lease',
     cta: 'קבל הצעה',
-    disclosure: 'מפתח מקבלת עמלה מהמבטח על פוליסה שנסגרת. זה לא משפיע על המחיר שלך.',
+    disclosure: 'מפתן מקבלת עמלה מהמבטח על פוליסה שנסגרת. זה לא משפיע על המחיר שלך.',
   },
   {
     id: 'of-ins-tenant',
@@ -219,7 +219,7 @@ export const affiliateOffers: AffiliateOffer[] = [
     platform_revenue: 90,
     placement: 'tenant_home',
     cta: 'קבל הצעה',
-    disclosure: 'מפתח מקבלת עמלה מהמבטח. בעל הדירה לא רואה אם רכשת ולא מקבל דיווח.',
+    disclosure: 'מפתן מקבלת עמלה מהמבטח. בעל הדירה לא רואה אם רכשת ולא מקבל דיווח.',
   },
   {
     id: 'of-clean-out',
@@ -233,7 +233,7 @@ export const affiliateOffers: AffiliateOffer[] = [
     platform_revenue: 135,
     placement: 'protocol_move_out',
     cta: 'הזמן ניקיון',
-    disclosure: 'מפתח מקבלת עמלה על הזמנה שנסגרת דרך המערכת.',
+    disclosure: 'מפתן מקבלת עמלה על הזמנה שנסגרת דרך המערכת.',
   },
   {
     id: 'of-paint',
@@ -247,7 +247,7 @@ export const affiliateOffers: AffiliateOffer[] = [
     platform_revenue: 450,
     placement: 'protocol_move_out',
     cta: 'קבל הצעת מחיר',
-    disclosure: 'מפתח מקבלת עמלה על עבודה שנסגרת דרך המערכת.',
+    disclosure: 'מפתן מקבלת עמלה על עבודה שנסגרת דרך המערכת.',
   },
   {
     id: 'of-sofa',
@@ -261,7 +261,7 @@ export const affiliateOffers: AffiliateOffer[] = [
     platform_revenue: 60,
     placement: 'tenant_home',
     cta: 'הזמן',
-    disclosure: 'מפתח מקבלת עמלה על הזמנה שנסגרת דרך המערכת.',
+    disclosure: 'מפתן מקבלת עמלה על הזמנה שנסגרת דרך המערכת.',
   },
   {
     id: 'of-moving',
@@ -275,21 +275,21 @@ export const affiliateOffers: AffiliateOffer[] = [
     platform_revenue: 180,
     placement: 'queue',
     cta: 'קבל הצעה',
-    disclosure: 'מפתח מקבלת דמי ליד מהמוביל. אין לזה שום השפעה על המקום שלך בתור.',
+    disclosure: 'מפתן מקבלת דמי ליד מהמוביל. אין לזה שום השפעה על המקום שלך בתור.',
   },
   {
     id: 'of-inspect',
     stream_id: 'rs-seasonal',
     audience: 'owner',
     title: 'חבילת תחזוקה עונתית',
-    provider: 'רשת בעלי המקצוע של מפתח',
+    provider: 'רשת בעלי המקצוע של מפתן',
     pitch: 'כל משימות העונה לכל הדירות בתיק, בתיאום אחד ובמחיר תיק במקום קריאה בודדת.',
     price_from: 290,
     price_unit: 'לדירה לעונה',
     platform_revenue: 85,
     placement: 'seasonal',
     cta: 'תזמן לכל התיק',
-    disclosure: 'מפתח מקבלת עמלה על טיפול שנסגר דרך הרשת. הספקים מדורגים לפי ביצועים בלבד.',
+    disclosure: 'מפתן מקבלת עמלה על טיפול שנסגר דרך הרשת. הספקים מדורגים לפי ביצועים בלבד.',
   },
   {
     id: 'of-ins-movein',
@@ -303,6 +303,6 @@ export const affiliateOffers: AffiliateOffer[] = [
     platform_revenue: 90,
     placement: 'protocol_move_in',
     cta: 'שלח לדייר',
-    disclosure: 'מפתח מקבלת עמלה מהמבטח. הדייר רשאי להביא פוליסה מכל מבטח אחר.',
+    disclosure: 'מפתן מקבלת עמלה מהמבטח. הדייר רשאי להביא פוליסה מכל מבטח אחר.',
   },
 ];

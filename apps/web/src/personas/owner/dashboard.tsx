@@ -11,7 +11,7 @@ import {
   YAxis,
 } from 'recharts';
 import { useStoreShallow } from '@/data/store';
-import { t, daysUntil, expenseCategoryLabel, formatAge, formatMoneyShort, formatMonthTick, formatPercent } from '@miftach/shared';
+import { t, daysUntil, expenseCategoryLabel, formatAge, formatMoneyShort, formatMonthTick, formatPercent } from '@miftan/shared';
 import {
   expensesByCategory,
   portfolioStats,

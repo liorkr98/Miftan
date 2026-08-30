@@ -1,8 +1,8 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
-import { ApiError } from '@miftach/shared';
+import { ApiError } from '@miftan/shared';
 import { isProd } from './env.ts';
 
-export const REFRESH_COOKIE = 'miftach_rt';
+export const REFRESH_COOKIE = 'miftan_rt';
 
 /**
  * httpOnly so no script can read it, sameSite=lax so it survives a normal

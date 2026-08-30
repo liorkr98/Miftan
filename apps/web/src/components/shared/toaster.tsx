@@ -1,7 +1,7 @@
 import { useStore } from '@/data/store';
 import { cn } from '@/lib/utils';
 import { CheckCircle2, Info, TriangleAlert, X } from 'lucide-react';
-import { t } from '@miftach/shared';
+import { t } from '@miftan/shared';
 
 const TONE = {
   neutral: { cls: 'bg-ink text-on-ink', Icon: Info },

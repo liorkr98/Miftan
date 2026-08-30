@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useStore, useStoreShallow } from '@/data/store';
-import { t, formatAge, formatDateTime, formatWeekdayDate, formatTime, type Ticket, type TicketStatus, type Vendor } from '@miftach/shared';
+import { t, formatAge, formatDateTime, formatWeekdayDate, formatTime, type Ticket, type TicketStatus, type Vendor } from '@miftan/shared';
 import { Money, Num, PageHeader, Phone } from '@/components/shared/typography';
 import { EmptyState } from '@/components/shared/empty-state';
 import { SeverityBadge, TicketStatusBadge } from '@/components/shared/status';

@@ -1,4 +1,4 @@
-import { type Vendor } from '@miftach/shared';
+import { type Vendor } from '@miftan/shared';
 
 export const vendors: Vendor[] = [
   {

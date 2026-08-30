@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useStore, useStoreShallow } from '@/data/store';
-import { t, expenseCategoryLabel, formatAge, formatDate, formatFloor, formatMonthYear, formatRooms, formatSqm, formatUntil, daysUntil, type TrackRow } from '@miftach/shared';
+import { t, expenseCategoryLabel, formatAge, formatDate, formatFloor, formatMonthYear, formatRooms, formatSqm, formatUntil, daysUntil, type TrackRow } from '@miftan/shared';
 import {
   availabilityKind,
   leadsForProperty,

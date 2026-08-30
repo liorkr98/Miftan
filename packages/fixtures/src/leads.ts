@@ -1,4 +1,4 @@
-import { type Lead, type LeadStage } from '@miftach/shared';
+import { type Lead, type LeadStage } from '@miftan/shared';
 import { seekers } from './people';
 import { daysAgo, monthsOut } from './clock';
 

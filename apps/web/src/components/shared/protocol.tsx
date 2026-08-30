@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useStore, useStoreShallow } from '@/data/store';
-import { t, formatDate, formatDateTime, type ProtocolKind, type ProtocolRun, type ProtocolSection } from '@miftach/shared';
+import { t, formatDate, formatDateTime, type ProtocolKind, type ProtocolRun, type ProtocolSection } from '@miftan/shared';
 import { Num, SectionTitle } from './typography';
 import { EmptyState } from './empty-state';
 import { Meter } from './meter';

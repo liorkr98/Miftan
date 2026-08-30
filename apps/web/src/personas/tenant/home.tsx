@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStoreShallow } from '@/data/store';
-import { t, daysUntil, formatDate, formatRooms, formatSqm, formatFloor, type TrackRow } from '@miftach/shared';
+import { t, daysUntil, formatDate, formatRooms, formatSqm, formatFloor, type TrackRow } from '@miftan/shared';
 import { DepartureTrack } from '@/components/shared/departure-track';
 import { OfferRail } from '@/components/shared/revenue';
 import { Money, Num, PageHeader, Phone, SectionTitle } from '@/components/shared/typography';

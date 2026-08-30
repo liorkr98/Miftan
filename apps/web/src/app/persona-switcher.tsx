@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useStore } from '@/data/store';
-import { t, type Persona } from '@miftach/shared';
+import { t, type Persona } from '@miftan/shared';
 import { cn } from '@/lib/utils';
 import { horizontalKeyDelta } from '@/lib/rtl';
 import { Building2, KeyRound, Search } from 'lucide-react';

@@ -1,4 +1,4 @@
-import { type ProtocolItem, type ProtocolRun } from '@miftach/shared';
+import { type ProtocolItem, type ProtocolRun } from '@miftan/shared';
 import { daysAgo, photo } from './clock';
 
 /**
@@ -56,20 +56,20 @@ export const protocolRuns: ProtocolRun[] = [
     completed_at: daysAgo(699),
     signed: true,
     entries: [
-      { item_id: 'pi-elec', done: true, value: '48210', photos: [photo('miftach-pr01-elec', 700, 500)] },
-      { item_id: 'pi-water', done: true, value: '312', photos: [photo('miftach-pr01-water', 700, 500)] },
+      { item_id: 'pi-elec', done: true, value: '48210', photos: [photo('miftan-pr01-elec', 700, 500)] },
+      { item_id: 'pi-water', done: true, value: '312', photos: [photo('miftan-pr01-water', 700, 500)] },
       { item_id: 'pi-gas', done: true, value: '104', photos: [] },
       { item_id: 'pi-keys-door', done: true, value: '3', photos: [] },
       { item_id: 'pi-keys-mail', done: true, value: '1', photos: [] },
       { item_id: 'pi-keys-building', done: true, value: '1', photos: [] },
       { item_id: 'pi-keys-storage', done: false, photos: [], note: 'אין מחסן ליחידה' },
-      { item_id: 'pi-cond-living', done: true, photos: [photo('miftach-pr01-liv1', 800, 600), photo('miftach-pr01-liv2', 800, 600)] },
-      { item_id: 'pi-cond-kitchen', done: true, photos: [photo('miftach-pr01-kit', 800, 600)], note: 'שריטה בשיש ליד הכיור, תועדה' },
-      { item_id: 'pi-cond-bath', done: true, photos: [photo('miftach-pr01-bath', 800, 600)] },
-      { item_id: 'pi-cond-rooms', done: true, photos: [photo('miftach-pr01-room', 800, 600)] },
-      { item_id: 'pi-cond-balcony', done: true, photos: [photo('miftach-pr01-bal', 800, 600)] },
+      { item_id: 'pi-cond-living', done: true, photos: [photo('miftan-pr01-liv1', 800, 600), photo('miftan-pr01-liv2', 800, 600)] },
+      { item_id: 'pi-cond-kitchen', done: true, photos: [photo('miftan-pr01-kit', 800, 600)], note: 'שריטה בשיש ליד הכיור, תועדה' },
+      { item_id: 'pi-cond-bath', done: true, photos: [photo('miftan-pr01-bath', 800, 600)] },
+      { item_id: 'pi-cond-rooms', done: true, photos: [photo('miftan-pr01-room', 800, 600)] },
+      { item_id: 'pi-cond-balcony', done: true, photos: [photo('miftan-pr01-bal', 800, 600)] },
       { item_id: 'pi-cond-damp', done: true, photos: [], note: 'ללא סימני רטיבות' },
-      { item_id: 'pi-app-ac', done: true, photos: [photo('miftach-pr01-ac', 800, 600)] },
+      { item_id: 'pi-app-ac', done: true, photos: [photo('miftan-pr01-ac', 800, 600)] },
       { item_id: 'pi-app-boiler', done: true, photos: [] },
       { item_id: 'pi-app-oven', done: true, photos: [] },
       { item_id: 'pi-app-fridge', done: false, photos: [], note: 'הדירה נמסרת ללא מקרר' },

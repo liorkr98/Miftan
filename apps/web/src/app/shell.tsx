@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useStore } from '@/data/store';
-import { APP_NAME, t, daysUntil } from '@miftach/shared';
+import { APP_NAME, t, daysUntil } from '@miftan/shared';
 import { cn } from '@/lib/utils';
 import { PersonaSwitcher } from './persona-switcher';
 import { Toaster } from '@/components/shared/toaster';
@@ -28,7 +28,7 @@ import {
   Gauge,
   Home,
   Inbox,
-  KeyRound,
+  DoorOpen,
   ListChecks,
   MapPin,
   RotateCcw,
@@ -60,7 +60,7 @@ function TopBar() {
     >
       <div className="flex shrink-0 items-center gap-2">
         <span className="grid h-7 w-7 place-items-center rounded-[8px] bg-signal text-ink">
-          <KeyRound className="h-4 w-4" strokeWidth={2.5} />
+          <DoorOpen className="h-4 w-4" strokeWidth={2.5} />
         </span>
         <span className="hidden text-base font-extrabold tracking-[-0.01em] text-on-ink sm:inline">
           {APP_NAME}

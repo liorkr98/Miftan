@@ -1,4 +1,4 @@
-# מפתח · Miftach
+# מפתן · Miftan
 
 A clickable, front-end-only prototype of an Israeli rental-management product.
 Hebrew UI, RTL, no backend, no auth, no network calls.

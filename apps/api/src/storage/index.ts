@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { extname, join, resolve } from 'node:path';
-import { ApiError } from '@miftach/shared';
+import { ApiError } from '@miftan/shared';
 import { env } from '../lib/env.ts';
 
 /**

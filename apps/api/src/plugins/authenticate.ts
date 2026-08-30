@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import fp from 'fastify-plugin';
 import { and, eq, isNull } from 'drizzle-orm';
-import { ApiError } from '@miftach/shared';
+import { ApiError } from '@miftan/shared';
 import { db, schema as s } from '../db/client.ts';
 import { verifyAccessToken } from '../lib/auth.ts';
 

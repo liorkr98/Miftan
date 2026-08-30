@@ -3,8 +3,8 @@ import {
   expenses, rentPayments, threads, screeningPresets, inquiries,
   protocolItems, protocolRuns, seasonalTemplates, affiliateOffers,
   revenueStreams, daysAgo,
-} from '@miftach/fixtures';
-import { type AuditEntry } from '@miftach/shared';
+} from '@miftan/fixtures';
+import { type AuditEntry } from '@miftan/shared';
 
 /**
  * Every boot and every resetDemo() call goes through here. Seed modules are

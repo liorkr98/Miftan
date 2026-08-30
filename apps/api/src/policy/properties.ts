@@ -5,7 +5,7 @@ import {
   type PropertyView,
   type PublicProperty,
   type TenantProperty,
-} from '@miftach/shared';
+} from '@miftan/shared';
 import { db, schema as s } from '../db/client.ts';
 import { OPEN_TICKET_STATUSES } from './constants.ts';
 import { scopeFor, type Viewer } from './viewer.ts';

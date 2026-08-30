@@ -1,4 +1,4 @@
-import { type Ticket } from '@miftach/shared';
+import { type Ticket } from '@miftan/shared';
 import { hoursAgo, daysAgo, slotAt, photo } from './clock';
 
 const OWNER_NAME = 'רן אלמוג';
@@ -10,11 +10,11 @@ export const tickets: Ticket[] = [
     category: 'leak', severity: 'urgent', status: 'new',
     title: 'נזילה מתחת לכיור במטבח',
     description: 'מאתמול בערב יש שלולית מתחת לארון הכיור. שמתי דלי אבל הוא מתמלא כל כמה שעות והארון כבר מתחיל להתנפח.',
-    photos: [photo('miftach-tk01-a', 900, 700), photo('miftach-tk01-b', 900, 700)],
+    photos: [photo('miftan-tk01-a', 900, 700), photo('miftan-tk01-b', 900, 700)],
     created_at: hoursAgo(5),
     tenant_availability: [slotAt(0, 17), slotAt(1, 9), slotAt(1, 16)],
     messages: [
-      { author_role: 'tenant', author_name: 'מיכל שטרן', body: 'מאתמול בערב יש שלולית מתחת לארון הכיור. שמתי דלי אבל הוא מתמלא כל כמה שעות והארון כבר מתחיל להתנפח.', at: hoursAgo(5), photos: [photo('miftach-tk01-a', 900, 700)] },
+      { author_role: 'tenant', author_name: 'מיכל שטרן', body: 'מאתמול בערב יש שלולית מתחת לארון הכיור. שמתי דלי אבל הוא מתמלא כל כמה שעות והארון כבר מתחיל להתנפח.', at: hoursAgo(5), photos: [photo('miftan-tk01-a', 900, 700)] },
     ],
   },
   {
@@ -22,7 +22,7 @@ export const tickets: Ticket[] = [
     category: 'ac', severity: 'medium', status: 'new',
     title: 'המזגן בסלון מטפטף על הרצפה',
     description: 'המזגן עובד ומקרר, אבל מטפטף מים מהצד הימני. שמנו מגבת מתחת.',
-    photos: [photo('miftach-tk02-a', 900, 700)],
+    photos: [photo('miftan-tk02-a', 900, 700)],
     created_at: daysAgo(2),
     tenant_availability: [slotAt(2, 10), slotAt(3, 10)],
     messages: [
@@ -48,7 +48,7 @@ export const tickets: Ticket[] = [
     category: 'boiler', severity: 'medium', status: 'approved',
     title: 'אין מים חמים מדוד השמש',
     description: 'כבר שלושה ימים שאין מים חמים בבוקר. הגיבוי החשמלי עובד אבל החשבון קופץ.',
-    photos: [photo('miftach-tk04-a', 900, 700)],
+    photos: [photo('miftan-tk04-a', 900, 700)],
     created_at: daysAgo(3),
     tenant_availability: [slotAt(1, 8), slotAt(2, 8)],
     messages: [
@@ -94,7 +94,7 @@ export const tickets: Ticket[] = [
     category: 'appliance', severity: 'low', status: 'assigned',
     title: 'התנור לא מתחמם מעל 150 מעלות',
     description: 'התנור נדלק אבל לא מגיע לטמפרטורה. הגוף העליון לא מאדים בכלל.',
-    photos: [photo('miftach-tk07-a', 900, 700)],
+    photos: [photo('miftan-tk07-a', 900, 700)],
     created_at: daysAgo(6),
     vendor_id: 'v07', scheduled_at: slotAt(3, 14),
     tenant_availability: [slotAt(3, 14)],
@@ -111,13 +111,13 @@ export const tickets: Ticket[] = [
     category: 'ac', severity: 'urgent', status: 'in_progress',
     title: 'המזגן לא מקרר בכלל בגל החום',
     description: 'המזגן מנשב אוויר בטמפרטורת החדר. בדירה 34 מעלות ויש אצלנו תינוקת.',
-    photos: [photo('miftach-tk08-a', 900, 700), photo('miftach-tk08-b', 900, 700)],
+    photos: [photo('miftan-tk08-a', 900, 700), photo('miftan-tk08-b', 900, 700)],
     created_at: daysAgo(1),
     vendor_id: 'v03', scheduled_at: slotAt(0, 13),
     tenant_availability: [slotAt(0, 13), slotAt(0, 18)],
     tenant_confirmed_slot: true,
     messages: [
-      { author_role: 'tenant', author_name: 'רותם אזולאי', body: 'המזגן מנשב אוויר בטמפרטורת החדר. בדירה 34 מעלות ויש אצלנו תינוקת.', at: daysAgo(1), photos: [photo('miftach-tk08-a', 900, 700)] },
+      { author_role: 'tenant', author_name: 'רותם אזולאי', body: 'המזגן מנשב אוויר בטמפרטורת החדר. בדירה 34 מעלות ויש אצלנו תינוקת.', at: daysAgo(1), photos: [photo('miftan-tk08-a', 900, 700)] },
       { author_role: 'owner', author_name: OWNER_NAME, body: 'מטפל עכשיו. קור־טק אמורים להגיע היום, הם עובדים איתי הרבה ובגל חום הם בעדיפות.', at: hoursAgo(22) },
       { author_role: 'vendor', author_name: 'קור־טק מיזוג אוויר', body: 'מגיעים היום ב־13:00. אם זה גז נטפל במקום, אם זה מדחס זה יהיה הזמנת חלק.', at: hoursAgo(20) },
       { author_role: 'vendor', author_name: 'קור־טק מיזוג אוויר', body: 'בשטח. אין גז בכלל — יש נזילה בצנרת במרפסת. מתקן ומטעין, נסיים היום.', at: hoursAgo(2) },
@@ -129,7 +129,7 @@ export const tickets: Ticket[] = [
     category: 'paint', severity: 'low', status: 'in_progress',
     title: 'כתמי רטיבות בתקרת חדר האמבטיה',
     description: 'הצבע מתקלף בפינה מעל המקלחת. לא נראה שיש נזילה פעילה, זה נראה כמו לחות.',
-    photos: [photo('miftach-tk09-a', 900, 700)],
+    photos: [photo('miftan-tk09-a', 900, 700)],
     created_at: daysAgo(11),
     vendor_id: 'v05', scheduled_at: slotAt(-1, 9),
     tenant_availability: [slotAt(-1, 9)],
@@ -187,7 +187,7 @@ export const tickets: Ticket[] = [
     vendor_id: 'v03', scheduled_at: slotAt(-46, 12),
     tenant_availability: [slotAt(-46, 12)],
     tenant_confirmed_slot: true,
-    receipt: { amount: 420, file: photo('miftach-rc12', 700, 900), uploaded_at: daysAgo(45), uploaded_by: 'tenant', vendor_name: 'קור־טק מיזוג אוויר' },
+    receipt: { amount: 420, file: photo('miftan-rc12', 700, 900), uploaded_at: daysAgo(45), uploaded_by: 'tenant', vendor_name: 'קור־טק מיזוג אוויר' },
     expense_id: 'ex12',
     messages: [
       { author_role: 'tenant', author_name: 'מיכל שטרן', body: 'המזגן מריח רע כשמדליקים, נראה שצריך ניקוי.', at: daysAgo(52) },
@@ -201,15 +201,15 @@ export const tickets: Ticket[] = [
     category: 'plumbing', severity: 'urgent', status: 'closed',
     title: 'סתימה בצנרת הראשית — מים עלו במקלחת',
     description: 'מים מלוכלכים עלו מהניקוז במקלחת. לא ניתן להשתמש בשירותים.',
-    photos: [photo('miftach-tk13-a', 900, 700)],
+    photos: [photo('miftan-tk13-a', 900, 700)],
     created_at: daysAgo(38),
     vendor_id: 'v01', scheduled_at: slotAt(-38, 19),
     tenant_availability: [slotAt(-38, 19)],
     tenant_confirmed_slot: true,
-    receipt: { amount: 1250, file: photo('miftach-rc13', 700, 900), uploaded_at: daysAgo(36), uploaded_by: 'vendor', vendor_name: 'אבי כהן — אינסטלציה' },
+    receipt: { amount: 1250, file: photo('miftan-rc13', 700, 900), uploaded_at: daysAgo(36), uploaded_by: 'vendor', vendor_name: 'אבי כהן — אינסטלציה' },
     expense_id: 'ex13',
     messages: [
-      { author_role: 'tenant', author_name: 'אורי ביטון', body: 'מים מלוכלכים עלו מהניקוז במקלחת. לא ניתן להשתמש בשירותים.', at: daysAgo(38), photos: [photo('miftach-tk13-a', 900, 700)] },
+      { author_role: 'tenant', author_name: 'אורי ביטון', body: 'מים מלוכלכים עלו מהניקוז במקלחת. לא ניתן להשתמש בשירותים.', at: daysAgo(38), photos: [photo('miftan-tk13-a', 900, 700)] },
       { author_role: 'owner', author_name: OWNER_NAME, body: 'זה דחוף. אבי בדרך אליכם הערב.', at: daysAgo(38) },
       { author_role: 'vendor', author_name: 'אבי כהן — אינסטלציה', body: 'הייתה סתימת שורשים בקו הראשי. פתחתי עם סליל, צילמתי צנרת. ממליץ לוועד הבית לבדוק את הקו בחצר.', at: daysAgo(37) },
       { author_role: 'owner', author_name: OWNER_NAME, body: 'מעביר לוועד. סוגר את הקריאה.', at: daysAgo(36) },
@@ -225,7 +225,7 @@ export const tickets: Ticket[] = [
     vendor_id: 'v07', scheduled_at: slotAt(-21, 16),
     tenant_availability: [slotAt(-21, 16)],
     tenant_confirmed_slot: true,
-    receipt: { amount: 340, file: photo('miftach-rc14', 700, 900), uploaded_at: daysAgo(20), uploaded_by: 'tenant', vendor_name: 'איציק אבו — שיפוצניק' },
+    receipt: { amount: 340, file: photo('miftan-rc14', 700, 900), uploaded_at: daysAgo(20), uploaded_by: 'tenant', vendor_name: 'איציק אבו — שיפוצניק' },
     expense_id: 'ex14',
     messages: [
       { author_role: 'tenant', author_name: 'עדי חסון', body: 'הכביסה נשארת במים בסוף המחזור.', at: daysAgo(24) },

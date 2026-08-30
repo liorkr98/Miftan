@@ -1,4 +1,4 @@
-import { type MessageThread } from '@miftach/shared';
+import { type MessageThread } from '@miftan/shared';
 import { hoursAgo, daysAgo } from './clock';
 
 const OWNER = 'רן אלמוג';

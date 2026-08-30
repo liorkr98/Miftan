@@ -1,4 +1,4 @@
-import { type Lease } from '@miftach/shared';
+import { type Lease } from '@miftan/shared';
 import { monthsOut, daysAgo } from './clock';
 
 /** Lease end dates mirror each property's available_from, so the departures

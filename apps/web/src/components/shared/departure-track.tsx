@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { addMonths, differenceInCalendarMonths, parseISO, startOfMonth } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { t, formatDate, formatMonthTick, formatMonthYear, formatUntil, type TrackRow } from '@miftach/shared';
+import { t, formatDate, formatMonthTick, formatMonthYear, formatUntil, type TrackRow } from '@miftan/shared';
 import { dateRatio, trackOffset, trackSpan } from '@/lib/rtl';
 import { Num, Money } from './typography';
 import { EmptyState } from './empty-state';

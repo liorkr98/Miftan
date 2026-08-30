@@ -1,5 +1,5 @@
 import { and, eq, gte, isNull } from 'drizzle-orm';
-import { ApiError } from '@miftach/shared';
+import { ApiError } from '@miftan/shared';
 import { db, schema as s } from '../db/client.ts';
 
 /**

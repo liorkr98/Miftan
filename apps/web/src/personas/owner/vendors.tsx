@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useStore, useStoreShallow } from '@/data/store';
-import { t, type Trade, type Vendor } from '@miftach/shared';
+import { t, type Trade, type Vendor } from '@miftan/shared';
 import { Money, Num, PageHeader, Phone } from '@/components/shared/typography';
 import { EmptyState } from '@/components/shared/empty-state';
 import { Button } from '@/components/ui/button';

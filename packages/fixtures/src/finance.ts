@@ -1,4 +1,4 @@
-import { type Expense, type RentPayment } from '@miftach/shared';
+import { type Expense, type RentPayment } from '@miftan/shared';
 import { leases } from './leases';
 import { daysAgo, monthKey, addMonths, DEMO_TODAY, isoDate, photo } from './clock';
 
@@ -6,12 +6,12 @@ import { daysAgo, monthKey, addMonths, DEMO_TODAY, isoDate, photo } from './cloc
 
 export const expenses: Expense[] = [
   /* auto-created when a ticket closed with a receipt */
-  { id: 'ex12', property_id: 'p11', kind: 'maintenance', category: 'ac', amount: 420, vendor_id: 'v03', vendor_name: 'קור־טק מיזוג אוויר', date: daysAgo(45).slice(0, 10), ticket_id: 'tk12', receipt_file: photo('miftach-rc12', 700, 900), document_type: 'tax_invoice' },
-  { id: 'ex13', property_id: 'p15', kind: 'maintenance', category: 'plumbing', amount: 1250, vendor_id: 'v01', vendor_name: 'אבי כהן — אינסטלציה', date: daysAgo(36).slice(0, 10), ticket_id: 'tk13', receipt_file: photo('miftach-rc13', 700, 900), document_type: 'tax_invoice' },
-  { id: 'ex14', property_id: 'p21', kind: 'maintenance', category: 'appliance', amount: 340, vendor_id: 'v07', vendor_name: 'איציק אבו — שיפוצניק', date: daysAgo(20).slice(0, 10), ticket_id: 'tk14', receipt_file: photo('miftach-rc14', 700, 900), document_type: 'receipt' },
+  { id: 'ex12', property_id: 'p11', kind: 'maintenance', category: 'ac', amount: 420, vendor_id: 'v03', vendor_name: 'קור־טק מיזוג אוויר', date: daysAgo(45).slice(0, 10), ticket_id: 'tk12', receipt_file: photo('miftan-rc12', 700, 900), document_type: 'tax_invoice' },
+  { id: 'ex13', property_id: 'p15', kind: 'maintenance', category: 'plumbing', amount: 1250, vendor_id: 'v01', vendor_name: 'אבי כהן — אינסטלציה', date: daysAgo(36).slice(0, 10), ticket_id: 'tk13', receipt_file: photo('miftan-rc13', 700, 900), document_type: 'tax_invoice' },
+  { id: 'ex14', property_id: 'p21', kind: 'maintenance', category: 'appliance', amount: 340, vendor_id: 'v07', vendor_name: 'איציק אבו — שיפוצניק', date: daysAgo(20).slice(0, 10), ticket_id: 'tk14', receipt_file: photo('miftan-rc14', 700, 900), document_type: 'receipt' },
 
   /* recorded manually */
-  { id: 'ex01', property_id: 'p14', kind: 'improvement', category: 'other', amount: 38400, vendor_id: 'v05', vendor_name: 'ניר צביעה ושיפוצים', date: daysAgo(28).slice(0, 10), receipt_file: photo('miftach-rc01', 700, 900), document_type: 'tax_invoice', note: 'שיפוץ מטבח וחדר רחצה' },
+  { id: 'ex01', property_id: 'p14', kind: 'improvement', category: 'other', amount: 38400, vendor_id: 'v05', vendor_name: 'ניר צביעה ושיפוצים', date: daysAgo(28).slice(0, 10), receipt_file: photo('miftan-rc01', 700, 900), document_type: 'tax_invoice', note: 'שיפוץ מטבח וחדר רחצה' },
   { id: 'ex02', property_id: 'p05', kind: 'maintenance', category: 'boiler', amount: 890, vendor_id: 'v01', vendor_name: 'אבי כהן — אינסטלציה', date: daysAgo(64).slice(0, 10), document_type: 'receipt' },
   { id: 'ex03', property_id: 'p08', kind: 'maintenance', category: 'electrical', amount: 620, vendor_id: 'v02', vendor_name: 'מוסא חשמל', date: daysAgo(72).slice(0, 10), document_type: 'tax_invoice' },
   { id: 'ex04', property_id: 'p11', kind: 'maintenance', category: 'paint', amount: 2400, vendor_id: 'v05', vendor_name: 'ניר צביעה ושיפוצים', date: daysAgo(88).slice(0, 10), document_type: 'tax_invoice' },

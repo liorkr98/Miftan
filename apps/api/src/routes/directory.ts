@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { and, desc, eq, inArray, isNull, or } from 'drizzle-orm';
 import { z } from 'zod';
-import { expenseListSchema, vendorListSchema } from '@miftach/shared';
+import { expenseListSchema, vendorListSchema } from '@miftan/shared';
 import { db, schema as s } from '../db/client.ts';
 import { resolveViewer } from '../policy/viewer.ts';
 

@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 /**
- * @miftach/shared must stay runnable in Node, a browser and a Capacitor
+ * @miftan/shared must stay runnable in Node, a browser and a Capacitor
  * webview alike, because the API and the app both depend on it.
  *
  * The tsconfig includes the DOM lib so the API client can use `fetch` — which
@@ -38,7 +38,7 @@ function sourceFiles(dir: string): string[] {
   });
 }
 
-describe('@miftach/shared stays platform-free', () => {
+describe('@miftan/shared stays platform-free', () => {
   const files = sourceFiles(ROOT);
 
   it('finds source files to check', () => {

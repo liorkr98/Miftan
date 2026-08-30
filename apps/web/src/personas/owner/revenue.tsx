@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '@/data/store';
-import { t, formatMoney, type RevenueKind } from '@miftach/shared';
+import { t, formatMoney, type RevenueKind } from '@miftan/shared';
 import { useRevenueModel } from '@/components/shared/revenue';
 import { Money, Num, PageHeader, SectionTitle } from '@/components/shared/typography';
 import { Button } from '@/components/ui/button';

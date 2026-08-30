@@ -1,4 +1,4 @@
-import { daysUntil, deriveAvailability, leadScore, type AvailabilityKind, type Expense, type Lead, type Lease, type Property, type RentPayment, type ScreeningPreset, type Ticket, type TrackRow } from '@miftach/shared';
+import { daysUntil, deriveAvailability, leadScore, type AvailabilityKind, type Expense, type Lead, type Lease, type Property, type RentPayment, type ScreeningPreset, type Ticket, type TrackRow } from '@miftan/shared';
 import { parseISO, subDays } from 'date-fns';
 
 /* ── Availability, the product's central idea ──────────── */

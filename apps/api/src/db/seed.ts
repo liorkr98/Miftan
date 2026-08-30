@@ -14,8 +14,8 @@ import {
   screeningPresets as fxPresets,
   inquiries as fxInquiries,
   protocolRuns as fxProtocolRuns,
-} from '@miftach/fixtures';
-import { toAgorot } from '@miftach/shared';
+} from '@miftan/fixtures';
+import { toAgorot } from '@miftan/shared';
 import { db, sql, schema as s } from './client.ts';
 import { seedId } from '../lib/ids.ts';
 import { hashPassword } from '../lib/auth.ts';
@@ -48,7 +48,7 @@ if (process.env.NODE_ENV === 'production') {
  * exactly the kind of file that gets copied into production by accident — and
  * the guard above is the other half of that defence.
  */
-export const DEV_PASSWORD = 'miftach-dev-2026';
+export const DEV_PASSWORD = 'miftan-dev-2026';
 const DEV_PASSWORD_HASH = await hashPassword(DEV_PASSWORD);
 
 const userId = (k: string) => seedId('user', k);

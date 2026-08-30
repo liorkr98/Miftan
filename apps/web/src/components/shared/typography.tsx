@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { cn } from '@/lib/utils';
-import { formatMoney, formatPhone, telHref } from '@miftach/shared';
+import { formatMoney, formatPhone, telHref } from '@miftan/shared';
 
 /**
  * Mixed-direction text is the single most common RTL bug. Every LTR island

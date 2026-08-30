@@ -2,7 +2,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { and, desc, eq, inArray, isNull } from 'drizzle-orm';
 import { z } from 'zod';
-import { ApiError, propertyListSchema, propertyViewSchema } from '@miftach/shared';
+import { ApiError, propertyListSchema, propertyViewSchema } from '@miftan/shared';
 import { db, schema as s } from '../db/client.ts';
 import { ANONYMOUS, resolveViewer, scopeFor, type Viewer } from '../policy/viewer.ts';
 import { loadPropertyContexts, projectProperty } from '../policy/properties.ts';

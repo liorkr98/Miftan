@@ -1,4 +1,4 @@
-import type { TicketStatus } from '@miftach/shared';
+import type { TicketStatus } from '@miftan/shared';
 
 /** Everything that still needs somebody to do something. */
 export const OPEN_TICKET_STATUSES: TicketStatus[] = [

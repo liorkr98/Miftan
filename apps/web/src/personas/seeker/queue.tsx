@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useStore, useStoreShallow } from '@/data/store';
-import { t, formatAge, formatUntil, type TrackRow } from '@miftach/shared';
+import { t, formatAge, formatUntil, type TrackRow } from '@miftan/shared';
 import { availabilityKind, leaseForProperty } from '@/data/selectors';
 import { DepartureTrack } from '@/components/shared/departure-track';
 import { OfferRail } from '@/components/shared/revenue';

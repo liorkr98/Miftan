@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore, useStoreShallow } from '@/data/store';
-import { t, formatAge, formatDateTime, type Ticket } from '@miftach/shared';
+import { t, formatAge, formatDateTime, type Ticket } from '@miftan/shared';
 import { OPEN_TICKET_STATUSES } from '@/data/selectors';
 import { Money, Num, PageHeader, Phone } from '@/components/shared/typography';
 import { EmptyState } from '@/components/shared/empty-state';

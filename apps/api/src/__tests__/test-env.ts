@@ -6,4 +6,4 @@
  */
 export const TEST_DATABASE_URL =
   process.env.TEST_DATABASE_URL ??
-  `postgres://${process.env.USER ?? 'postgres'}@127.0.0.1:5432/miftach_test`;
+  `postgres://${process.env.USER ?? 'postgres'}@127.0.0.1:5432/miftan_test`;

@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStoreShallow } from '@/data/store';
-import { t, formatFloor, formatRooms, formatSqm, type Amenity, type Property } from '@miftach/shared';
+import { t, formatFloor, formatRooms, formatSqm, type Amenity, type Property } from '@miftan/shared';
 import { availabilityKind, leaseForProperty, type AvailabilityKind } from '@/data/selectors';
 import { ResultsMap } from '@/components/shared/map';
 import { AVAILABILITY_COLOR, AVAILABILITY_LABEL, AvailabilityChip } from '@/components/shared/status';

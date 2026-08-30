@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore, useStoreShallow } from '@/data/store';
-import { t, formatTime, formatWeekdayDate, type Severity, type TicketCategory } from '@miftach/shared';
+import { t, formatTime, formatWeekdayDate, type Severity, type TicketCategory } from '@miftan/shared';
 import { Num, PageHeader } from '@/components/shared/typography';
 import { Button } from '@/components/ui/button';
 import { Field, Input, Textarea } from '@/components/ui/field';

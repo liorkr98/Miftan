@@ -6,7 +6,7 @@ import {
   validatorCompiler,
   hasZodFastifySchemaValidationErrors,
 } from 'fastify-type-provider-zod';
-import { ApiError } from '@miftach/shared';
+import { ApiError } from '@miftan/shared';
 import { env, isProd } from './lib/env.ts';
 import { authenticatePlugin } from './plugins/authenticate.ts';
 import { authRoutes } from './routes/auth.ts';

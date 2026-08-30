@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { eq } from 'drizzle-orm';
-import { meSchema } from '@miftach/shared';
+import { meSchema } from '@miftan/shared';
 import { db, schema as s } from '../db/client.ts';
 import { capabilitiesFor } from '../lib/capabilities.ts';
 import { requireUser } from '../plugins/authenticate.ts';

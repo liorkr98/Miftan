@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { t } from '@miftach/shared';
+import { t } from '@miftan/shared';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/shared/empty-state';
 import { Compass } from 'lucide-react';

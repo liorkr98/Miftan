@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { MapContainer, Marker, TileLayer, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { formatDateShort, formatMoneyShort, type Property } from '@miftach/shared';
+import { formatDateShort, formatMoneyShort, type Property } from '@miftan/shared';
 import type { AvailabilityKind } from '@/data/selectors';
 import { AVAILABILITY_COLOR } from './status';
 
@@ -30,7 +30,7 @@ function pinIcon(
   const label = dated && date ? `${price} · ${date}` : price;
 
   return L.divIcon({
-    className: 'miftach-pin',
+    className: 'miftan-pin',
     html: `
       <div style="transform:translate(-50%,-100%) scale(${scale});transform-origin:bottom center;
                   display:flex;flex-direction:column;align-items:center;

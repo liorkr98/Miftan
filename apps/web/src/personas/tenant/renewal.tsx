@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useStore, useStoreShallow } from '@/data/store';
-import { t, daysUntil, formatDate, formatAge, type RenewalIntent } from '@miftach/shared';
+import { t, daysUntil, formatDate, formatAge, type RenewalIntent } from '@miftan/shared';
 import { availabilityKind } from '@/data/selectors';
 import { Money, Num, PageHeader, SectionTitle } from '@/components/shared/typography';
 import { EmptyState } from '@/components/shared/empty-state';

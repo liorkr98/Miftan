@@ -1,4 +1,4 @@
-import { type Owner, type Tenant, type Seeker } from '@miftach/shared';
+import { type Owner, type Tenant, type Seeker } from '@miftan/shared';
 import { monthsOut } from './clock';
 
 export const owner: Owner = {

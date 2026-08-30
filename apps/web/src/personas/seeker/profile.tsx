@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore, useStoreShallow } from '@/data/store';
-import { t } from '@miftach/shared';
+import { t } from '@miftan/shared';
 import { Num, PageHeader, SectionTitle } from '@/components/shared/typography';
 import { Button } from '@/components/ui/button';
 import { Meter } from '@/components/shared/meter';
