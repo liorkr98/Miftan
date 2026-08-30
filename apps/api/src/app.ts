@@ -11,6 +11,7 @@ import { env, isProd } from './lib/env.ts';
 import { authenticatePlugin } from './plugins/authenticate.ts';
 import { authRoutes } from './routes/auth.ts';
 import { meRoutes } from './routes/me.ts';
+import { propertyRoutes } from './routes/properties.ts';
 
 /**
  * Built as a factory so tests can spin up an app without binding a port.
@@ -73,6 +74,7 @@ export async function buildApp(): Promise<FastifyInstance> {
 
   await app.register(authRoutes);
   await app.register(meRoutes);
+  await app.register(propertyRoutes);
 
   return app;
 }

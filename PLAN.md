@@ -102,12 +102,12 @@ for money and dates.
 - [x] `POST /auth/register|login|refresh|logout`, `GET /me`
 - [x] Typed API client in `packages/shared`
 
-### Phase 3 — The privacy boundary · ~1 session
+### Phase 3 — The privacy boundary · ~1 session · **DONE**
 Its own phase because it is the product.
-- [ ] One authorization layer; every read passes through a single policy module
-- [ ] Enforce: **a seeker can never read tenant identity** — not hidden in the UI, unreadable at the API
-- [ ] Enforce: the availability signal is derived server-side; raw `renewal_intent` never leaves owner/tenant scope
-- [ ] Tests asserting a seeker token gets 403 or a redacted field on every tenant attribute
+- [x] One authorization layer; every read passes through a single policy module
+- [x] Enforce: **a seeker can never read tenant identity** — not hidden in the UI, unreadable at the API
+- [x] Enforce: the availability signal is derived server-side; raw `renewal_intent` never leaves owner/tenant scope
+- [x] Tests asserting a seeker token gets 403 or a redacted field on every tenant attribute
 
 ### Phase 4 — Ticket flow API · ~2 sessions
 - [ ] `properties`, `leases`, `tickets`, `vendors`, `expenses` endpoints

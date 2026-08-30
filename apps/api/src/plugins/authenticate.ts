@@ -12,6 +12,8 @@ declare module 'fastify' {
   }
   interface FastifyInstance {
     authenticate: (request: FastifyRequest) => Promise<void>;
+    /** Populates currentUser when a token is present; never rejects. */
+    optionalAuth: (request: FastifyRequest) => Promise<void>;
   }
 }
 
@@ -36,6 +38,25 @@ export const authenticatePlugin = fp(async (app: FastifyInstance) => {
 
     if (!user) throw new ApiError('not_authenticated', 'user no longer exists');
     request.currentUser = user;
+  });
+
+  /* Search has to work signed out, but should show a signed-in seeker their
+     own queue positions. So the token is read if present and ignored if not —
+     an invalid token is treated as absent rather than as an error, because a
+     stale token should degrade to the anonymous view, not a 401 wall. */
+  app.decorate('optionalAuth', async (request: FastifyRequest) => {
+    const header = request.headers.authorization;
+    if (!header?.startsWith('Bearer ')) return;
+    try {
+      const userId = await verifyAccessToken(header.slice(7));
+      const [user] = await db
+        .select({ id: s.users.id, name: s.users.name, email: s.users.email })
+        .from(s.users)
+        .where(and(eq(s.users.id, userId), isNull(s.users.deletedAt)));
+      if (user) request.currentUser = user;
+    } catch {
+      /* treated as anonymous */
+    }
   });
 });
 

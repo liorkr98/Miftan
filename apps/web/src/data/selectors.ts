@@ -1,20 +1,22 @@
-import { daysUntil, leadScore, type Expense, type Lead, type Lease, type Property, type RentPayment, type ScreeningPreset, type Ticket, type TrackRow } from '@miftach/shared';
+import { daysUntil, deriveAvailability, leadScore, type AvailabilityKind, type Expense, type Lead, type Lease, type Property, type RentPayment, type ScreeningPreset, type Ticket, type TrackRow } from '@miftach/shared';
 import { parseISO, subDays } from 'date-fns';
 
 /* ── Availability, the product's central idea ──────────── */
 
-export type AvailabilityKind = 'now' | 'dated' | 'extending' | 'unknown';
-
 /**
- * What the seeker-facing side is allowed to know. Note what's absent:
- * the tenant's identity never reaches this function. The renewal answer
- * becomes a date signal and nothing else.
+ * Re-exported from the shared package so the UI and the API cannot disagree
+ * about what an apartment's status means. The whole product rests on that
+ * answer being the same on both sides of the wire.
  */
+export type { AvailabilityKind };
+
 export function availabilityKind(property: Property, lease?: Lease): AvailabilityKind {
-  if (property.status === 'vacant') return 'now';
-  if (lease?.renewal_intent === 'extend') return 'extending';
-  if (property.available_from && property.availability_confidence !== 'unknown') return 'dated';
-  return 'unknown';
+  return deriveAvailability({
+    status: property.status,
+    availableFrom: property.available_from ?? null,
+    confidence: property.availability_confidence,
+    renewalIntent: lease?.renewal_intent ?? null,
+  }).kind;
 }
 
 export const AVAILABILITY_TONE: Record<AvailabilityKind, TrackRow['tone']> = {
