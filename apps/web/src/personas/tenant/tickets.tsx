@@ -1,9 +1,15 @@
 import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useStore, useStoreShallow } from '@/data/store';
-import { t, formatAge, formatDateTime, type Ticket } from '@miftan/shared';
-import { OPEN_TICKET_STATUSES } from '@/data/selectors';
-import { Money, Num, PageHeader, Phone } from '@/components/shared/typography';
+import {
+  formatAgorot,
+  formatAge,
+  formatDateTime,
+  t,
+  type TicketView,
+} from '@miftan/shared';
+import { useConfirmSlot, usePostMessage, useTickets } from '@/api/hooks';
+import { useStore } from '@/data/store';
+import { Num, PageHeader, Phone } from '@/components/shared/typography';
 import { EmptyState } from '@/components/shared/empty-state';
 import { SeverityBadge, TicketStatusBadge } from '@/components/shared/status';
 import { Button } from '@/components/ui/button';
@@ -11,25 +17,28 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ReceiptDialog } from '@/personas/owner/tickets';
 import { ListSkeleton } from '@/components/shared/skeleton';
-import { useDelayedReady } from '@/lib/use-delayed-ready';
 import { cn } from '@/lib/utils';
-import { CalendarCheck2, CheckCircle2, ListChecks, Receipt, Wrench } from 'lucide-react';
+import { CalendarCheck2, CheckCircle2, ListChecks, Receipt, ServerCrash, Wrench } from 'lucide-react';
+
+const OPEN_STATUSES = ['new', 'approved', 'assigned', 'in_progress', 'awaiting_receipt'];
 
 export function TenantTickets() {
   const navigate = useNavigate();
-  const ready = useDelayedReady();
-  const { tickets, vendors, currentTenantId } = useStoreShallow((s) => ({
-    tickets: s.tickets,
-    vendors: s.vendors,
-    currentTenantId: s.currentTenantId,
-  }));
+  const { data: tickets = [], isLoading, isError, refetch } = useTickets();
 
-  const mine = tickets
-    .filter((tk) => tk.tenant_id === currentTenantId)
-    .sort((a, b) => b.created_at.localeCompare(a.created_at));
+  const open = tickets.filter((tk) => OPEN_STATUSES.includes(tk.status));
+  const closed = tickets.filter((tk) => tk.status === 'closed');
 
-  const open = mine.filter((tk) => OPEN_TICKET_STATUSES.includes(tk.status));
-  const closed = mine.filter((tk) => tk.status === 'closed');
+  if (isError) {
+    return (
+      <EmptyState
+        icon={ServerCrash}
+        title={t.auth.error.internal}
+        action={t.ui.reset}
+        onAction={() => void refetch()}
+      />
+    );
+  }
 
   return (
     <div className="space-y-5">
@@ -48,7 +57,7 @@ export function TenantTickets() {
         </TabsList>
 
         <TabsContent value="open">
-          {!ready ? (
+          {isLoading ? (
             <ListSkeleton rows={3} />
           ) : open.length === 0 ? (
             <EmptyState
@@ -61,12 +70,7 @@ export function TenantTickets() {
           ) : (
             <ul className="space-y-3">
               {open.map((ticket) => (
-                <TenantTicketCard
-                  key={ticket.id}
-                  ticket={ticket}
-                  vendorName={vendors.find((v) => v.id === ticket.vendor_id)?.name}
-                  vendorPhone={vendors.find((v) => v.id === ticket.vendor_id)?.phone}
-                />
+                <TenantTicketCard key={ticket.id} ticket={ticket} />
               ))}
             </ul>
           )}
@@ -82,12 +86,7 @@ export function TenantTickets() {
           ) : (
             <ul className="space-y-3">
               {closed.map((ticket) => (
-                <TenantTicketCard
-                  key={ticket.id}
-                  ticket={ticket}
-                  vendorName={vendors.find((v) => v.id === ticket.vendor_id)?.name}
-                  vendorPhone={vendors.find((v) => v.id === ticket.vendor_id)?.phone}
-                />
+                <TenantTicketCard key={ticket.id} ticket={ticket} />
               ))}
             </ul>
           )}
@@ -97,17 +96,9 @@ export function TenantTickets() {
   );
 }
 
-function TenantTicketCard({
-  ticket,
-  vendorName,
-  vendorPhone,
-}: {
-  ticket: Ticket;
-  vendorName?: string;
-  vendorPhone?: string;
-}) {
-  const confirmSlot = useStore((s) => s.confirmSlot);
-  const addTicketMessage = useStore((s) => s.addTicketMessage);
+function TenantTicketCard({ ticket }: { ticket: TicketView }) {
+  const confirmSlot = useConfirmSlot();
+  const postMessage = usePostMessage();
   const pushToast = useStore((s) => s.pushToast);
   const [receiptOpen, setReceiptOpen] = React.useState(false);
   const [expanded, setExpanded] = React.useState(false);
@@ -121,7 +112,7 @@ function TenantTicketCard({
           <Badge tone="outline" size="sm">
             {t.ticketCategory[ticket.category]}
           </Badge>
-          <span className="ms-auto text-2xs text-muted">{formatAge(ticket.created_at)}</span>
+          <span className="ms-auto text-2xs text-muted">{formatAge(ticket.createdAt)}</span>
         </div>
 
         <h3 className="text-sm font-bold text-ink">{ticket.title}</h3>
@@ -143,7 +134,6 @@ function TenantTicketCard({
           </div>
         ) : null}
 
-        {/* Status-specific tenant affordances */}
         {ticket.status === 'new' ? (
           <p className="mt-3 flex items-center gap-1.5 text-xs text-muted">
             <CalendarCheck2 className="h-3.5 w-3.5" />
@@ -151,20 +141,20 @@ function TenantTicketCard({
           </p>
         ) : null}
 
-        {vendorName && ticket.scheduled_at ? (
+        {ticket.vendor && ticket.scheduledAt ? (
           <div className="mt-3 rounded-[var(--radius-control)] bg-surface p-3">
             <p className="text-2xs text-muted">{t.tenant.tickets.vendorAssigned}</p>
-            <p className="text-sm font-bold text-ink">{vendorName}</p>
-            {vendorPhone ? <Phone value={vendorPhone} className="text-2xs text-muted" /> : null}
+            <p className="text-sm font-bold text-ink">{ticket.vendor.name}</p>
+            <Phone value={ticket.vendor.phone} className="text-2xs text-muted" />
             <p className="mt-1.5 text-xs text-ink-soft">
               {t.tenant.tickets.eta}:{' '}
               <Num board className="font-bold">
-                {formatDateTime(ticket.scheduled_at)}
+                {formatDateTime(ticket.scheduledAt)}
               </Num>
             </p>
 
             {ticket.status !== 'closed' ? (
-              ticket.tenant_confirmed_slot ? (
+              ticket.tenantConfirmedSlot ? (
                 <Badge tone="openSoft" size="sm" className="mt-2">
                   <CheckCircle2 className="h-3 w-3" />
                   {t.tenant.tickets.slotConfirmed}
@@ -173,20 +163,26 @@ function TenantTicketCard({
                 <div className="mt-2.5 flex flex-wrap gap-2">
                   <Button
                     size="sm"
-                    onClick={() => {
-                      confirmSlot(ticket.id);
-                      pushToast(t.tenant.tickets.slotConfirmed, 'success');
-                    }}
+                    disabled={confirmSlot.isPending}
+                    onClick={() =>
+                      confirmSlot.mutate(
+                        { id: ticket.id },
+                        { onSuccess: () => pushToast(t.tenant.tickets.slotConfirmed, 'success') },
+                      )
+                    }
                   >
                     {t.tenant.tickets.confirmSlot}
                   </Button>
                   <Button
                     size="sm"
                     variant="secondary"
-                    onClick={() => {
-                      addTicketMessage(ticket.id, 'tenant', t.tenant.tickets.requestOther);
-                      pushToast(t.tenant.tickets.requestOther);
-                    }}
+                    disabled={postMessage.isPending}
+                    onClick={() =>
+                      postMessage.mutate(
+                        { id: ticket.id, body: t.tenant.tickets.requestOther },
+                        { onSuccess: () => pushToast(t.tenant.tickets.requestOther) },
+                      )
+                    }
                   >
                     {t.tenant.tickets.requestOther}
                   </Button>
@@ -208,15 +204,19 @@ function TenantTicketCard({
 
         {ticket.receipt ? (
           <div className="mt-3 flex items-center gap-2.5 rounded-[var(--radius-control)] bg-surface p-3">
-            <img
-              src={ticket.receipt.file}
-              alt=""
-              loading="lazy"
-              className="h-14 w-10 shrink-0 rounded-[4px] border border-line object-cover"
-            />
+            {ticket.receipt.file ? (
+              <img
+                src={ticket.receipt.file}
+                alt=""
+                loading="lazy"
+                className="h-14 w-10 shrink-0 rounded-[4px] border border-line object-cover"
+              />
+            ) : null}
             <div>
               <p className="text-2xs text-muted">{t.tickets.detail.receipt}</p>
-              <Money value={ticket.receipt.amount} board className="text-sm font-bold text-ink" />
+              <Num board className="text-sm font-bold text-ink">
+                {formatAgorot(ticket.receipt.amountAgorot)}
+              </Num>
             </div>
             <Badge tone="openSoft" size="sm" className="ms-auto">
               {t.tenant.tickets.receiptUploaded}
@@ -225,7 +225,6 @@ function TenantTicketCard({
         ) : null}
       </div>
 
-      {/* Thread */}
       <div className="border-t border-line bg-surface">
         <button
           type="button"
@@ -239,27 +238,27 @@ function TenantTicketCard({
         </button>
         {expanded ? (
           <ul className="space-y-2 px-4 pb-3">
-            {ticket.messages.map((message, i) => (
+            {ticket.messages.map((message) => (
               <li
-                key={i}
+                key={message.id}
                 className={cn(
                   'rounded-[var(--radius-control)] px-3 py-2',
-                  message.author_role === 'tenant' ? 'bg-ink text-on-ink' : 'bg-bg',
+                  message.authorRole === 'tenant' ? 'bg-ink text-on-ink' : 'bg-bg',
                 )}
               >
                 <p
                   className={cn(
                     'mb-0.5 flex items-baseline justify-between gap-3 text-2xs',
-                    message.author_role === 'tenant' ? 'text-on-ink-muted' : 'text-muted',
+                    message.authorRole === 'tenant' ? 'text-on-ink-muted' : 'text-muted',
                   )}
                 >
-                  <span className="font-bold">{message.author_name}</span>
+                  <span className="font-bold">{message.authorName}</span>
                   <span>{formatAge(message.at)}</span>
                 </p>
                 <p
                   className={cn(
                     'text-sm leading-6',
-                    message.author_role === 'tenant' ? 'text-on-ink' : 'text-ink-soft',
+                    message.authorRole === 'tenant' ? 'text-on-ink' : 'text-ink-soft',
                   )}
                 >
                   {message.body}
@@ -270,7 +269,7 @@ function TenantTicketCard({
         ) : null}
       </div>
 
-      <ReceiptDialog ticket={ticket} open={receiptOpen} onOpenChange={setReceiptOpen} by="tenant" />
+      <ReceiptDialog ticket={ticket} open={receiptOpen} onOpenChange={setReceiptOpen} />
     </li>
   );
 }

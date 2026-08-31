@@ -1,8 +1,27 @@
 import * as React from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useStore, useStoreShallow } from '@/data/store';
-import { t, formatAge, formatDateTime, formatWeekdayDate, formatTime, type Ticket, type TicketStatus, type Vendor } from '@miftan/shared';
-import { Money, Num, PageHeader, Phone } from '@/components/shared/typography';
+import {
+  formatAgorot,
+  formatAge,
+  formatDateTime,
+  formatTime,
+  formatWeekdayDate,
+  t,
+  toAgorot,
+  type TicketStatus,
+  type TicketView,
+  type VendorView,
+} from '@miftan/shared';
+import {
+  useConfirmSlot,
+  usePostMessage,
+  useTicketAction,
+  useTickets,
+  useUploadReceipt,
+  useVendors,
+} from '@/api/hooks';
+import { useStore } from '@/data/store';
+import { Num, PageHeader, Phone } from '@/components/shared/typography';
 import { EmptyState } from '@/components/shared/empty-state';
 import { SeverityBadge, TicketStatusBadge } from '@/components/shared/status';
 import { Button } from '@/components/ui/button';
@@ -18,7 +37,6 @@ import {
 } from '@/components/ui/dialog';
 import { Field, Input, Textarea } from '@/components/ui/field';
 import { ListSkeleton } from '@/components/shared/skeleton';
-import { useDelayedReady } from '@/lib/use-delayed-ready';
 import { cn } from '@/lib/utils';
 import {
   CheckCircle2,
@@ -26,6 +44,7 @@ import {
   Image as ImageIcon,
   Receipt,
   Send,
+  ServerCrash,
   Star,
   UserCheck,
   Wrench,
@@ -41,20 +60,30 @@ const COLUMNS: TicketStatus[] = [
   'closed',
 ];
 
+/**
+ * Which button each action gets. The *availability* of an action is decided by
+ * the server and arrives on the ticket — this map only says how to draw one, so
+ * the two copies of the rules that used to exist are now one.
+ */
+const ACTION_UI: Record<
+  string,
+  { label: string; icon?: React.ComponentType<{ className?: string }>; variant?: 'primary' | 'secondary' }
+> = {
+  approve: { label: t.tickets.actions.approve, icon: ClipboardCheck },
+  reject: { label: t.tickets.actions.reject, variant: 'secondary' },
+  assign: { label: t.tickets.actions.assignVendor, icon: UserCheck },
+  start: { label: t.tickets.actions.markInProgress, icon: Wrench },
+  request_receipt: { label: t.tickets.actions.requestReceipt, icon: Receipt },
+  close: { label: t.tickets.actions.close, variant: 'secondary' },
+  reopen: { label: t.tickets.actions.reopen, variant: 'secondary' },
+};
+
 export function OwnerTickets() {
-  const ready = useDelayedReady();
   const [params, setParams] = useSearchParams();
-  const { tickets, properties, vendors } = useStoreShallow((s) => ({
-    tickets: s.tickets,
-    properties: s.properties,
-    vendors: s.vendors,
-  }));
+  const { data: tickets = [], isLoading, isError, refetch } = useTickets();
 
   const openId = params.get('ticket');
   const openTicket = tickets.find((tk) => tk.id === openId);
-
-  const propertyById = React.useMemo(() => new Map(properties.map((p) => [p.id, p])), [properties]);
-  const vendorById = React.useMemo(() => new Map(vendors.map((v) => [v.id, v])), [vendors]);
 
   const open = tickets.filter((tk) => tk.status !== 'closed');
   const urgent = open.filter((tk) => tk.severity === 'urgent');
@@ -65,6 +94,17 @@ export function OwnerTickets() {
     else next.delete('ticket');
     setParams(next, { replace: true });
   };
+
+  if (isError) {
+    return (
+      <EmptyState
+        icon={ServerCrash}
+        title={t.auth.error.internal}
+        action={t.ui.reset}
+        onAction={() => void refetch()}
+      />
+    );
+  }
 
   return (
     <div className="space-y-5">
@@ -91,7 +131,7 @@ export function OwnerTickets() {
         }
       />
 
-      {!ready ? (
+      {isLoading ? (
         <ListSkeleton rows={6} />
       ) : (
         <div className="hide-scrollbar -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0">
@@ -101,7 +141,7 @@ export function OwnerTickets() {
               .sort(
                 (a, b) =>
                   (b.severity === 'urgent' ? 1 : 0) - (a.severity === 'urgent' ? 1 : 0) ||
-                  a.created_at.localeCompare(b.created_at),
+                  a.createdAt.localeCompare(b.createdAt),
               );
             return (
               <section
@@ -120,48 +160,45 @@ export function OwnerTickets() {
                       {t.tickets.emptyColumn}
                     </p>
                   ) : (
-                    column.map((ticket) => {
-                      const property = propertyById.get(ticket.property_id);
-                      const vendor = ticket.vendor_id ? vendorById.get(ticket.vendor_id) : undefined;
-                      return (
-                        <button
-                          key={ticket.id}
-                          type="button"
-                          onClick={() => setOpen(ticket.id)}
-                          className={cn(
-                            'w-full rounded-[var(--radius-control)] border bg-bg p-2.5 text-start transition-colors duration-150 hover:border-line-strong',
-                            ticket.severity === 'urgent' ? 'border-alert/40' : 'border-line',
-                          )}
-                        >
-                          <span className="mb-1.5 flex items-center gap-1.5">
-                            <SeverityBadge severity={ticket.severity} size="sm" />
-                            <Badge tone="outline" size="sm">
-                              {t.ticketCategory[ticket.category]}
-                            </Badge>
-                          </span>
-                          <span className="block text-xs font-bold leading-5 text-ink">
-                            {ticket.title}
-                          </span>
-                          <span className="mt-1 block truncate text-2xs text-muted">
-                            {property ? `${property.address.street} ${property.address.number}` : ''}
-                          </span>
-                          <span className="mt-2 flex items-center gap-2 text-2xs text-muted">
-                            {ticket.photos.length ? (
-                              <span className="flex items-center gap-0.5">
-                                <ImageIcon className="h-3 w-3" />
-                                <Num board>{ticket.photos.length}</Num>
-                              </span>
-                            ) : null}
-                            <span>{formatAge(ticket.created_at)}</span>
-                            {vendor ? (
-                              <span className="ms-auto truncate font-semibold text-ink-soft">
-                                {vendor.name.split(' ')[0]}
-                              </span>
-                            ) : null}
-                          </span>
-                        </button>
-                      );
-                    })
+                    column.map((ticket) => (
+                      <button
+                        key={ticket.id}
+                        type="button"
+                        onClick={() => setOpen(ticket.id)}
+                        className={cn(
+                          'press-sm w-full rounded-[var(--radius-control)] border bg-bg p-2.5 text-start',
+                          'transition-[border-color,transform] duration-150 ease-[var(--ease-out)] hover:border-line-strong',
+                          ticket.severity === 'urgent' ? 'border-alert/40' : 'border-line',
+                        )}
+                      >
+                        <span className="mb-1.5 flex items-center gap-1.5">
+                          <SeverityBadge severity={ticket.severity} size="sm" />
+                          <Badge tone="outline" size="sm">
+                            {t.ticketCategory[ticket.category]}
+                          </Badge>
+                        </span>
+                        <span className="block text-xs font-bold leading-5 text-ink">
+                          {ticket.title}
+                        </span>
+                        <span className="mt-1 block truncate text-2xs text-muted">
+                          {ticket.propertyLabel}
+                        </span>
+                        <span className="mt-2 flex items-center gap-2 text-2xs text-muted">
+                          {ticket.photos.length ? (
+                            <span className="flex items-center gap-0.5">
+                              <ImageIcon className="h-3 w-3" />
+                              <Num board>{ticket.photos.length}</Num>
+                            </span>
+                          ) : null}
+                          <span>{formatAge(ticket.createdAt)}</span>
+                          {ticket.vendor ? (
+                            <span className="ms-auto truncate font-semibold text-ink-soft">
+                              {ticket.vendor.name.split(' ')[0]}
+                            </span>
+                          ) : null}
+                        </span>
+                      </button>
+                    ))
                   )}
                 </div>
               </section>
@@ -170,47 +207,31 @@ export function OwnerTickets() {
         </div>
       )}
 
-      <TicketDrawer ticket={openTicket} onClose={() => setOpen(null)} />
+      {openTicket ? <TicketDrawer ticket={openTicket} onClose={() => setOpen(null)} /> : null}
     </div>
   );
 }
 
-/* ── Ticket detail: thread, actions, receipt ───────────── */
+/* ── Detail ────────────────────────────────────────────── */
 
-function TicketDrawer({ ticket, onClose }: { ticket?: Ticket; onClose: () => void }) {
-  const { properties, tenants, vendors, expenses } = useStoreShallow((s) => ({
-    properties: s.properties,
-    tenants: s.tenants,
-    vendors: s.vendors,
-    expenses: s.expenses,
-  }));
-  const approveTicket = useStore((s) => s.approveTicket);
-  const rejectTicket = useStore((s) => s.rejectTicket);
-  const startWork = useStore((s) => s.startWork);
-  const requestReceipt = useStore((s) => s.requestReceipt);
-  const reopenTicket = useStore((s) => s.reopenTicket);
-  const addTicketMessage = useStore((s) => s.addTicketMessage);
+function TicketDrawer({ ticket, onClose }: { ticket: TicketView; onClose: () => void }) {
+  const action = useTicketAction();
+  const postMessage = usePostMessage();
   const pushToast = useStore((s) => s.pushToast);
 
   const [draft, setDraft] = React.useState('');
   const [assignOpen, setAssignOpen] = React.useState(false);
   const [receiptOpen, setReceiptOpen] = React.useState(false);
 
-  React.useEffect(() => {
-    setDraft('');
-  }, [ticket?.id]);
+  const owner = ticket.scope === 'owner' ? ticket : null;
+  const busy = action.isPending || postMessage.isPending;
 
-  if (!ticket) return null;
-
-  const property = properties.find((p) => p.id === ticket.property_id);
-  const tenant = tenants.find((x) => x.id === ticket.tenant_id);
-  const vendor = vendors.find((v) => v.id === ticket.vendor_id);
-  const expense = expenses.find((e) => e.id === ticket.expense_id);
-
-  const send = () => {
-    if (!draft.trim()) return;
-    addTicketMessage(ticket.id, 'owner', draft.trim());
-    setDraft('');
+  const run = (name: string) => {
+    if (name === 'assign') return setAssignOpen(true);
+    action.mutate(
+      { id: ticket.id, action: name },
+      { onError: () => pushToast(t.auth.error.forbidden, 'alert') },
+    );
   };
 
   return (
@@ -227,34 +248,42 @@ function TicketDrawer({ ticket, onClose }: { ticket?: Ticket; onClose: () => voi
             </div>
             <DialogTitle className="mt-1.5">{ticket.title}</DialogTitle>
             <p className="mt-0.5 text-xs text-muted">
-              {property ? `${property.address.street} ${property.address.number}` : ''} · {tenant?.name} ·{' '}
-              {formatAge(ticket.created_at)}
+              {ticket.propertyLabel}
+              {owner?.reportedBy ? ` · ${owner.reportedBy.name}` : ''} ·{' '}
+              {formatAge(ticket.createdAt)}
             </p>
           </DialogHeader>
 
           <DialogBody className="space-y-4">
-            {/* Assignment + receipt summary */}
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="rounded-[var(--radius-control)] bg-surface p-3">
                 <p className="mb-1 text-2xs font-bold text-ink-soft">{t.tickets.detail.details}</p>
-                {vendor ? (
+                {ticket.vendor ? (
                   <>
-                    <p className="text-sm font-bold text-ink">{vendor.name}</p>
-                    <p className="text-2xs text-muted">{t.trade[vendor.trade]}</p>
-                    <Phone value={vendor.phone} className="mt-1 block text-2xs text-muted" />
-                    {ticket.scheduled_at ? (
+                    <p className="text-sm font-bold text-ink">{ticket.vendor.name}</p>
+                    <p className="text-2xs text-muted">
+                      {t.trade[ticket.vendor.trade as keyof typeof t.trade]}
+                    </p>
+                    <Phone value={ticket.vendor.phone} className="mt-1 block text-2xs text-muted" />
+                    {ticket.scheduledAt ? (
                       <p className="mt-1.5 text-2xs text-ink-soft">
                         {t.tickets.scheduled}:{' '}
                         <Num board className="font-bold">
-                          {formatDateTime(ticket.scheduled_at)}
+                          {formatDateTime(ticket.scheduledAt)}
                         </Num>
                       </p>
                     ) : null}
-                    {ticket.tenant_confirmed_slot ? (
+                    {ticket.tenantConfirmedSlot ? (
                       <Badge tone="openSoft" size="sm" className="mt-1.5">
                         <CheckCircle2 className="h-3 w-3" />
                         {t.tenant.tickets.slotConfirmed}
                       </Badge>
+                    ) : null}
+                    {owner?.vendorCalloutFeeAgorot != null ? (
+                      <p className="mt-1.5 text-2xs text-muted">
+                        {t.vendors.calloutFee}:{' '}
+                        <Num board>{formatAgorot(owner.vendorCalloutFeeAgorot)}</Num>
+                      </p>
                     ) : null}
                   </>
                 ) : (
@@ -266,19 +295,23 @@ function TicketDrawer({ ticket, onClose }: { ticket?: Ticket; onClose: () => voi
                 <p className="mb-1 text-2xs font-bold text-ink-soft">{t.tickets.detail.receipt}</p>
                 {ticket.receipt ? (
                   <div className="flex items-start gap-2.5">
-                    <img
-                      src={ticket.receipt.file}
-                      alt=""
-                      loading="lazy"
-                      className="h-16 w-12 shrink-0 rounded-[4px] border border-line object-cover"
-                    />
+                    {ticket.receipt.file ? (
+                      <img
+                        src={ticket.receipt.file}
+                        alt=""
+                        loading="lazy"
+                        className="h-16 w-12 shrink-0 rounded-[4px] border border-line object-cover"
+                      />
+                    ) : null}
                     <div>
-                      <Money value={ticket.receipt.amount} board className="text-base font-bold text-ink" />
+                      <Num board className="text-base font-bold text-ink">
+                        {formatAgorot(ticket.receipt.amountAgorot)}
+                      </Num>
                       <p className="text-2xs text-muted">
                         {t.tickets.detail.uploadedBy}{' '}
-                        {ticket.receipt.uploaded_by === 'tenant' ? t.persona.tenant : vendor?.name}
+                        {ticket.receipt.uploadedBy === 'tenant' ? t.roles.tenant : t.roles.owner}
                       </p>
-                      {expense ? (
+                      {owner?.expenseId ? (
                         <Badge tone="openSoft" size="sm" className="mt-1">
                           {t.tickets.detail.expenseCreated}
                         </Badge>
@@ -291,14 +324,13 @@ function TicketDrawer({ ticket, onClose }: { ticket?: Ticket; onClose: () => voi
               </div>
             </div>
 
-            {/* Tenant availability windows */}
-            {ticket.tenant_availability.length > 0 && !ticket.scheduled_at ? (
+            {ticket.tenantAvailability.length > 0 && !ticket.scheduledAt ? (
               <div>
                 <p className="mb-1.5 text-2xs font-bold text-ink-soft">
                   {t.tickets.detail.tenantAvailability}
                 </p>
                 <div className="flex flex-wrap gap-1.5">
-                  {ticket.tenant_availability.map((slot) => (
+                  {ticket.tenantAvailability.map((slot) => (
                     <Badge key={slot} tone="outline" size="sm">
                       <Num board>
                         {formatWeekdayDate(slot)} · {formatTime(slot)}
@@ -309,28 +341,27 @@ function TicketDrawer({ ticket, onClose }: { ticket?: Ticket; onClose: () => voi
               </div>
             ) : null}
 
-            {/* Thread */}
             <div>
               <p className="mb-2 text-2xs font-bold text-ink-soft">{t.tickets.detail.conversation}</p>
               <ul className="space-y-2.5">
-                {ticket.messages.map((message, i) => (
+                {ticket.messages.map((message) => (
                   <li
-                    key={i}
+                    key={message.id}
                     className={cn(
                       'rounded-[var(--radius-control)] border p-2.5',
-                      message.author_role === 'owner'
+                      message.authorRole === 'owner'
                         ? 'border-ink/15 bg-surface'
-                        : message.author_role === 'vendor'
+                        : message.authorRole === 'vendor'
                           ? 'border-live/25 bg-live-soft'
                           : 'border-line bg-bg',
                     )}
                   >
                     <p className="mb-1 flex items-baseline justify-between gap-2 text-2xs">
-                      <span className="font-bold text-ink">{message.author_name}</span>
+                      <span className="font-bold text-ink">{message.authorName}</span>
                       <span className="text-muted">{formatAge(message.at)}</span>
                     </p>
                     <p className="text-sm leading-6 text-ink-soft">{message.body}</p>
-                    {message.photos?.length ? (
+                    {message.photos.length ? (
                       <div className="mt-2 flex gap-1.5">
                         {message.photos.map((src) => (
                           <img
@@ -355,69 +386,45 @@ function TicketDrawer({ ticket, onClose }: { ticket?: Ticket; onClose: () => voi
                   className="min-h-16"
                   aria-label={t.tickets.detail.writeMessage}
                 />
-                <Button size="icon" onClick={send} disabled={!draft.trim()} aria-label={t.tickets.detail.send}>
+                <Button
+                  size="icon"
+                  disabled={!draft.trim() || busy}
+                  aria-label={t.tickets.detail.send}
+                  onClick={() =>
+                    postMessage.mutate(
+                      { id: ticket.id, body: draft.trim() },
+                      { onSuccess: () => setDraft('') },
+                    )
+                  }
+                >
                   <Send className="h-4 w-4" />
                 </Button>
               </div>
             </div>
           </DialogBody>
 
-          {/* The action rail — exactly the actions valid for this status */}
+          {/* The server says which moves are legal; this only draws them. */}
           <DialogFooter className="flex-wrap">
-            {ticket.status === 'new' ? (
-              <>
-                <Button onClick={() => approveTicket(ticket.id)}>
-                  <ClipboardCheck className="h-4 w-4" />
-                  {t.tickets.actions.approve}
-                </Button>
+            {ticket.availableActions.map((name) => {
+              const ui = ACTION_UI[name];
+              const Icon = ui?.icon;
+              return (
                 <Button
-                  variant="secondary"
-                  onClick={() => {
-                    rejectTicket(ticket.id, t.tickets.actions.reject);
-                    pushToast(t.tickets.actions.reject);
-                  }}
+                  key={name}
+                  variant={ui?.variant ?? 'primary'}
+                  disabled={busy}
+                  onClick={() => run(name)}
                 >
-                  {t.tickets.actions.reject}
+                  {Icon ? <Icon className="h-4 w-4" /> : null}
+                  {ui?.label ?? name}
                 </Button>
-              </>
-            ) : null}
+              );
+            })}
 
-            {ticket.status === 'approved' ? (
-              <Button onClick={() => setAssignOpen(true)}>
-                <UserCheck className="h-4 w-4" />
-                {t.tickets.actions.assignVendor}
-              </Button>
-            ) : null}
-
-            {ticket.status === 'assigned' ? (
-              <>
-                <Button onClick={() => startWork(ticket.id)}>
-                  <Wrench className="h-4 w-4" />
-                  {t.tickets.actions.markInProgress}
-                </Button>
-                <Button variant="secondary" onClick={() => setAssignOpen(true)}>
-                  {t.tickets.actions.changeVendor}
-                </Button>
-              </>
-            ) : null}
-
-            {ticket.status === 'in_progress' ? (
-              <Button onClick={() => requestReceipt(ticket.id)}>
-                <Receipt className="h-4 w-4" />
-                {t.tickets.actions.requestReceipt}
-              </Button>
-            ) : null}
-
-            {ticket.status === 'awaiting_receipt' ? (
-              <Button onClick={() => setReceiptOpen(true)}>
+            {ticket.status === 'awaiting_receipt' || ticket.status === 'in_progress' ? (
+              <Button variant="secondary" disabled={busy} onClick={() => setReceiptOpen(true)}>
                 <Receipt className="h-4 w-4" />
                 {t.tenant.tickets.uploadReceipt}
-              </Button>
-            ) : null}
-
-            {ticket.status === 'closed' ? (
-              <Button variant="secondary" onClick={() => reopenTicket(ticket.id)}>
-                {t.tickets.actions.reopen}
               </Button>
             ) : null}
 
@@ -428,20 +435,15 @@ function TicketDrawer({ ticket, onClose }: { ticket?: Ticket; onClose: () => voi
         </DialogContent>
       </Dialog>
 
-      <AssignVendorDialog
-        ticket={ticket}
-        open={assignOpen}
-        onOpenChange={setAssignOpen}
-      />
-
+      <AssignVendorDialog ticket={ticket} open={assignOpen} onOpenChange={setAssignOpen} />
       <ReceiptDialog ticket={ticket} open={receiptOpen} onOpenChange={setReceiptOpen} />
     </>
   );
 }
 
-/* ── Vendor assignment ─────────────────────────────────── */
+/* ── Assigning ─────────────────────────────────────────── */
 
-const TRADE_FOR_CATEGORY: Record<string, Vendor['trade'][]> = {
+const TRADE_FOR_CATEGORY: Record<string, VendorView['trade'][]> = {
   ac: ['ac_tech', 'handyman'],
   plumbing: ['plumber', 'handyman'],
   leak: ['plumber'],
@@ -458,39 +460,28 @@ function AssignVendorDialog({
   open,
   onOpenChange,
 }: {
-  ticket: Ticket;
+  ticket: TicketView;
   open: boolean;
   onOpenChange: (v: boolean) => void;
 }) {
-  const { vendors, properties } = useStoreShallow((s) => ({
-    vendors: s.vendors,
-    properties: s.properties,
-  }));
-  const assignVendor = useStore((s) => s.assignVendor);
+  const { data: vendors = [] } = useVendors();
+  const action = useTicketAction();
   const pushToast = useStore((s) => s.pushToast);
 
-  const property = properties.find((p) => p.id === ticket.property_id);
-  const [vendorId, setVendorId] = React.useState<string>('');
-  const [slot, setSlot] = React.useState<string>(ticket.tenant_availability[0] ?? '');
-  const [custom, setCustom] = React.useState('');
+  const [vendorId, setVendorId] = React.useState('');
+  const [slot, setSlot] = React.useState('');
 
   React.useEffect(() => {
     if (open) {
       setVendorId('');
-      setSlot(ticket.tenant_availability[0] ?? '');
-      setCustom('');
+      setSlot(ticket.tenantAvailability[0] ?? '');
     }
-  }, [open, ticket.id, ticket.tenant_availability]);
+  }, [open, ticket.id, ticket.tenantAvailability]);
 
   const relevant = React.useMemo(() => {
     const trades = TRADE_FOR_CATEGORY[ticket.category] ?? ['handyman'];
-    return vendors
-      .filter((v) => trades.includes(v.trade))
-      .filter((v) => !property || v.areas.includes(property.address.city))
-      .sort((a, b) => b.rating - a.rating);
-  }, [vendors, ticket.category, property]);
-
-  const chosenSlot = custom || slot;
+    return vendors.filter((v) => trades.includes(v.trade)).sort((a, b) => b.rating - a.rating);
+  }, [vendors, ticket.category]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -512,7 +503,8 @@ function AssignVendorDialog({
                       onClick={() => setVendorId(vendor.id)}
                       aria-pressed={vendorId === vendor.id}
                       className={cn(
-                        'w-full rounded-[var(--radius-control)] border p-3 text-start transition-colors duration-150',
+                        'press-sm w-full rounded-[var(--radius-control)] border p-3 text-start',
+                        'transition-[border-color,background-color,transform] duration-150 ease-[var(--ease-out)]',
                         vendorId === vendor.id
                           ? 'border-ink bg-surface'
                           : 'border-line hover:border-line-strong',
@@ -520,7 +512,7 @@ function AssignVendorDialog({
                     >
                       <span className="flex flex-wrap items-center gap-1.5">
                         <span className="text-sm font-bold text-ink">{vendor.name}</span>
-                        {vendor.is_network_partner ? (
+                        {vendor.isNetworkPartner ? (
                           <Badge tone="signalSoft" size="sm">
                             {t.vendors.partner}
                           </Badge>
@@ -535,13 +527,11 @@ function AssignVendorDialog({
                         </span>
                         <span>
                           {t.tickets.assign.responseTime}:{' '}
-                          <Num board>{vendor.avg_response_hours}</Num> {t.vendors.hours}
+                          <Num board>{vendor.avgResponseHours}</Num> {t.vendors.hours}
                         </span>
                         <span>
-                          {t.tickets.assign.calloutFee}: <Money value={vendor.callout_fee} board />
-                        </span>
-                        <span>
-                          <Num board>{vendor.jobs_done}</Num> {t.tickets.assign.jobsForYou}
+                          {t.tickets.assign.calloutFee}:{' '}
+                          <Num board>{formatAgorot(vendor.calloutFeeAgorot)}</Num>
                         </span>
                       </span>
                     </button>
@@ -553,50 +543,62 @@ function AssignVendorDialog({
 
           <div>
             <p className="mb-1 text-2xs font-bold text-ink-soft">{t.tickets.assign.pickSlot}</p>
-            <p className="mb-2 text-2xs text-muted">{t.tickets.assign.tenantSaid}</p>
-            <div className="flex flex-wrap gap-1.5">
-              {ticket.tenant_availability.map((option) => (
-                <button
-                  key={option}
-                  type="button"
-                  onClick={() => {
-                    setSlot(option);
-                    setCustom('');
-                  }}
-                  aria-pressed={chosenSlot === option}
-                  className={cn(
-                    'rounded-full border px-3 py-1.5 text-2xs font-semibold transition-colors duration-150',
-                    chosenSlot === option
-                      ? 'border-ink bg-ink text-on-ink'
-                      : 'border-line text-ink-soft hover:border-line-strong',
-                  )}
-                >
-                  <Num board>
-                    {formatWeekdayDate(option)} · {formatTime(option)}
-                  </Num>
-                </button>
-              ))}
-            </div>
-            <Field label={t.tickets.assign.customSlot} htmlFor="custom-slot" className="mt-3">
+            {ticket.tenantAvailability.length ? (
+              <>
+                <p className="mb-2 text-2xs text-muted">{t.tickets.assign.tenantSaid}</p>
+                <div className="mb-3 flex flex-wrap gap-1.5">
+                  {ticket.tenantAvailability.map((option) => (
+                    <button
+                      key={option}
+                      type="button"
+                      onClick={() => setSlot(option)}
+                      aria-pressed={slot === option}
+                      className={cn(
+                        'rounded-full border px-3 py-1.5 text-2xs font-semibold transition-colors duration-150',
+                        slot === option
+                          ? 'border-ink bg-ink text-on-ink'
+                          : 'border-line text-ink-soft hover:border-line-strong',
+                      )}
+                    >
+                      <Num board>
+                        {formatWeekdayDate(option)} · {formatTime(option)}
+                      </Num>
+                    </button>
+                  ))}
+                </div>
+              </>
+            ) : null}
+            <Field label={t.tickets.assign.customSlot} htmlFor="custom-slot">
               <Input
                 id="custom-slot"
                 type="datetime-local"
                 dir="ltr"
                 className="num"
-                value={custom}
-                onChange={(e) => setCustom(e.target.value)}
+                value={slot ? slot.slice(0, 16) : ''}
+                onChange={(e) => setSlot(new Date(e.target.value).toISOString())}
               />
             </Field>
           </div>
         </DialogBody>
         <DialogFooter>
           <Button
-            disabled={!vendorId || !chosenSlot}
-            onClick={() => {
-              assignVendor(ticket.id, vendorId, new Date(chosenSlot).toISOString());
-              onOpenChange(false);
-              pushToast(t.tickets.assign.done, 'success');
-            }}
+            disabled={!vendorId || !slot || action.isPending}
+            onClick={() =>
+              action.mutate(
+                {
+                  id: ticket.id,
+                  action: 'assign',
+                  body: { vendorId, scheduledAt: new Date(slot).toISOString() },
+                },
+                {
+                  onSuccess: () => {
+                    onOpenChange(false);
+                    pushToast(t.tickets.assign.done, 'success');
+                  },
+                  onError: () => pushToast(t.auth.error.validation_failed, 'alert'),
+                },
+              )
+            }
           >
             {t.tickets.assign.confirm}
           </Button>
@@ -609,33 +611,24 @@ function AssignVendorDialog({
   );
 }
 
-/* ── Receipt upload — closes the ticket and books the expense ── */
+/* ── Receipt ───────────────────────────────────────────── */
 
 export function ReceiptDialog({
   ticket,
   open,
   onOpenChange,
-  by = 'vendor',
 }: {
-  ticket: Ticket;
+  ticket: TicketView;
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  by?: 'tenant' | 'vendor';
 }) {
-  const uploadReceipt = useStore((s) => s.uploadReceipt);
+  const upload = useUploadReceipt();
   const pushToast = useStore((s) => s.pushToast);
-  const vendors = useStore((s) => s.vendors);
-  const vendor = vendors.find((v) => v.id === ticket.vendor_id);
-
-  const [amount, setAmount] = React.useState(String(vendor?.callout_fee ?? 350));
-  const [attached, setAttached] = React.useState(false);
+  const [amount, setAmount] = React.useState('');
 
   React.useEffect(() => {
-    if (open) {
-      setAmount(String(vendor?.callout_fee ?? 350));
-      setAttached(false);
-    }
-  }, [open, vendor?.callout_fee]);
+    if (open) setAmount('');
+  }, [open]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -644,49 +637,38 @@ export function ReceiptDialog({
           <DialogTitle>{t.tenant.tickets.uploadReceipt}</DialogTitle>
         </DialogHeader>
         <DialogBody className="space-y-4">
-          <Field label={t.tenant.tickets.receiptAmount} htmlFor="receipt-amount">
+          <Field
+            label={t.tenant.tickets.receiptAmount}
+            hint={t.tenant.tickets.receiptHint}
+            htmlFor="receipt-amount"
+          >
             <Input
               id="receipt-amount"
               type="number"
+              min={1}
               dir="ltr"
               className="num"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
             />
           </Field>
-
-          <button
-            type="button"
-            onClick={() => setAttached(true)}
-            className={cn(
-              'flex w-full flex-col items-center gap-1.5 rounded-[var(--radius-control)] border border-dashed px-4 py-6 transition-colors duration-150',
-              attached ? 'border-open bg-open-soft' : 'border-line hover:border-line-strong',
-            )}
-          >
-            {attached ? (
-              <>
-                <CheckCircle2 className="h-5 w-5 text-open" />
-                <span className="text-xs font-bold text-open">{t.tenant.report.photoAdded}</span>
-              </>
-            ) : (
-              <>
-                <Receipt className="h-5 w-5 text-line-strong" />
-                <span className="text-xs font-bold text-ink">{t.tenant.report.addPhoto}</span>
-                <span className="text-2xs text-muted">{t.ui.demoNote}</span>
-              </>
-            )}
-          </button>
-
-          <p className="text-2xs leading-5 text-muted">{t.tenant.tickets.receiptHint}</p>
         </DialogBody>
         <DialogFooter>
           <Button
-            disabled={!attached || !Number(amount)}
-            onClick={() => {
-              uploadReceipt(ticket.id, Number(amount), by);
-              onOpenChange(false);
-              pushToast(t.tickets.detail.expenseCreated, 'success');
-            }}
+            disabled={!Number(amount) || upload.isPending}
+            onClick={() =>
+              upload.mutate(
+                /* Typed in shekels, stored in agorot — converted once, here. */
+                { id: ticket.id, amountAgorot: toAgorot(Number(amount)) },
+                {
+                  onSuccess: () => {
+                    onOpenChange(false);
+                    pushToast(t.tickets.detail.expenseCreated, 'success');
+                  },
+                  onError: () => pushToast(t.auth.error.forbidden, 'alert'),
+                },
+              )
+            }
           >
             {t.tenant.tickets.uploadReceipt}
           </Button>
@@ -698,3 +680,5 @@ export function ReceiptDialog({
     </Dialog>
   );
 }
+
+export { useConfirmSlot };

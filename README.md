@@ -140,6 +140,25 @@ All five were walked click-by-click in a browser before this was called done.
 
 ---
 
+## Deploying
+
+The web app deploys to Cloudflare from `wrangler.jsonc` at the repository root.
+It exists because Cloudflare runs `wrangler deploy` from the root of the
+workspace and cannot otherwise tell which app to ship, and it sets
+`not_found_handling: single-page-application` so deep links survive a cold load
+instead of 404ing.
+
+**The deployed frontend cannot sign in yet, and that is expected.** The app
+calls `/api/*`, which Vite proxies in development and nothing serves in
+production. Until the API is deployed the site will render the login screen and
+stop there.
+
+When the API goes up it has to be reachable at the *same origin* as the web app —
+`miftan.co.il/api`, not `api.miftan.co.il` — or the `sameSite=lax` refresh
+cookie will never be sent and every reload will look like a signed-out session.
+`COOKIE_PATH` in `apps/api/.env.example` has to match the path the browser
+sees. Getting either wrong fails silently.
+
 ## Structure
 
 ```

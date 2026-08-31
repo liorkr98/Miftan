@@ -1,0 +1,21 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "miftan-web",
+  "compatibility_date": "2026-08-01",
+
+  /**
+   * Cloudflare ran `wrangler deploy` from the repository root and could not
+   * work out which app in the workspace to ship. This file answers that: the
+   * built web app, and nothing else.
+   */
+  "assets": {
+    "directory": "./apps/web/dist",
+    /**
+     * The app is a single-page app with client-side routing. Without this,
+     * every deep link — /owner/properties, /search/prop_x — would 404 on a
+     * cold load, because no such file exists on disk. This serves index.html
+     * for unknown paths and lets the router decide.
+     */
+    "not_found_handling": "single-page-application"
+  }
+}

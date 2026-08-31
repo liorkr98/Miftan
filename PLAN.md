@@ -123,8 +123,9 @@ Its own phase because it is the product.
       server capabilities — it only offers roles the account actually holds
 - [x] Loading, error and empty states against real latency
 - [x] `/owner/properties` off the mock store and onto Postgres
-- [ ] Remaining screens, in order: owner tickets → tenant tickets + report →
-      seeker search + listing → owner finance
+- [x] Owner ticket board, tenant tickets, tenant report — all on the API,
+      with real camera capture and presigned upload
+- [ ] Remaining screens with an API: seeker search + listing, owner finance
 - [ ] Screens with no API yet (CRM, inquiries, screening, protocol, seasonal,
       contracts, messages) stay on fixtures until Phase 4b builds their
       endpoints

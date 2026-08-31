@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useStore, useStoreShallow } from '@/data/store';
+import { useStore } from '@/data/store';
+import { useCreateTicket, useProperties, uploadFile } from '@/api/hooks';
 import { t, formatTime, formatWeekdayDate, type Severity, type TicketCategory } from '@miftan/shared';
 import { Num, PageHeader } from '@/components/shared/typography';
 import { Button } from '@/components/ui/button';
@@ -55,16 +56,13 @@ function buildSlots(): string[] {
 
 export function TenantReport() {
   const navigate = useNavigate();
-  const createTicket = useStore((s) => s.createTicket);
   const pushToast = useStore((s) => s.pushToast);
-  const { properties, leases, currentTenantId } = useStoreShallow((s) => ({
-    properties: s.properties,
-    leases: s.leases,
-    currentTenantId: s.currentTenantId,
-  }));
+  const createTicket = useCreateTicket();
+  const { data: properties = [] } = useProperties();
 
-  const lease = leases.find((l) => l.tenant_id === currentTenantId);
-  const property = lease ? properties.find((p) => p.id === lease.property_id) : undefined;
+  /* The unit this person rents. `scope` comes from the server, so this cannot
+     accidentally pick up a flat they merely own. */
+  const property = properties.find((p) => p.scope === 'tenant');
 
   const slots = React.useMemo(buildSlots, []);
 
@@ -76,14 +74,24 @@ export function TenantReport() {
   const [availability, setAvailability] = React.useState<string[]>([slots[0]]);
   const [error, setError] = React.useState<string | null>(null);
   const [createdId, setCreatedId] = React.useState<string | null>(null);
+  const [uploading, setUploading] = React.useState(false);
+  const fileInput = React.useRef<HTMLInputElement>(null);
   const categoryRef = React.useRef<HTMLDivElement>(null);
   const titleRef = React.useRef<HTMLInputElement>(null);
 
-  const addPhoto = () =>
-    setPhotos((prev) => [
-      ...prev,
-      `https://picsum.photos/seed/report-${Date.now()}-${prev.length}/900/700`,
-    ]);
+  const addPhoto = async (file: File) => {
+    setUploading(true);
+    try {
+      /* Two hops: ask the API where to put it, then send the bytes straight
+         there. In production the second hop never touches our server. */
+      const url = await uploadFile(file, 'tickets');
+      setPhotos((prev) => [...prev, url]);
+    } catch {
+      setError(t.auth.error.internal);
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const submit = () => {
     if (!category) {
@@ -97,17 +105,30 @@ export function TenantReport() {
       titleRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
       return;
     }
+    if (!property) {
+      setError(t.unit.lease.noLease);
+      return;
+    }
     setError(null);
-    const id = createTicket({
-      category,
-      severity,
-      title: title.trim(),
-      description: description.trim(),
-      photos,
-      availability,
-    });
-    setCreatedId(id);
-    pushToast(t.tenant.report.success, 'success');
+
+    createTicket.mutate(
+      {
+        propertyId: property.id,
+        category,
+        severity,
+        title: title.trim(),
+        description: description.trim(),
+        photos,
+        availability,
+      },
+      {
+        onSuccess: (ticket) => {
+          setCreatedId(ticket.id);
+          pushToast(t.tenant.report.success, 'success');
+        },
+        onError: () => setError(t.auth.error.internal),
+      },
+    );
   };
 
   /* ── Success state ─────────────────────────────────── */
@@ -264,13 +285,30 @@ export function TenantReport() {
                 </button>
               </span>
             ))}
+            <input
+              ref={fileInput}
+              type="file"
+              accept="image/*"
+              /* `capture` opens the camera directly on a phone, which is where
+                 a leak actually gets photographed. */
+              capture="environment"
+              className="sr-only"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) void addPhoto(file);
+                e.target.value = '';
+              }}
+            />
             <button
               type="button"
-              onClick={addPhoto}
-              className="flex h-20 w-20 flex-col items-center justify-center gap-1 rounded-[var(--radius-control)] border border-dashed border-line text-muted transition-colors duration-150 hover:border-line-strong hover:text-ink"
+              disabled={uploading}
+              onClick={() => fileInput.current?.click()}
+              className="press flex h-20 w-20 flex-col items-center justify-center gap-1 rounded-[var(--radius-control)] border border-dashed border-line text-muted transition-[color,border-color,transform] duration-150 ease-[var(--ease-out)] hover:border-line-strong hover:text-ink disabled:opacity-50"
             >
               <Camera className="h-5 w-5" />
-              <span className="text-2xs font-bold">{t.tenant.report.addPhoto}</span>
+              <span className="text-2xs font-bold">
+                {uploading ? t.ui.loading : t.tenant.report.addPhoto}
+              </span>
             </button>
           </div>
           <p className="mt-1.5 text-2xs text-muted">{t.tenant.report.photoHint}</p>
@@ -323,8 +361,8 @@ export function TenantReport() {
             {error}
           </p>
         ) : null}
-        <Button size="lg" className="w-full" onClick={submit}>
-          {t.tenant.report.submit}
+        <Button size="lg" className="w-full" onClick={submit} disabled={createTicket.isPending}>
+          {createTicket.isPending ? t.tenant.report.submitting : t.tenant.report.submit}
         </Button>
       </div>
     </div>
