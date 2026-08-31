@@ -16,6 +16,7 @@ import { ticketRoutes } from './routes/tickets.ts';
 import { directoryRoutes } from './routes/directory.ts';
 import { uploadRoutes } from './routes/uploads.ts';
 import { leadRoutes } from './routes/leads.ts';
+import { inquiryRoutes } from './routes/inquiries.ts';
 
 /**
  * Built as a factory so tests can spin up an app without binding a port.
@@ -113,6 +114,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(directoryRoutes);
   await app.register(uploadRoutes);
   await app.register(leadRoutes);
+  await app.register(inquiryRoutes);
 
   return app;
 }

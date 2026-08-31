@@ -23,4 +23,7 @@ export * from './api/views';
 export * from './api/tickets';
 export * from './api/directory';
 export * from './api/leads';
+export * from './api/inquiries';
+export * from './catalog/protocol-items';
+export * from './catalog/seasonal-templates';
 export * from './api/client';
