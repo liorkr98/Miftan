@@ -23,13 +23,10 @@ dist-ssr
 *.sln
 *.sw?
 
-# env
+# env — real values only; the .example files are committed on purpose
 .env
-.env.local
-
-# env
-.env
-.env.local
+.env.*
+!.env.example
 
 # local upload storage
 apps/api/uploads/

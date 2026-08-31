@@ -23,6 +23,18 @@ const schema = z.object({
    * session.
    */
   COOKIE_PATH: z.string().default('/auth'),
+
+  /* ── Object storage (Cloudflare R2, S3 API) ──────────────
+     Optional in development, required in production — the check lives in
+     storage/index.ts so the failure names the actual problem. These are R2
+     *S3 access keys* from "Manage R2 API Tokens", not a Cloudflare API token;
+     the two are different credentials and only the former can sign a URL. */
+  R2_ACCOUNT_ID: z.string().optional(),
+  R2_BUCKET: z.string().optional(),
+  R2_ACCESS_KEY_ID: z.string().optional(),
+  R2_SECRET_ACCESS_KEY: z.string().optional(),
+  /** Public read origin — a bucket custom domain, or the r2.dev subdomain */
+  R2_PUBLIC_URL: z.string().optional(),
 });
 
 const parsed = schema.safeParse(process.env);

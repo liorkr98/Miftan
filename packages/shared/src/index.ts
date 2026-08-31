@@ -22,4 +22,5 @@ export * from './api/schemas';
 export * from './api/views';
 export * from './api/tickets';
 export * from './api/directory';
+export * from './api/leads';
 export * from './api/client';

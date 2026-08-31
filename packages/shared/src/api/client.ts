@@ -60,6 +60,17 @@ export class MiftanClient {
 
     if (!res.ok) throw await toApiError(res);
     if (res.status === 204) return undefined as T;
+
+    /* A static host with SPA fallback answers /api/anything with index.html and
+       a cheerful 200. Parsing that as JSON throws somewhere far away from the
+       cause, so name the cause here instead. */
+    const contentType = res.headers.get('content-type') ?? '';
+    if (!contentType.includes('json')) {
+      throw new ApiError(
+        'api_unreachable',
+        `expected JSON from ${this.#baseUrl}${path}, got ${contentType || 'no content type'}`,
+      );
+    }
     return (await res.json()) as T;
   }
 
@@ -71,7 +82,7 @@ export class MiftanClient {
           method: 'POST',
           credentials: 'include',
         });
-        if (!res.ok) {
+        if (!res.ok || !(res.headers.get('content-type') ?? '').includes('json')) {
           this.#accessToken = null;
           this.#onSignedOut?.();
           return false;

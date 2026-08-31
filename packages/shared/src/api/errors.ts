@@ -17,6 +17,11 @@ export const ERROR_CODES = [
   'validation_failed',
   'rate_limited',
   'internal',
+  /* Not produced by the server. The client raises this when the thing that
+     answered was not the API at all — a static host serving index.html for
+     /api, a captive portal, a misconfigured VITE_API_URL. Without it the
+     symptom is an unexplained JSON parse error. */
+  'api_unreachable',
 ] as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[number];
@@ -43,6 +48,7 @@ export const ERROR_STATUS: Record<ErrorCode, number> = {
   validation_failed: 422,
   rate_limited: 429,
   internal: 500,
+  api_unreachable: 503,
 };
 
 export class ApiError extends Error {
