@@ -1,0 +1,40 @@
+# The Miftan API. Frankfurt: no Fly region is closer to Israel, and keeping the
+# data in the EU is the easier answer under חוק הגנת הפרטיות תיקון 13.
+app = 'miftan'
+primary_region = 'fra'
+
+[build]
+  dockerfile = 'Dockerfile'
+
+# Migrations run before the new version takes traffic, in a throwaway machine.
+# A failed migration fails the deploy instead of leaving a half-migrated app
+# serving requests.
+[deploy]
+  release_command = 'npx tsx src/db/migrate.ts'
+
+[env]
+  PORT = '4000'
+  NODE_ENV = 'production'
+  # The API is on its own hostname, so the refresh cookie is scoped to /auth.
+  # It is /api/auth only under the Vite dev proxy.
+  COOKIE_PATH = '/auth'
+
+[http_service]
+  internal_port = 4000
+  force_https = true
+  auto_stop_machines = 'suspend'
+  auto_start_machines = true
+  # Zero would mean a cold start on the first request of the day, which for a
+  # pilot is the difference between "fast" and "broken".
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    interval = '15s'
+    timeout = '2s'
+    grace_period = '10s'
+    method = 'GET'
+    path = '/health'
+
+[[vm]]
+  size = 'shared-cpu-1x'
+  memory = '512mb'

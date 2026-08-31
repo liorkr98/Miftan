@@ -11,6 +11,16 @@ Three things have to live somewhere, and they cannot all live in the same place:
 | Database | Neon, or the Node host's own Postgres | — |
 | Uploads | Cloudflare R2 | Photos of a leak and receipts must outlive a container. |
 
+## Live state
+
+| Thing | Status |
+|---|---|
+| Fly app `miftan` (fra) | created, image builds, **not deployed — needs a database** |
+| R2 bucket `miftan-uploads` (WEUR) | live, public read + CORS set, verified end to end |
+| Fly secrets (JWT, all five R2) | staged, apply on first deploy |
+| Postgres | **not provisioned** |
+| Cloudflare web build | building from GitHub |
+
 ## What is already wired
 
 Cloudflare builds from GitHub. The root `wrangler.jsonc` tells it which app in the
@@ -57,6 +67,15 @@ Five variables, all required together (`apps/api/.env.example` has them):
 ```
 R2_ACCOUNT_ID  R2_BUCKET  R2_ACCESS_KEY_ID  R2_SECRET_ACCESS_KEY  R2_PUBLIC_URL
 ```
+
+The bucket is `miftan-uploads`, in WEUR, reading publicly from
+`https://pub-ac84dd5958724504aa061dcd3959715c.r2.dev`. CORS lists the app's
+origins explicitly rather than `*`, because a wildcard would let any site on the
+internet spend a leaked upload URL.
+
+Verified against the real bucket: a signed PUT returns 200, the object reads back
+from the public origin with the right content type, and a PUT whose content type
+does not match the one that was signed is rejected with 403.
 
 `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` come from **R2 → Manage R2 API Tokens →
 Create API token → Object Read & Write**. A Cloudflare API token (`cfut_…`) is a
