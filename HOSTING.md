@@ -18,7 +18,7 @@ Three things have to live somewhere, and they cannot all live in the same place:
 | Fly app `miftan` (fra) | created, image builds, **not deployed — needs a database** |
 | R2 bucket `miftan-uploads` (WEUR) | live, public read + CORS set, verified end to end |
 | Fly secrets (JWT, all five R2) | staged, apply on first deploy |
-| Postgres | **not provisioned** |
+| Postgres | **not provisioned** — Neon, region eu-central-1, both connection strings needed |
 | Cloudflare web build | building from GitHub |
 
 ## What is already wired

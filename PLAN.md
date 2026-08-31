@@ -126,13 +126,28 @@ Its own phase because it is the product.
 - [x] Owner ticket board, tenant tickets, tenant report — all on the API,
       with real camera capture and presigned upload
 - [ ] Remaining screens with an API: seeker search + listing, owner finance
-- [ ] Screens with no API yet (CRM, inquiries, screening, protocol, seasonal,
-      contracts, messages) stay on fixtures until Phase 4b builds their
-      endpoints
+- [ ] Screens still on fixtures — CRM, inquiries, screening, protocol, seasonal,
+      contracts, messages. **Their endpoints now exist** (Phase 4b); this is
+      wiring, not new API work
 
-> **Phase 4b, newly needed.** The cutover revealed the obvious: seven surfaces
-> still have no API. They are the same shape as the ticket work — projection,
-> routes, tests — so the pattern is set; it is just volume.
+### Phase 4b — The remaining API surfaces · **DONE**
+- [x] **Leads, screening, audit.** Flags recomputed on every read, never stored;
+      the audit log records the rule as it stood at the decision, so relaxing a
+      criterion changes today's list and not yesterday's record
+- [x] **Availability inquiries.** seeker → owner → tenant → owner → seeker, with
+      the valve in the middle: the tenant's note never reaches the seeker, and
+      the seeker's name never reaches the tenant
+- [x] **Protocols.** Move-in/move-out, written by both parties, locked once
+      signed; the comparison marks a row changed only when both readings exist
+- [x] **Seasonal maintenance.** Materialised on read rather than by a cron;
+      expected value, never gross avoided cost; becomes an ordinary ticket
+- [x] **Message threads.** "The other person" and "unread" both answered from
+      the reader's side
+- [x] **Contract scanning.** The scan proposes, the owner commits — extraction
+      behind an interface, with an LLM able to slot in unchanged
+
+128 API tests, 7 shared. Every surface's privacy test scans the raw response
+body rather than asserting field by field, so a widened schema fails it.
 
 ### Phase 6 — Mobile-grade web · ~2 sessions
 - [ ] Polish at 390px for the flows that actually happen on a phone: report a fault, my tickets, search, listing
