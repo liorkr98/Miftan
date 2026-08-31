@@ -26,4 +26,7 @@ export * from './api/leads';
 export * from './api/inquiries';
 export * from './catalog/protocol-items';
 export * from './catalog/seasonal-templates';
+export * from './lib/seasonal';
+export * from './api/seasonal';
+export * from './api/protocols';
 export * from './api/client';
