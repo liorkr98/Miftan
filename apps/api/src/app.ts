@@ -19,6 +19,8 @@ import { leadRoutes } from './routes/leads.ts';
 import { inquiryRoutes } from './routes/inquiries.ts';
 import { seasonalRoutes } from './routes/seasonal.ts';
 import { protocolRoutes } from './routes/protocols.ts';
+import { threadRoutes } from './routes/threads.ts';
+import { contractRoutes } from './routes/contracts.ts';
 
 /**
  * Built as a factory so tests can spin up an app without binding a port.
@@ -119,6 +121,8 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(inquiryRoutes);
   await app.register(seasonalRoutes);
   await app.register(protocolRoutes);
+  await app.register(threadRoutes);
+  await app.register(contractRoutes);
 
   return app;
 }

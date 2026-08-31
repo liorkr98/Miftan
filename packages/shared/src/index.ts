@@ -29,4 +29,6 @@ export * from './catalog/seasonal-templates';
 export * from './lib/seasonal';
 export * from './api/seasonal';
 export * from './api/protocols';
+export * from './api/threads';
+export * from './api/contracts';
 export * from './api/client';
