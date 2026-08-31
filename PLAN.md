@@ -116,11 +116,22 @@ Its own phase because it is the product.
 - [x] Receipt → expense auto-creation, in one transaction
 - [x] Integration tests over the whole flow
 
-### Phase 5 — Wire the app to real data · ~3 sessions
-- [ ] Replace zustand mock actions with TanStack Query against the API
-- [ ] Real login; **delete the persona switcher** — role comes from the account
-- [ ] Loading, error and empty states against real latency
-- [ ] Every screen keeps looking as it does now
+### Phase 5 — Wire the app to real data · ~3 sessions · **IN PROGRESS**
+- [x] TanStack Query, typed client, one hooks file so invalidation is reviewable
+- [x] Real login, route guard, session that survives a reload
+- [x] **Persona switcher deleted.** Replaced by a role switcher driven by
+      server capabilities — it only offers roles the account actually holds
+- [x] Loading, error and empty states against real latency
+- [x] `/owner/properties` off the mock store and onto Postgres
+- [ ] Remaining screens, in order: owner tickets → tenant tickets + report →
+      seeker search + listing → owner finance
+- [ ] Screens with no API yet (CRM, inquiries, screening, protocol, seasonal,
+      contracts, messages) stay on fixtures until Phase 4b builds their
+      endpoints
+
+> **Phase 4b, newly needed.** The cutover revealed the obvious: seven surfaces
+> still have no API. They are the same shape as the ticket work — projection,
+> routes, tests — so the pattern is set; it is just volume.
 
 ### Phase 6 — Mobile-grade web · ~2 sessions
 - [ ] Polish at 390px for the flows that actually happen on a phone: report a fault, my tickets, search, listing

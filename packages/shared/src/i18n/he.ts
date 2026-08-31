@@ -1159,6 +1159,44 @@ export const t = {
     whyHere: 'למה זה מוצג כאן',
   },
 
+  /* ── Sign in ───────────────────────────────────────── */
+  auth: {
+    title: 'כניסה למפתן',
+    subtitle: 'ניהול השכרה, מהמפתן ועד סוף החוזה',
+    email: 'אימייל',
+    password: 'סיסמה',
+    signIn: 'התחבר',
+    signingIn: 'מתחבר…',
+    signOut: 'התנתק',
+    restoring: 'טוען…',
+    demoTitle: 'כניסה מהירה להדגמה',
+    demoHint: 'חשבונות לדוגמה מהנתונים המקומיים',
+    noAccount: 'אין לך חשבון? פנה לבעל הדירות שלך לקבלת הזמנה.',
+    /* Server codes → Hebrew. The API never ships a sentence. */
+    error: {
+      invalid_credentials: 'אימייל או סיסמה שגויים',
+      email_taken: 'האימייל הזה כבר רשום',
+      not_authenticated: 'נדרשת התחברות מחדש',
+      session_expired: 'החיבור פג. התחבר שוב.',
+      session_reused: 'זוהתה כניסה חריגה וכל החיבורים נותקו. התחבר שוב.',
+      forbidden: 'אין לך הרשאה לפעולה הזו',
+      not_found: 'לא נמצא',
+      validation_failed: 'יש שדה שלא מולא כראוי',
+      rate_limited: 'יותר מדי ניסיונות. נסה שוב בעוד רגע.',
+      internal: 'משהו השתבש אצלנו. נסה שוב.',
+      offline: 'אין חיבור לשרת',
+    },
+  },
+
+  roles: {
+    switch: 'החלף תצוגה',
+    owner: 'בעל דירות',
+    tenant: 'דייר',
+    seeker: 'מחפש דירה',
+    none: 'אין עדיין דירות בחשבון',
+    noneHint: 'ברגע שתוסיף דירה, או שבעל דירה יזמין אותך כדייר, התצוגה המתאימה תיפתח כאן.',
+  },
+
   /* ── Generic UI ────────────────────────────────────── */
   ui: {
     yes: 'כן',

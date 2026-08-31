@@ -22,3 +22,4 @@ export function toShekels(agorot: number): number {
 export function share(agorot: number, percent: number): Agorot {
   return Math.round(agorot * (percent / 100)) as Agorot;
 }
+

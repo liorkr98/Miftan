@@ -12,6 +12,7 @@ export default defineConfig({
       DATABASE_URL: TEST_DATABASE_URL,
       JWT_SECRET: 'test-secret-that-is-long-enough-to-pass-validation',
       WEB_ORIGIN: 'http://localhost:5178',
+      COOKIE_PATH: '/auth',
     },
   },
 });

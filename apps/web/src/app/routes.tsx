@@ -1,4 +1,6 @@
-import { createBrowserRouter, Navigate } from 'react-router-dom';
+import { createBrowserRouter } from 'react-router-dom';
+import { RequireAuth, RoleHome } from './guard';
+import { SignIn } from './sign-in';
 import { OwnerShell, SeekerShell, TenantShell } from './shell';
 import { NotFound } from './not-found';
 import { OwnerDashboard } from '@/personas/owner/dashboard';
@@ -25,45 +27,52 @@ import { SeekerQueue } from '@/personas/seeker/queue';
 import { SeekerProfile } from '@/personas/seeker/profile';
 
 export const router = createBrowserRouter([
-  { path: '/', element: <Navigate to="/owner" replace /> },
+  { path: '/sign-in', element: <SignIn /> },
   {
-    path: '/owner',
-    element: <OwnerShell />,
+    /* Everything below here needs a session. */
+    element: <RequireAuth />,
     children: [
-      { index: true, element: <OwnerDashboard /> },
-      { path: 'properties', element: <OwnerProperties /> },
-      { path: 'properties/:id', element: <OwnerUnitDetail /> },
-      { path: 'tickets', element: <OwnerTickets /> },
-      { path: 'vendors', element: <OwnerVendors /> },
-      { path: 'crm', element: <OwnerCrm /> },
-      { path: 'inquiries', element: <OwnerInquiries /> },
-      { path: 'maintenance', element: <OwnerSeasonal /> },
-      { path: 'contracts', element: <OwnerContracts /> },
-      { path: 'revenue', element: <OwnerRevenue /> },
-      { path: 'crm/filters', element: <OwnerScreening /> },
-      { path: 'finance', element: <OwnerFinance /> },
-      { path: 'messages', element: <OwnerMessages /> },
-    ],
-  },
-  {
-    path: '/tenant',
-    element: <TenantShell />,
-    children: [
-      { index: true, element: <TenantHome /> },
-      { path: 'report', element: <TenantReport /> },
-      { path: 'tickets', element: <TenantTickets /> },
-      { path: 'renewal', element: <TenantRenewal /> },
-      { path: 'documents', element: <TenantDocuments /> },
-    ],
-  },
-  {
-    path: '/search',
-    element: <SeekerShell />,
-    children: [
-      { index: true, element: <SeekerSearch /> },
-      { path: 'queue', element: <SeekerQueue /> },
-      { path: 'profile', element: <SeekerProfile /> },
-      { path: ':id', element: <SeekerListing /> },
+      { path: '/', element: <RoleHome /> },
+      {
+        path: '/owner',
+        element: <OwnerShell />,
+        children: [
+          { index: true, element: <OwnerDashboard /> },
+          { path: 'properties', element: <OwnerProperties /> },
+          { path: 'properties/:id', element: <OwnerUnitDetail /> },
+          { path: 'tickets', element: <OwnerTickets /> },
+          { path: 'vendors', element: <OwnerVendors /> },
+          { path: 'crm', element: <OwnerCrm /> },
+          { path: 'inquiries', element: <OwnerInquiries /> },
+          { path: 'maintenance', element: <OwnerSeasonal /> },
+          { path: 'contracts', element: <OwnerContracts /> },
+          { path: 'revenue', element: <OwnerRevenue /> },
+          { path: 'crm/filters', element: <OwnerScreening /> },
+          { path: 'finance', element: <OwnerFinance /> },
+          { path: 'messages', element: <OwnerMessages /> },
+        ],
+      },
+      {
+        path: '/tenant',
+        element: <TenantShell />,
+        children: [
+          { index: true, element: <TenantHome /> },
+          { path: 'report', element: <TenantReport /> },
+          { path: 'tickets', element: <TenantTickets /> },
+          { path: 'renewal', element: <TenantRenewal /> },
+          { path: 'documents', element: <TenantDocuments /> },
+        ],
+      },
+      {
+        path: '/search',
+        element: <SeekerShell />,
+        children: [
+          { index: true, element: <SeekerSearch /> },
+          { path: 'queue', element: <SeekerQueue /> },
+          { path: 'profile', element: <SeekerProfile /> },
+          { path: ':id', element: <SeekerListing /> },
+        ],
+      },
     ],
   },
   { path: '*', element: <NotFound /> },

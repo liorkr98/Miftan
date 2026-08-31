@@ -1,6 +1,7 @@
 import { format, parseISO, differenceInCalendarDays, differenceInCalendarMonths } from 'date-fns';
 import { he } from 'date-fns/locale';
 import { t } from '../i18n/he';
+import { toShekels } from './money';
 
 const fill = (template: string, n: number) => template.replace('{n}', String(n));
 
@@ -36,6 +37,15 @@ export function formatMoneyShort(amount: number): string {
     return `₪${plain.format(rounded)}K`;
   }
   return `₪${plain.format(amount)}`;
+}
+
+/**
+ * The wire speaks agorot; people read shekels. This is the only place that
+ * boundary is crossed in the UI, so a screen can never quietly render 1040000
+ * as though it were a rent.
+ */
+export function formatAgorot(agorot: number, precise = false): string {
+  return formatMoney(toShekels(agorot), precise);
 }
 
 export function formatNumber(n: number): string {

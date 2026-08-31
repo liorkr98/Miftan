@@ -1,9 +1,10 @@
 import * as React from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useStore } from '@/data/store';
+import { useAuth } from '@/api/auth';
 import { APP_NAME, t, daysUntil } from '@miftan/shared';
 import { cn } from '@/lib/utils';
-import { PersonaSwitcher } from './persona-switcher';
+import { RoleSwitcher } from './role-switcher';
 import { Toaster } from '@/components/shared/toaster';
 import { Button } from '@/components/ui/button';
 import {
@@ -28,6 +29,7 @@ import {
   Gauge,
   Home,
   Inbox,
+  LogOut,
   DoorOpen,
   ListChecks,
   MapPin,
@@ -52,6 +54,7 @@ function TopBar() {
   const [resetOpen, setResetOpen] = React.useState(false);
   const resetDemo = useStore((s) => s.resetDemo);
   const pushToast = useStore((s) => s.pushToast);
+  const { capabilities, user, signOut } = useAuth();
 
   return (
     <header
@@ -71,7 +74,7 @@ function TopBar() {
       </div>
 
       <div className="flex flex-1 justify-center">
-        <PersonaSwitcher />
+        <RoleSwitcher capabilities={capabilities} />
       </div>
 
       <div className="flex shrink-0 items-center gap-1">
@@ -83,6 +86,16 @@ function TopBar() {
         >
           <RotateCcw className="h-3.5 w-3.5" />
           <span className="hidden md:inline">{t.shell.resetDemo}</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => void signOut()}
+          title={user?.name}
+          className="press flex items-center gap-1.5 rounded-[var(--radius-control)] px-2.5 py-1.5 text-xs font-semibold text-on-ink-muted transition-[color,background-color,transform] duration-[var(--dur-press)] ease-[var(--ease-out)] hover:bg-white/10 hover:text-on-ink"
+        >
+          <LogOut className="h-3.5 w-3.5" />
+          <span className="hidden lg:inline">{user?.name ?? t.auth.signOut}</span>
         </button>
       </div>
 

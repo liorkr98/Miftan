@@ -18,5 +18,18 @@ export default defineConfig({
     /* The shared package lives outside this app's root, so Vite needs
        explicit permission to serve from it. */
     fs: { allow: [path.resolve(__dirname, '../..')] },
+
+    /* The API is proxied under /api rather than called on its own origin.
+       The refresh cookie is sameSite=lax, and localhost:5178 → 127.0.0.1:4000
+       is cross-site, so the browser would refuse to send it and every reload
+       would look like a signed-out session. Proxying makes the app and the API
+       same-origin in development, which is also how they will be deployed. */
+    proxy: {
+      '/api': {
+        target: 'http://127.0.0.1:4000',
+        changeOrigin: true,
+        rewrite: (p) => p.replace(/^\/api/, ''),
+      },
+    },
   },
 });

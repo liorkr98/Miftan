@@ -12,6 +12,17 @@ const schema = z.object({
   JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
   /** Where the web app runs, for CORS and cookie scope */
   WEB_ORIGIN: z.string().default('http://localhost:5178'),
+  /**
+   * Path the refresh cookie is scoped to.
+   *
+   * Scoping it means the refresh token is not attached to every ordinary API
+   * call, only to the endpoints that need it. But the path the *browser* sees
+   * depends on how the API is mounted: on its own hostname that is /auth, and
+   * behind a /api proxy it is /api/auth. Getting it wrong is silent — the
+   * cookie is simply never sent, and every reload looks like a signed-out
+   * session.
+   */
+  COOKIE_PATH: z.string().default('/auth'),
 });
 
 const parsed = schema.safeParse(process.env);
