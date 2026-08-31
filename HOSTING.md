@@ -57,6 +57,23 @@ refresh cookie will not be sent and every reload will look like a signed-out
 session. Put the API on a subdomain of the same registrable domain
 (`api.miftan.co.il` + `miftan.co.il`) and it works.
 
+## Database (Neon)
+
+Create the project in **AWS eu-central-1 (Frankfurt)** — the same city as the API,
+and inside the EU.
+
+Neon gives you two connection strings and they are not interchangeable:
+
+- The **pooled** one, with `-pooler` in the hostname. This is `DATABASE_URL` for
+  the running app. It is PgBouncer in transaction mode, so `db/client.ts` detects
+  the `-pooler` host and turns off prepared statements. Without that the app works
+  fine until it starts reporting `prepared statement "s1" does not exist` under
+  concurrency.
+- The **direct** one, without `-pooler`. Use this for migrations and for
+  `db:seed`. DDL through a transaction pooler is a bad idea.
+
+Both need `?sslmode=require`, which Neon's copy button already includes.
+
 ## R2
 
 The driver is `apps/api/src/storage/r2.ts`. It signs a 15-minute PUT so the bytes
