@@ -227,6 +227,13 @@ export const tickets = pgTable(
     tenantAvailability: timestamp('tenant_availability', { withTimezone: true }).array().notNull().default([]),
     tenantConfirmedSlot: boolean('tenant_confirmed_slot').notNull().default(false),
 
+    /* What this kind of job typically costs, recorded at creation. It decides
+       only whether to ask the owner — never what gets paid. */
+    estimateAgorot: integer('estimate_agorot'),
+    autoApprovedAt: timestamp('auto_approved_at', { withTimezone: true }),
+    /** The rule that approved it, in words, for the owner to read back later */
+    autoApprovalReason: text('auto_approval_reason'),
+
     receiptAmountAgorot: integer('receipt_amount_agorot'),
     receiptFile: text('receipt_file'),
     receiptUploadedAt: timestamp('receipt_uploaded_at', { withTimezone: true }),
@@ -442,6 +449,25 @@ export const seasonalTasks = pgTable(
   },
   (t) => [uniqueIndex('seasonal_tasks_template_property_year_key').on(t.templateId, t.propertyId, t.year)],
 );
+
+/**
+ * When maintenance may be approved without asking.
+ *
+ * One row per owner, absent until they opt in. Absence means off — a product
+ * that starts spending on your behalf because a default said so is not one to
+ * trust with a portfolio.
+ */
+export const budgetPolicies = pgTable('budget_policies', {
+  ownerId: text('owner_id').primaryKey().references(() => users.id, { onDelete: 'cascade' }),
+  enabled: boolean('enabled').notNull().default(false),
+  perTicketCeilingAgorot: integer('per_ticket_ceiling_agorot').notNull().default(50_000),
+  monthlyCapAgorot: integer('monthly_cap_agorot').notNull().default(200_000),
+  /** TicketCategory[] — empty means nothing is in scope */
+  categories: text('categories').array().notNull().default([]),
+  includeUrgent: boolean('include_urgent').notNull().default(false),
+  createdAt,
+  updatedAt,
+});
 
 export const screeningPresets = pgTable('screening_presets', {
   id: text('id').primaryKey(),

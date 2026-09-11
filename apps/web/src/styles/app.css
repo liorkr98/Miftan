@@ -235,8 +235,25 @@
   .press:active {
     transform: scale(0.97);
   }
+  /* Carries its own transition: it is used standalone far more often than
+     alongside `.press`, and without one the scale snaps in both directions —
+     which reads as a glitch rather than as the interface listening. */
+  .press-sm {
+    transition: transform var(--dur-press) var(--ease-out);
+  }
   .press-sm:active {
     transform: scale(0.985);
+  }
+
+  /* 640ms rather than the usual second: perceived speed is most of what a
+     spinner is for. */
+  @keyframes spin-quick {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  .spin-quick {
+    animation: spin-quick 640ms linear infinite;
   }
 
   /* Radix popovers/menus scale from their trigger, not from the centre.

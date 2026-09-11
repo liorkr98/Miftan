@@ -21,6 +21,7 @@ import { seasonalRoutes } from './routes/seasonal.ts';
 import { protocolRoutes } from './routes/protocols.ts';
 import { threadRoutes } from './routes/threads.ts';
 import { contractRoutes } from './routes/contracts.ts';
+import { budgetRoutes } from './routes/budget.ts';
 
 /**
  * Built as a factory so tests can spin up an app without binding a port.
@@ -123,6 +124,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(protocolRoutes);
   await app.register(threadRoutes);
   await app.register(contractRoutes);
+  await app.register(budgetRoutes);
 
   return app;
 }

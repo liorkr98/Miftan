@@ -14,6 +14,7 @@ import {
 } from '@miftan/shared';
 import { db, schema as s } from '../db/client.ts';
 import { newId } from '../lib/ids.ts';
+import { decideAutoApproval } from '../policy/budget.ts';
 import { resolveViewer, scopeFor, type Viewer } from '../policy/viewer.ts';
 import {
   loadTicketContexts,
@@ -106,6 +107,20 @@ export async function ticketRoutes(app: FastifyInstance) {
       const id = newId('ticket');
       const { title, description, category, severity, photos, availability, propertyId } = request.body;
 
+      /* Small, routine work the owner has already said yes to in advance skips
+         the wait. The tenant is the one who benefits: a ₪280 tap washer is not
+         a decision anybody was ever going to refuse, and the two days spent
+         asking are the actual cost. */
+      const [property] = await db
+        .select({ ownerId: s.properties.ownerId })
+        .from(s.properties)
+        .where(eq(s.properties.id, propertyId));
+      const decision = await decideAutoApproval({
+        ownerId: property.ownerId,
+        category,
+        severity,
+      });
+
       await db.transaction(async (tx) => {
         await tx.insert(s.tickets).values({
           id,
@@ -113,11 +128,16 @@ export async function ticketRoutes(app: FastifyInstance) {
           tenantId: scope === 'tenant' ? viewer.userId : null,
           category,
           severity,
-          status: 'new',
+          status: decision.approved ? 'approved' : 'new',
           title,
           description,
           photos,
           tenantAvailability: availability.map((iso) => new Date(iso)),
+          estimateAgorot: decision.estimateAgorot,
+          autoApprovedAt: decision.approved ? new Date() : null,
+          /* Recorded either way. "Why wasn't this approved automatically?" is
+             as reasonable a question as the other one. */
+          autoApprovalReason: decision.reason,
         });
 
         /* The opening description is also the first message, so the thread

@@ -15,6 +15,13 @@
       "when": 1788026366955,
       "tag": "0001_sessions",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1789119061290,
+      "tag": "0002_black_rick_jones",
+      "breakpoints": true
     }
   ]
 }

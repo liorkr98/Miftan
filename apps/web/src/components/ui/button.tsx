@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { Slot } from '@radix-ui/react-slot';
 import { cva, type VariantProps } from 'class-variance-authority';
+import { LoaderCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 /**
@@ -36,12 +37,51 @@ export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {
   asChild?: boolean;
+  /** In flight. Blocks the press and says so, without moving anything. */
+  loading?: boolean;
 }
 
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, ...props }, ref) => {
+  ({ className, variant, size, asChild = false, loading = false, children, disabled, ...props }, ref) => {
     const Comp = asChild ? Slot : 'button';
-    return <Comp ref={ref} className={cn(buttonVariants({ variant, size }), className)} {...props} />;
+
+    /* `asChild` hands rendering to the caller's element, so there is nowhere to
+       put the overlay. Loading is ignored rather than half-applied. */
+    if (asChild) {
+      return (
+        <Comp ref={ref} className={cn(buttonVariants({ variant, size }), className)} disabled={disabled} {...props}>
+          {children}
+        </Comp>
+      );
+    }
+
+    return (
+      <button
+        ref={ref}
+        className={cn(buttonVariants({ variant, size }), loading && 'relative', className)}
+        disabled={disabled || loading}
+        aria-busy={loading || undefined}
+        {...props}
+      >
+        {/* The label stays in the flow and keeps the button its own width, so
+            nothing on the row reflows when a mutation starts. It blurs out
+            rather than cutting: a crossfade between two sharp states reads as
+            two objects swapping, and blur bridges them into one. */}
+        <span
+          className={cn(
+            'inline-flex items-center gap-2 transition-[opacity,filter] duration-[var(--dur-menu)] ease-[var(--ease-out)]',
+            loading && 'pointer-events-none opacity-0 blur-[3px]',
+          )}
+        >
+          {children}
+        </span>
+        {loading ? (
+          <span className="absolute inset-0 grid place-items-center">
+            <LoaderCircle className="spin-quick size-4" aria-hidden />
+          </span>
+        ) : null}
+      </button>
+    );
   },
 );
 Button.displayName = 'Button';
