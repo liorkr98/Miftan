@@ -128,6 +128,11 @@ export const properties = pgTable(
     arnonaBimonthlyAgorot: integer('arnona_bimonthly_agorot').notNull().default(0),
     vaadMonthlyAgorot: integer('vaad_monthly_agorot').notNull().default(0),
 
+    /* Derived from the city on write. Denormalised on purpose: every market
+       query groups by it, and a join to a lookup table for a value that cannot
+       change without the address changing buys nothing. */
+    district: text('district'),
+
     status: unitStatus('status').notNull(),
     /* No current_lease_id: the active lease is derived from leases.end_date.
        A denormalised pointer here is a guaranteed source of drift. */
@@ -457,6 +462,41 @@ export const seasonalTasks = pgTable(
  * that starts spending on your behalf because a default said so is not one to
  * trust with a portfolio.
  */
+/**
+ * Every search a seeker runs.
+ *
+ * Demand is the half of the market nobody publishes. What people looked for and
+ * did not find is not for sale anywhere, and it is what tells an owner what
+ * their unit would let for.
+ *
+ * The row holds the **query**, not the person. `seekerId` is nullable and is
+ * there to de-duplicate a refresh, not to assemble a history; there is no free
+ * text, no user agent, no address. That is the line between market data and a
+ * dossier, and it is drawn in the schema rather than in a policy document.
+ */
+export const searchEvents = pgTable(
+  'search_events',
+  {
+    id: text('id').primaryKey(),
+    seekerId: text('seeker_id').references(() => users.id, { onDelete: 'set null' }),
+    /** SearchFilters, as submitted */
+    filters: jsonb('filters').notNull(),
+    /* Lifted out of the blob because every aggregate groups by them. */
+    district: text('district'),
+    city: text('city'),
+    minRooms: numeric('min_rooms', { precision: 3, scale: 1 }),
+    maxRooms: numeric('max_rooms', { precision: 3, scale: 1 }),
+    maxPriceAgorot: integer('max_price_agorot'),
+    /** How many units matched. Zero is the most interesting value here. */
+    resultCount: integer('result_count').notNull(),
+    at: timestamp('at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('search_events_city_at_idx').on(t.city, t.at),
+    index('search_events_district_at_idx').on(t.district, t.at),
+  ],
+);
+
 export const budgetPolicies = pgTable('budget_policies', {
   ownerId: text('owner_id').primaryKey().references(() => users.id, { onDelete: 'cascade' }),
   enabled: boolean('enabled').notNull().default(false),

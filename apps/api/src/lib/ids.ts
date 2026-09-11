@@ -24,6 +24,7 @@ export const ID_PREFIX = {
   screeningPreset: 'spre',
   audit: 'aud',
   contractScan: 'scan',
+  searchEvent: 'sev',
   session: 'sess',
 } as const;
 

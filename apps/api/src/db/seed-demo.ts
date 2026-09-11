@@ -1,4 +1,4 @@
-import { DEFAULT_CRITERIA, toAgorot } from '@miftan/shared';
+import { DEFAULT_CRITERIA, districtOf, toAgorot } from '@miftan/shared';
 import { daysAgo, monthKey, monthsOut, photo, slotAt } from '@miftan/fixtures';
 import { schema as s } from './client.ts';
 import { seedId } from '../lib/ids.ts';
@@ -57,6 +57,7 @@ export async function seedDemoAccount(tx: Tx, passwordHash: string) {
     {
       id: pid('demo-a'), ownerId: dana,
       street: 'ארלוזורוב', houseNumber: '12', city: 'תל אביב-יפו', neighborhood: 'הצפון הישן',
+      district: districtOf('תל אביב-יפו') ?? null,
       lat: '32.0854', lng: '34.7745',
       rooms: '3', sqm: 68, floor: 2, totalFloors: 4,
       amenities: ['balcony', 'ac', 'elevator'],
@@ -69,6 +70,7 @@ export async function seedDemoAccount(tx: Tx, passwordHash: string) {
          to make legible. */
       id: pid('demo-b'), ownerId: dana,
       street: 'בזל', houseNumber: '8', city: 'תל אביב-יפו', neighborhood: 'הצפון הישן',
+      district: districtOf('תל אביב-יפו') ?? null,
       lat: '32.0897', lng: '34.7812',
       rooms: '2.5', sqm: 55, floor: 1, totalFloors: 3,
       amenities: ['balcony', 'ac', 'renovated'],
@@ -80,6 +82,7 @@ export async function seedDemoAccount(tx: Tx, passwordHash: string) {
       /* Empty today, so the seeker side has something she can act on now. */
       id: pid('demo-c'), ownerId: dana,
       street: 'יהודה הלוי', houseNumber: '40', city: 'תל אביב-יפו', neighborhood: 'לב העיר',
+      district: districtOf('תל אביב-יפו') ?? null,
       lat: '32.0631', lng: '34.7739',
       rooms: '1.5', sqm: 38, floor: 4, totalFloors: 6,
       amenities: ['ac', 'elevator'],
@@ -91,6 +94,7 @@ export async function seedDemoAccount(tx: Tx, passwordHash: string) {
       /* Not hers — this is the flat she lives in. */
       id: pid('demo-home'), ownerId: herLandlord,
       street: 'מונטיפיורי', houseNumber: '5', city: 'תל אביב-יפו', neighborhood: 'לב העיר',
+      district: districtOf('תל אביב-יפו') ?? null,
       lat: '32.0648', lng: '34.7761',
       rooms: '4', sqm: 92, floor: 3, totalFloors: 5,
       amenities: ['balcony', 'ac', 'elevator', 'parking'],

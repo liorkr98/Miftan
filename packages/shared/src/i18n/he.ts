@@ -1171,7 +1171,23 @@ export const t = {
     restoring: 'טוען…',
     demoTitle: 'כניסה מהירה להדגמה',
     demoHint: 'חשבונות לדוגמה מהנתונים המקומיים',
-    noAccount: 'אין לך חשבון? פנה לבעל הדירות שלך לקבלת הזמנה.',
+    noAccount: 'אין לך חשבון?',
+    createOne: 'פתח חשבון',
+    haveAccount: 'כבר יש לך חשבון?',
+    backToSignIn: 'חזרה לכניסה',
+
+    /* Registration */
+    signUpTitle: 'פתיחת חשבון',
+    signUpSubtitle: 'חשבון אחד — בעל דירות, דייר או מחפש דירה',
+    name: 'שם מלא',
+    namePlaceholder: 'כפי שיופיע לצד שני',
+    phone: 'טלפון',
+    phoneOptional: 'לא חובה — נוח לתיאום מול בעלי מקצוע',
+    passwordHint: 'לפחות 10 תווים',
+    signUp: 'פתח חשבון',
+    signingUp: 'פותח חשבון…',
+    /* Explains why the form asks for nothing else. */
+    roleNote: 'לא צריך לבחור תפקיד. החשבון נפתח ריק, והתצוגה נפתחת לפי מה שיש בו — דירה שהוספת, חוזה שבעל דירה שייך אליך, או חיפוש שהתחלת.',
     /* Server codes → Hebrew. The API never ships a sentence. */
     error: {
       invalid_credentials: 'אימייל או סיסמה שגויים',

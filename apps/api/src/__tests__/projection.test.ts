@@ -32,6 +32,7 @@ function context(id: string): PropertyContext {
       id,
       ownerId: 'usr_landlord',
       street: 'נחלת בנימין', houseNumber: '55', city: 'תל אביב-יפו', neighborhood: 'לב העיר',
+      district: 'tel_aviv',
       lat: '32.0651', lng: '34.7708',
       rooms: '3.5', sqm: 80, floor: 5, totalFloors: 6,
       amenities: ['elevator'], photos: ['p.jpg'],

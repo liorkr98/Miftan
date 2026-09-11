@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import type { Capabilities, PublicUser } from '@miftan/shared';
+import type { Capabilities, PublicUser, RegisterInput } from '@miftan/shared';
 import { api, onSignedOut } from './client';
 import { keys } from './query';
 
@@ -17,6 +17,7 @@ interface AuthState {
   capabilities: Capabilities | null;
   restoring: boolean;
   signIn: (email: string, password: string) => Promise<void>;
+  signUp: (input: RegisterInput) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -66,14 +67,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [queryClient],
   );
 
+  /* Registration signs you straight in — there is no email-confirmation step
+     to sit between opening an account and using it. */
+  const signUp = React.useCallback(
+    async (input: RegisterInput) => {
+      const result = await api.register(input);
+      setUser(result.user);
+      setCapabilities(result.capabilities);
+      await queryClient.invalidateQueries({ queryKey: keys.me });
+    },
+    [queryClient],
+  );
+
   const signOut = React.useCallback(async () => {
     await api.logout();
     clear();
   }, [clear]);
 
   const value = React.useMemo(
-    () => ({ user, capabilities, restoring, signIn, signOut }),
-    [user, capabilities, restoring, signIn, signOut],
+    () => ({ user, capabilities, restoring, signIn, signUp, signOut }),
+    [user, capabilities, restoring, signIn, signUp, signOut],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

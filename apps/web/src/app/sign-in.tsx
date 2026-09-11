@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
+import { Link, Navigate, useLocation } from 'react-router-dom';
 import { ApiError, APP_NAME, t } from '@miftan/shared';
 import { useAuth } from '@/api/auth';
 import { homeFor } from './guard';
@@ -110,12 +110,17 @@ export function SignIn() {
             </p>
           ) : null}
 
-          <Button type="submit" size="lg" className="w-full" disabled={busy}>
-            {busy ? t.auth.signingIn : t.auth.signIn}
-            {!busy ? <LogIn className="h-4 w-4" /> : null}
+          <Button type="submit" size="lg" className="w-full" loading={busy}>
+            {t.auth.signIn}
+            <LogIn className="h-4 w-4" />
           </Button>
 
-          <p className="text-2xs leading-4 text-muted">{t.auth.noAccount}</p>
+          <p className="mt-3 text-center text-xs text-muted">
+            {t.auth.noAccount}{' '}
+            <Link to="/sign-up" className="font-bold text-ink underline-offset-2 hover:underline">
+              {t.auth.createOne}
+            </Link>
+          </p>
         </form>
 
         {import.meta.env.DEV ? (
@@ -148,7 +153,9 @@ export function SignIn() {
                       {account.email}
                     </span>
                   </span>
-                  {account.hint ? <span className="text-2xs text-muted">{account.hint}</span> : null}
+                  {account.hint ? (
+                    <span className="text-2xs text-muted">{account.hint}</span>
+                  ) : null}
                 </button>
               ))}
             </div>

@@ -15,7 +15,7 @@ import {
   inquiries as fxInquiries,
   protocolRuns as fxProtocolRuns,
 } from '@miftan/fixtures';
-import { toAgorot } from '@miftan/shared';
+import { districtOf, toAgorot } from '@miftan/shared';
 import { db, sql, schema as s } from './client.ts';
 import { seedId } from '../lib/ids.ts';
 import { hashPassword } from '../lib/auth.ts';
@@ -104,6 +104,8 @@ await db.transaction(async (tx) => {
       houseNumber: p.address.number,
       city: p.address.city,
       neighborhood: p.address.neighborhood,
+      /* Resolved once, on write. Every market aggregate groups by it. */
+      district: districtOf(p.address.city) ?? null,
       lat: String(p.address.lat),
       lng: String(p.address.lng),
       rooms: String(p.rooms),
