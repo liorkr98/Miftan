@@ -106,3 +106,15 @@ export type PublicProperty = z.infer<typeof publicPropertyViewSchema>;
 export type TenantProperty = z.infer<typeof tenantPropertySchema>;
 export type OwnerProperty = z.infer<typeof ownerPropertySchema>;
 export type PropertyView = z.infer<typeof propertyViewSchema>;
+
+/**
+ * The photos on a listing.
+ *
+ * The whole array is sent, not one file at a time, because order is part of the
+ * content — the first photo is the one a seeker sees in a results list, and
+ * "make this the cover" is a reorder, not an upload. The URLs come from the
+ * presigned-upload flow, so nothing here touches bytes.
+ */
+export const setPhotosSchema = z.object({
+  photos: z.array(z.string().url()).max(20),
+});

@@ -31,6 +31,7 @@ export * from './lib/seasonal';
 export * from './lib/budget';
 export * from './api/budget';
 export * from './api/search';
+export * from './api/viewings';
 export * from './api/seasonal';
 export * from './api/protocols';
 export * from './api/threads';

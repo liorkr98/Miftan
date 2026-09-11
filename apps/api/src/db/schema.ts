@@ -474,6 +474,51 @@ export const seasonalTasks = pgTable(
  * text, no user agent, no address. That is the line between market data and a
  * dossier, and it is drawn in the schema rather than in a policy document.
  */
+export const viewingStatus = pgEnum('viewing_status', ['open', 'booked', 'attended', 'no_show', 'cancelled']);
+
+/**
+ * Viewing slots.
+ *
+ * The owner publishes when they can be at the flat; applicants pick from what
+ * is there. That inversion is the point — the usual arrangement has six people
+ * texting a landlord to negotiate six separate times, and the landlord
+ * answering the same message six times.
+ *
+ * One slot is one applicant. Fifteen minutes, because a viewing that runs long
+ * makes every later slot late, and an applicant standing in a stairwell waiting
+ * for their turn has already formed an opinion about the landlord.
+ */
+export const viewingSlots = pgTable(
+  'viewing_slots',
+  {
+    id: text('id').primaryKey(),
+    propertyId: text('property_id').notNull().references(() => properties.id),
+    ownerId: text('owner_id').notNull().references(() => users.id),
+    startsAt: timestamp('starts_at', { withTimezone: true }).notNull(),
+    durationMinutes: integer('duration_minutes').notNull().default(15),
+
+    status: viewingStatus('status').notNull().default('open'),
+    /* Who holds it. Null while the slot is open. */
+    leadId: text('lead_id').references(() => leads.id, { onDelete: 'set null' }),
+    bookedAt: timestamp('booked_at', { withTimezone: true }),
+    /**
+     * True when the owner put someone in a slot who had not cleared the
+     * screening filters. Recorded rather than silent: it is the owner
+     * overriding their own rule, and they should be able to see that they did.
+     */
+    invitedByOwner: boolean('invited_by_owner').notNull().default(false),
+    note: text('note'),
+
+    createdAt,
+    updatedAt,
+  },
+  (t) => [
+    index('viewing_slots_property_starts_idx').on(t.propertyId, t.startsAt),
+    /* One applicant cannot hold two slots on the same unit. */
+    uniqueIndex('viewing_slots_lead_key').on(t.propertyId, t.leadId),
+  ],
+);
+
 export const searchEvents = pgTable(
   'search_events',
   {

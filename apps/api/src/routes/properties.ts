@@ -2,7 +2,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { and, desc, eq, inArray, isNull } from 'drizzle-orm';
 import { z } from 'zod';
-import { ApiError, propertyListSchema, propertyViewSchema } from '@miftan/shared';
+import { ApiError, propertyListSchema, propertyViewSchema, setPhotosSchema } from '@miftan/shared';
 import { db, schema as s } from '../db/client.ts';
 import { ANONYMOUS, resolveViewer, scopeFor, type Viewer } from '../policy/viewer.ts';
 import { loadPropertyContexts, projectProperty } from '../policy/properties.ts';
@@ -89,4 +89,39 @@ export async function propertyRoutes(app: FastifyInstance) {
       return projectProperty(viewer, ctx);
     },
   );
+  /**
+   * Replacing a listing's photos.
+   *
+   * The client uploads through the presigned flow and sends back the resulting
+   * URLs in the order they should appear — the first is the cover. Sending the
+   * whole array makes reordering and deleting the same operation as adding,
+   * which is the only way "drag to reorder" does not need its own endpoint.
+   */
+  r.put(
+    '/properties/:id/photos',
+    {
+      onRequest: [app.authenticate],
+      schema: {
+        params: z.object({ id: z.string() }),
+        body: setPhotosSchema,
+        response: { 200: propertyViewSchema },
+      },
+    },
+    async (request) => {
+      const viewer = await viewerFor(request);
+      if (scopeFor(viewer, request.params.id) !== 'owner') {
+        throw new ApiError('not_found', 'no such property');
+      }
+
+      await db
+        .update(s.properties)
+        .set({ photos: request.body.photos, updatedAt: new Date() })
+        .where(eq(s.properties.id, request.params.id));
+
+      const [row] = await db.select().from(s.properties).where(eq(s.properties.id, request.params.id));
+      const [ctx] = await loadPropertyContexts(viewer, [row]);
+      return projectProperty(viewer, ctx);
+    },
+  );
+
 }

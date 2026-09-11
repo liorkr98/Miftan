@@ -182,6 +182,22 @@ export function leadScore(flags: ScreeningFlag[], criteria: ScreeningCriterion[]
   return Math.round((earned / total) * 100);
 }
 
+/**
+ * Did this applicant clear the owner's filters?
+ *
+ * "Passed" means no enabled criterion failed. The owner chooses which criteria
+ * are enabled, so the set of criteria *is* their filter — a score threshold
+ * would be a second, hidden filter they never set.
+ *
+ * This gates one thing only: booking a viewing slot without being asked. It
+ * never removes anyone from a list, and the owner can always invite someone who
+ * did not clear it. A soft filter that quietly became a hard one is exactly the
+ * failure mode this product is supposed to avoid.
+ */
+export function passesScreening(flags: ScreeningFlag[]): boolean {
+  return flags.every((f) => f.passed);
+}
+
 /** Leads are sorted, never filtered. Ties break on how long they've waited. */
 export function rankLeads<T extends { score: number; created_at: string }>(leads: T[]): T[] {
   return [...leads].sort(

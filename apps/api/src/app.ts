@@ -23,6 +23,7 @@ import { threadRoutes } from './routes/threads.ts';
 import { contractRoutes } from './routes/contracts.ts';
 import { budgetRoutes } from './routes/budget.ts';
 import { searchRoutes } from './routes/search.ts';
+import { viewingRoutes } from './routes/viewings.ts';
 
 /**
  * Built as a factory so tests can spin up an app without binding a port.
@@ -127,6 +128,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(contractRoutes);
   await app.register(budgetRoutes);
   await app.register(searchRoutes);
+  await app.register(viewingRoutes);
 
   return app;
 }
