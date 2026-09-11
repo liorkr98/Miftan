@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { cn } from '@/lib/utils';
-import { formatMoney, formatPhone, telHref } from '@miftan/shared';
+import { formatAgorot, formatMoney, formatPhone, telHref } from '@miftan/shared';
 
 /**
  * Mixed-direction text is the single most common RTL bug. Every LTR island
@@ -8,21 +8,32 @@ import { formatMoney, formatPhone, telHref } from '@miftan/shared';
  * these, which wrap it in dir="ltr" + unicode-bidi: isolate.
  */
 
+/**
+ * Money, in exactly one of two units.
+ *
+ * `value` is shekels and `agorot` is agorot, and the component takes one or the
+ * other. Two named props rather than one plus a flag, because the failure this
+ * guards against is passing 840000 where 8400 was meant — which renders as
+ * ₪840,000 and looks entirely plausible. A name you have to choose is harder to
+ * get wrong than a boolean you can forget.
+ */
 export function Money({
   value,
+  agorot,
   precise,
   board,
   className,
 }: {
-  value: number;
+  value?: number;
+  agorot?: number;
   precise?: boolean;
   /** Use the mono board face — tables, the departures track, tabular columns */
   board?: boolean;
   className?: string;
-}) {
+} & ({ value: number } | { agorot: number })) {
   return (
     <span dir="ltr" className={cn(board ? 'num-board' : 'num', className)}>
-      {formatMoney(value, precise)}
+      {agorot !== undefined ? formatAgorot(agorot) : formatMoney(value ?? 0, precise)}
     </span>
   );
 }

@@ -1,5 +1,6 @@
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 import {
+  deriveAvailability,
   evaluateLead,
   leadScore,
   type LeadView,
@@ -30,6 +31,8 @@ export interface LeadContext {
   seeker?: Pick<UserRow, 'id' | 'name' | 'phone'> | null;
   about?: string | null;
   queueLength: number;
+  /** Private. Read only by deriveAvailability, never projected. */
+  renewalIntent?: 'extend' | 'leave' | 'undecided' | 'too_early' | null;
   criteria: ScreeningCriterion[];
 }
 
@@ -124,6 +127,20 @@ export function projectLead(viewer: Viewer, ctx: LeadContext): LeadView {
     queueLength: ctx.queueLength,
     watchOnly: ctx.lead.watchOnly,
     createdAt: ctx.lead.createdAt.toISOString(),
+
+    neighborhood: ctx.property.neighborhood,
+    city: ctx.property.city,
+    photo: ctx.property.photos[0] ?? null,
+    monthlyRentAgorot: ctx.property.monthlyRentAgorot,
+    /* Through deriveAvailability like every other seeker-facing path, so the
+       tenant's renewal intent is turned into a public signal in exactly one
+       place and never read directly here. */
+    availability: deriveAvailability({
+      status: ctx.property.status,
+      availableFrom: ctx.property.availableFrom,
+      confidence: ctx.property.availabilityConfidence,
+      renewalIntent: ctx.renewalIntent ?? null,
+    }),
   };
   return mine;
 }
@@ -147,7 +164,7 @@ export async function loadLeadContexts(
   if (leads.length === 0) return [];
   const propertyIds = [...new Set(leads.map((l) => l.propertyId))];
 
-  const [properties, queueRows, seekers, profiles] = await Promise.all([
+  const [properties, queueRows, seekers, profiles, leases] = await Promise.all([
     db.select().from(s.properties).where(inArray(s.properties.id, propertyIds)),
     db
       .select({ propertyId: s.leads.propertyId, id: s.leads.id })
@@ -165,8 +182,15 @@ export async function loadLeadContexts(
           .from(s.renterProfiles)
           .where(inArray(s.renterProfiles.userId, [...new Set(leads.map((l) => l.seekerId))]))
       : Promise.resolve([]),
+    /* Private, and used for one thing: deriveAvailability turns it into the
+       public signal. It is never projected onto a lead. */
+    db
+      .select({ propertyId: s.leases.propertyId, renewalIntent: s.leases.renewalIntent })
+      .from(s.leases)
+      .where(and(inArray(s.leases.propertyId, propertyIds), isNull(s.leases.deletedAt))),
   ]);
 
+  const intentByProperty = new Map(leases.map((l) => [l.propertyId, l.renewalIntent]));
   const propertyById = new Map(properties.map((p) => [p.id, p]));
   const seekerById = new Map(seekers.map((u) => [u.id, u]));
   const aboutById = new Map(profiles.map((p) => [p.userId, p.about]));
@@ -181,6 +205,7 @@ export async function loadLeadContexts(
     seeker: seekerById.get(lead.seekerId) ?? null,
     about: aboutById.get(lead.seekerId) ?? null,
     queueLength: queueLengths.get(lead.propertyId) ?? 0,
+    renewalIntent: intentByProperty.get(lead.propertyId) ?? null,
     criteria: opts.criteria,
   }));
 }

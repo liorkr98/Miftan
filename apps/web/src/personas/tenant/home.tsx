@@ -1,44 +1,48 @@
 import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useStoreShallow } from '@/data/store';
-import { t, daysUntil, formatDate, formatRooms, formatSqm, formatFloor, type TrackRow } from '@miftan/shared';
+import {
+  t,
+  daysUntil,
+  formatDate,
+  formatRooms,
+  formatSqm,
+  formatFloor,
+  type TenantProperty,
+  type TrackRow,
+} from '@miftan/shared';
+import { useProperties, useTickets } from '@/api/hooks';
 import { DepartureTrack } from '@/components/shared/departure-track';
 import { OfferRail } from '@/components/shared/revenue';
 import { Money, Num, PageHeader, Phone, SectionTitle } from '@/components/shared/typography';
 import { EmptyState } from '@/components/shared/empty-state';
+import { ErrorState } from '@/components/shared/error-state';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Meter } from '@/components/shared/meter';
-import { OPEN_TICKET_STATUSES } from '@/data/selectors';
+import { Skeleton } from '@/components/shared/skeleton';
 import { addMonths, parseISO, subDays } from 'date-fns';
-import {
-  CalendarCheck2,
-  FileText,
-  KeyRound,
-  ListChecks,
-  Wrench,
-} from 'lucide-react';
+import { CalendarCheck2, FileText, KeyRound, ListChecks, Wrench } from 'lucide-react';
+
+/** Statuses that still want the tenant's attention. */
+const OPEN = ['new', 'approved', 'assigned', 'in_progress', 'awaiting_receipt'];
 
 export function TenantHome() {
   const navigate = useNavigate();
-  const { properties, leases, tenants, tickets, currentTenantId, owner } = useStoreShallow((s) => ({
-    properties: s.properties,
-    leases: s.leases,
-    tenants: s.tenants,
-    tickets: s.tickets,
-    currentTenantId: s.currentTenantId,
-    owner: s.owner,
-  }));
+  const { data: properties, isLoading, isError, refetch } = useProperties();
+  const { data: tickets = [] } = useTickets();
 
-  const tenant = tenants.find((x) => x.id === currentTenantId);
-  const lease = leases.find((l) => l.tenant_id === currentTenantId);
-  const property = lease ? properties.find((p) => p.id === lease.property_id) : undefined;
+  if (isLoading) return <HomeSkeleton />;
+  if (isError) return <ErrorState onRetry={() => void refetch()} />;
 
-  const openTickets = tickets.filter(
-    (tk) => tk.tenant_id === currentTenantId && OPEN_TICKET_STATUSES.includes(tk.status),
-  );
+  /**
+   * `/properties` answers with every unit you have a relationship to, each
+   * projected for the relationship you hold. The one you live in is the row
+   * scoped `tenant` — which is also why an account that both lets flats and
+   * rents one lands here on the right flat rather than on one of its own.
+   */
+  const home = properties?.find((p): p is TenantProperty => p.scope === 'tenant');
 
-  if (!lease || !property) {
+  if (!home) {
     return (
       <EmptyState
         icon={KeyRound}
@@ -50,11 +54,11 @@ export function TenantHome() {
     );
   }
 
-  const daysLeft = Math.max(0, daysUntil(lease.end_date));
-  const leaseLengthDays = Math.max(
-    1,
-    daysUntil(lease.end_date, parseISO(lease.start_date)),
-  );
+  const { lease, owner, address } = home;
+  const openTickets = tickets.filter((tk) => OPEN.includes(tk.status));
+
+  const daysLeft = Math.max(0, daysUntil(lease.endDate));
+  const leaseLengthDays = Math.max(1, daysUntil(lease.endDate, parseISO(lease.startDate)));
 
   const nextPayment = (() => {
     const d = new Date();
@@ -65,16 +69,16 @@ export function TenantHome() {
   const trackRows: TrackRow[] = [
     {
       id: lease.id,
-      property_id: property.id,
-      label: `${property.address.street} ${property.address.number}`,
+      property_id: home.id,
+      label: `${address.street} ${address.number}`,
       sublabel: t.track.myLease,
       from: new Date().toISOString().slice(0, 10),
-      until: lease.end_date,
-      tone: lease.renewal_intent === 'extend' ? 'live' : 'signal',
+      until: lease.endDate,
+      tone: lease.renewalIntent === 'extend' ? 'live' : 'signal',
       confidence: 'confirmed',
       marks: [
         {
-          at: subDays(parseISO(lease.end_date), lease.notice_period_days).toISOString().slice(0, 10),
+          at: subDays(parseISO(lease.endDate), lease.noticePeriodDays).toISOString().slice(0, 10),
           kind: 'decision',
           label: t.track.decisionPoint,
         },
@@ -92,24 +96,23 @@ export function TenantHome() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title={`${property.address.street} ${property.address.number}`}
-        subtitle={`${property.address.neighborhood} · ${property.address.city}`}
+        title={`${address.street} ${address.number}`}
+        subtitle={`${address.neighborhood} · ${address.city}`}
       />
 
-      {property.photos[0] ? (
+      {home.photos[0] ? (
         <img
-          src={property.photos[0]}
+          src={home.photos[0]}
           alt=""
           className="h-44 w-full rounded-[var(--radius-card)] object-cover sm:h-56"
         />
       ) : null}
 
-      {/* Lease at a glance */}
       <section className="rounded-[var(--radius-card)] border border-line p-4">
         <SectionTitle
           aside={
             <Badge tone={daysLeft < 90 ? 'signalSoft' : 'neutral'} size="sm">
-              {t.availability.availableFrom} <Num board>{formatDate(lease.end_date)}</Num>
+              {t.availability.availableFrom} <Num board>{formatDate(lease.endDate)}</Num>
             </Badge>
           }
         >
@@ -131,17 +134,13 @@ export function TenantHome() {
         />
 
         <dl className="mt-4 grid grid-cols-2 gap-y-3 text-sm sm:grid-cols-4">
-          <Stat label={t.tenant.monthlyRent} value={<Money value={lease.monthly_rent} board />} />
-          <Stat
-            label={t.tenant.nextPayment}
-            value={<Num board>{formatDate(nextPayment)}</Num>}
-          />
-          <Stat label={t.tenant.paidVia} value={t.paymentMethod[lease.payment_method]} />
-          <Stat label={t.unit.lease.deposit} value={<Money value={lease.deposit} board />} />
+          <Stat label={t.tenant.monthlyRent} value={<Money agorot={lease.monthlyRentAgorot} board />} />
+          <Stat label={t.tenant.nextPayment} value={<Num board>{formatDate(nextPayment)}</Num>} />
+          <Stat label={t.tenant.paidVia} value={t.paymentMethod[lease.paymentMethod]} />
+          <Stat label={t.unit.lease.deposit} value={<Money agorot={lease.depositAgorot} board />} />
         </dl>
       </section>
 
-      {/* The same departures board, one row: your lease */}
       <section>
         <SectionTitle aside={<span className="text-2xs text-muted">{t.track.axisHint}</span>}>
           {t.track.title}
@@ -150,7 +149,6 @@ export function TenantHome() {
         <p className="mt-2 text-2xs text-muted">{t.track.decisionPoint}</p>
       </section>
 
-      {/* Quick actions */}
       <section>
         <SectionTitle>{t.tenant.quickActions}</SectionTitle>
         <div className="grid gap-2.5 sm:grid-cols-2">
@@ -159,7 +157,7 @@ export function TenantHome() {
               key={action.to}
               type="button"
               onClick={() => navigate(action.to)}
-              className="flex items-center gap-3 rounded-[var(--radius-card)] border border-line p-4 text-start transition-colors duration-150 hover:border-line-strong hover:bg-surface"
+              className="press-sm flex items-center gap-3 rounded-[var(--radius-card)] border border-line p-4 text-start transition-colors duration-150 hover:border-line-strong hover:bg-surface"
             >
               <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[var(--radius-control)] bg-surface">
                 <action.Icon className="h-4.5 w-4.5 text-ink" />
@@ -175,13 +173,13 @@ export function TenantHome() {
         </div>
       </section>
 
-      {/* Landlord + building */}
       <div className="grid gap-4 sm:grid-cols-2">
         <section className="rounded-[var(--radius-card)] border border-line p-4">
           <SectionTitle>{t.tenant.landlord}</SectionTitle>
           <p className="text-sm font-bold text-ink">{owner.name}</p>
-          {owner.company ? <p className="text-2xs text-muted">{owner.company}</p> : null}
-          <Phone value={owner.phone} className="mt-1.5 block text-xs text-ink-soft" />
+          {owner.phone ? (
+            <Phone value={owner.phone} className="mt-1.5 block text-xs text-ink-soft" />
+          ) : null}
           <Button
             variant="secondary"
             size="sm"
@@ -195,25 +193,27 @@ export function TenantHome() {
         <section className="rounded-[var(--radius-card)] border border-line p-4">
           <SectionTitle>{t.tenant.building}</SectionTitle>
           <dl className="space-y-2 text-sm">
-            <Line label={t.properties.rooms} value={formatRooms(property.rooms)} />
-            <Line label={t.properties.sqm} value={formatSqm(property.sqm)} />
-            <Line
-              label={t.properties.floor}
-              value={formatFloor(property.floor, property.total_floors)}
-            />
-            <Line label={t.unit.vaad} value={<Money value={property.vaad_monthly} board />} />
-            <Line label={t.unit.arnona} value={<Money value={property.arnona_bimonthly} board />} />
+            <Line label={t.properties.rooms} value={formatRooms(home.rooms)} />
+            <Line label={t.properties.sqm} value={formatSqm(home.sqm)} />
+            <Line label={t.properties.floor} value={formatFloor(home.floor, home.totalFloors)} />
+            <Line label={t.unit.vaad} value={<Money agorot={home.vaadMonthlyAgorot} board />} />
+            <Line label={t.unit.arnona} value={<Money agorot={home.arnonaBimonthlyAgorot} board />} />
           </dl>
         </section>
       </div>
 
       <OfferRail placement="tenant_home" audience="tenant" />
+    </div>
+  );
+}
 
-      {tenant ? (
-        <p className="text-center text-2xs text-muted">
-          {tenant.name} · {t.ui.demoNote}
-        </p>
-      ) : null}
+function HomeSkeleton() {
+  return (
+    <div className="space-y-6">
+      <Skeleton className="h-9 w-56" />
+      <Skeleton className="h-44 w-full rounded-[var(--radius-card)] sm:h-56" />
+      <Skeleton className="h-40 w-full rounded-[var(--radius-card)]" />
+      <Skeleton className="h-28 w-full rounded-[var(--radius-card)]" />
     </div>
   );
 }

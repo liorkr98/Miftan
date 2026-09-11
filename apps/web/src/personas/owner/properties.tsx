@@ -14,6 +14,7 @@ import { AvailabilityChip, UnitStatusBadge } from '@/components/shared/status';
 import { Num, PageHeader } from '@/components/shared/typography';
 import { EmptyState } from '@/components/shared/empty-state';
 import { CardGridSkeleton, ListSkeleton } from '@/components/shared/skeleton';
+import { ErrorState } from '@/components/shared/error-state';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -26,7 +27,7 @@ import {
 } from '@/components/ui/field';
 import { cn } from '@/lib/utils';
 import type { UnitStatus } from '@miftan/shared';
-import { Home, LayoutGrid, Rows3, ServerCrash } from 'lucide-react';
+import { Home, LayoutGrid, Rows3 } from 'lucide-react';
 
 type View = 'table' | 'cards';
 
@@ -73,17 +74,7 @@ export function OwnerProperties() {
     setCity('all');
   };
 
-  if (isError) {
-    return (
-      <EmptyState
-        icon={ServerCrash}
-        title={t.auth.error.internal}
-        hint={t.ui.notFoundHint}
-        action={t.ui.reset}
-        onAction={() => void refetch()}
-      />
-    );
-  }
+  if (isError) return <ErrorState onRetry={() => void refetch()} />;
 
   return (
     <div className="space-y-5">

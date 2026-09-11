@@ -1,6 +1,14 @@
 import * as React from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useStore } from '@/data/store';
+import {
+  useInquiries,
+  useLeads,
+  useProperties,
+  useSeasonal,
+  useThreads,
+  useTickets,
+} from '@/api/hooks';
 import { useAuth } from '@/api/auth';
 import { APP_NAME, t, daysUntil } from '@miftan/shared';
 import { cn } from '@/lib/utils';
@@ -246,30 +254,43 @@ function SkipLink() {
 /* ── Owner: rail + dense workstation ───────────────────── */
 
 export function OwnerShell() {
-  const tickets = useStore((s) => s.tickets);
-  const threads = useStore((s) => s.threads);
-  const leads = useStore((s) => s.leads);
-  const properties = useStore((s) => s.properties);
-  const inquiries = useStore((s) => s.inquiries);
-  const seasonalTasks = useStore((s) => s.seasonalTasks);
   const main = React.useRef<HTMLElement>(null!);
   useScrollReset(main);
 
+  /**
+   * Rail badges read from the server, like the screens they point at.
+   *
+   * They were the last thing left on the fixtures, which made them the most
+   * misleading part of the app: a count that disagrees with the page it links
+   * to is worse than no count, and it disagreed for every account except the
+   * one the fixtures were written for.
+   */
+  const { data: properties = [] } = useProperties();
+  const { data: tickets = [] } = useTickets();
+  const { data: leads = [] } = useLeads();
+  const { data: inquiries = [] } = useInquiries();
+  const { data: seasonal } = useSeasonal();
+  const { data: threads } = useThreads();
+
+  const owned = properties.filter((p) => p.scope === 'owner').length;
   const openTickets = tickets.filter((tk) => OPEN_TICKET_STATUSES.includes(tk.status)).length;
-  const unread = threads.filter((th) => th.messages.some((m) => !m.read)).length;
+  const ownedLeads = leads.filter((l) => l.scope === 'owner').length;
+  const unread = threads?.totalUnread ?? 0;
+  /* The ones actually waiting on the owner: a new question, or a tenant's
+     answer that has not been passed on yet. */
   const waitingInquiries = inquiries.filter(
-    (x) => x.status === 'new' || x.status === 'answered',
+    (x) => x.scope === 'owner' && (x.status === 'new' || x.status === 'answered'),
   ).length;
-  const dueSoon = seasonalTasks.filter(
-    (x) => x.status === 'due' && daysUntil(x.due_date) <= 45,
+  const dueSoon = (seasonal?.tasks ?? []).filter(
+    (x) => x.status === 'due' && daysUntil(x.dueDate) <= 45,
   ).length;
 
   const items: NavItem[] = [
     { to: '/owner', label: t.ownerNav.dashboard, Icon: Gauge, end: true },
-    { to: '/owner/properties', label: t.ownerNav.properties, Icon: Home, count: properties.length },
+    { to: '/owner/properties', label: t.ownerNav.properties, Icon: Home, count: owned },
     { to: '/owner/tickets', label: t.ownerNav.tickets, Icon: Wrench, count: openTickets },
     { to: '/owner/maintenance', label: t.ownerNav.maintenance, Icon: CalendarClock, count: dueSoon },
-    { to: '/owner/crm', label: t.ownerNav.crm, Icon: Users, count: leads.length },
+    { to: '/owner/crm', label: t.ownerNav.crm, Icon: Users, count: ownedLeads },
     { to: '/owner/inquiries', label: t.ownerNav.inquiries, Icon: MessageCircleQuestion, count: waitingInquiries },
     { to: '/owner/vendors', label: t.ownerNav.vendors, Icon: ListChecks },
     { to: '/owner/contracts', label: t.ownerNav.contracts, Icon: FileSignature },

@@ -56,7 +56,13 @@ export const ownerLeadSchema = z.object({
   score: z.number().int(),
 });
 
-/** The seeker's own place in a queue. No other applicant appears. */
+/**
+ * The seeker's own place in a queue. No other applicant appears.
+ *
+ * It also carries the listing's public face — rent, a photo, the availability
+ * signal — so "the queues I am in" renders from one request. All of it is
+ * already visible on the listing page; none of it is about anybody else.
+ */
 export const seekerLeadSchema = z.object({
   scope: z.literal('seeker'),
   id: z.string(),
@@ -68,6 +74,17 @@ export const seekerLeadSchema = z.object({
   queueLength: z.number().int(),
   watchOnly: z.boolean(),
   createdAt: z.string(),
+
+  neighborhood: z.string(),
+  city: z.string(),
+  photo: z.string().nullable(),
+  monthlyRentAgorot: z.number().int(),
+  availability: z.object({
+    kind: z.enum(['now', 'dated', 'extending', 'unknown']),
+    date: z.string().nullable(),
+    confidence: z.enum(['confirmed', 'likely', 'unknown']),
+    askable: z.boolean(),
+  }),
 });
 
 export const leadViewSchema = z.discriminatedUnion('scope', [ownerLeadSchema, seekerLeadSchema]);

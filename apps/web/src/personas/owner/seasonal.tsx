@@ -1,13 +1,14 @@
 import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useStore, useStoreShallow } from '@/data/store';
-import { t, daysUntil, formatMonthYear, formatUntil, type Season, type SeasonalTaskTemplate } from '@miftan/shared';
+import { useStore } from '@/data/store';
+import { useScheduleSeasonal, useSeasonal, useSeasonalStatus } from '@/api/hooks';
+import { ErrorState } from '@/components/shared/error-state';
+import { t, daysUntil, formatMonthYear, formatUntil, type Season, type SeasonalTaskView } from '@miftan/shared';
 import { Money, Num, PageHeader } from '@/components/shared/typography';
 import { EmptyState } from '@/components/shared/empty-state';
 import { Meter } from '@/components/shared/meter';
 import { OfferRail, RevenueMarker } from '@/components/shared/revenue';
 import { ListSkeleton } from '@/components/shared/skeleton';
-import { useDelayedReady } from '@/lib/use-delayed-ready';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -32,58 +33,63 @@ const SEASON_ICON: Record<Season, React.ComponentType<{ className?: string }>> =
 
 export function OwnerSeasonal() {
   const navigate = useNavigate();
-  const ready = useDelayedReady();
-  const { seasonalTemplates, seasonalTasks, properties } = useStoreShallow((s) => ({
-    seasonalTemplates: s.seasonalTemplates,
-    seasonalTasks: s.seasonalTasks,
-    properties: s.properties,
-  }));
-  const scheduleTemplate = useStore((s) => s.scheduleSeasonalTemplate);
-  const scheduleTask = useStore((s) => s.scheduleSeasonalTask);
-  const completeTask = useStore((s) => s.completeSeasonalTask);
-  const skipTask = useStore((s) => s.skipSeasonalTask);
+  const { data, isLoading, isError, refetch } = useSeasonal();
+  const setStatus = useSeasonalStatus();
+  const schedule = useScheduleSeasonal();
   const pushToast = useStore((s) => s.pushToast);
 
   const [expanded, setExpanded] = React.useState<string | null>(null);
 
-  /** Group by template, ordered by how soon the first unit is due. */
+  const tasks = data?.tasks ?? [];
+
+  /**
+   * Grouped by template, ordered by how soon the first unit is due.
+   *
+   * The server returns flat tasks with the template denormalised onto each —
+   * so a retired template does not blank out history — and the grouping is a
+   * presentation choice, made here.
+   */
   const groups = React.useMemo(() => {
-    return seasonalTemplates
-      .map((template) => {
-        const tasks = seasonalTasks.filter((x) => x.template_id === template.id);
-        const due = tasks.filter((x) => x.status === 'due');
-        const scheduled = tasks.filter((x) => x.status === 'scheduled');
-        const done = tasks.filter((x) => x.status === 'done');
-        const nextDate = tasks[0]?.due_date;
+    const byTemplate = new Map<string, SeasonalTaskView[]>();
+    for (const task of tasks) {
+      const list = byTemplate.get(task.templateId) ?? [];
+      list.push(task);
+      byTemplate.set(task.templateId, list);
+    }
+
+    return [...byTemplate.values()]
+      .map((group) => {
+        const sorted = group.slice().sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+        const nextDate = sorted[0]?.dueDate;
         return {
-          template,
-          tasks,
-          due,
-          scheduled,
-          done,
+          template: sorted[0],
+          tasks: sorted,
+          due: sorted.filter((x) => x.status === 'due'),
+          scheduled: sorted.filter((x) => x.status === 'scheduled'),
+          done: sorted.filter((x) => x.status === 'done'),
           nextDate,
           daysAway: nextDate ? daysUntil(nextDate) : 9999,
         };
       })
-      .filter((g) => g.tasks.length > 0)
       .sort((a, b) => a.daysAway - b.daysAway);
-  }, [seasonalTemplates, seasonalTasks]);
+  }, [tasks]);
 
   const soon = groups.filter((g) => g.daysAway <= 75);
   const later = groups.filter((g) => g.daysAway > 75);
 
-  /* Expected value, not gross: a skipped task only costs you the failure some
-     of the time. Multiplying by failure_rate is the difference between a real
-     number and a sales number. */
-  const potentialSaving = groups.reduce(
-    (sum, g) =>
-      sum +
-      g.due.length *
-        Math.max(0, g.template.avoided_cost * g.template.failure_rate - g.template.typical_cost),
-    0,
-  );
-  const totalTasks = seasonalTasks.length;
-  const handled = seasonalTasks.filter((x) => x.status !== 'due').length;
+  /* Computed on the server, from the same expected-value arithmetic the
+     dashboard uses. Recomputing it here is how the two start disagreeing. */
+  const potentialSaving = data?.outstandingExpectedSaving ?? 0;
+  const totalTasks = tasks.length;
+  const handled = tasks.filter((x) => x.status !== 'due').length;
+
+  const scheduleAll = (group: { due: SeasonalTaskView[] }) => {
+    /* No bulk endpoint: a handful of sequential writes is honest, and each one
+       creates a real ticket that the board has to see. */
+    void Promise.all(group.due.map((task) => schedule.mutateAsync({ id: task.id }))).then(() =>
+      pushToast(`${t.seasonal.allScheduled} · ${group.due.length}`, 'success'),
+    );
+  };
 
   return (
     <div className="space-y-5">
@@ -109,7 +115,9 @@ export function OwnerSeasonal() {
         </section>
       </div>
 
-      {!ready ? (
+      {isError ? (
+        <ErrorState onRetry={() => void refetch()} />
+      ) : isLoading ? (
         <ListSkeleton rows={4} />
       ) : groups.length === 0 ? (
         <EmptyState icon={CalendarClock} title={t.seasonal.empty} hint={t.seasonal.emptyHint} />
@@ -118,19 +126,14 @@ export function OwnerSeasonal() {
           <TaskGroupList
             title={t.seasonal.thisSeason}
             groups={soon}
-            properties={properties}
             expanded={expanded}
             setExpanded={setExpanded}
-            onScheduleAll={(id, count) => {
-              scheduleTemplate(id);
-              pushToast(`${t.seasonal.allScheduled} · ${count}`, 'success');
-            }}
-            onScheduleOne={(id) => {
-              scheduleTask(id);
-              pushToast(t.seasonal.scheduled, 'success');
-            }}
-            onComplete={completeTask}
-            onSkip={skipTask}
+            onScheduleAll={scheduleAll}
+            onScheduleOne={(id) =>
+              schedule.mutate({ id }, { onSuccess: () => pushToast(t.seasonal.scheduled, 'success') })
+            }
+            onComplete={(id) => setStatus.mutate({ id, status: 'done' })}
+            onSkip={(id) => setStatus.mutate({ id, status: 'skipped' })}
             onOpenTicket={() => navigate('/owner/tickets')}
           />
 
@@ -138,20 +141,15 @@ export function OwnerSeasonal() {
             <TaskGroupList
               title={t.seasonal.upcoming}
               groups={later}
-              properties={properties}
-              expanded={expanded}
+                expanded={expanded}
               setExpanded={setExpanded}
               muted
-              onScheduleAll={(id, count) => {
-                scheduleTemplate(id);
-                pushToast(`${t.seasonal.allScheduled} · ${count}`, 'success');
-              }}
-              onScheduleOne={(id) => {
-                scheduleTask(id);
-                pushToast(t.seasonal.scheduled, 'success');
-              }}
-              onComplete={completeTask}
-              onSkip={skipTask}
+              onScheduleAll={scheduleAll}
+              onScheduleOne={(id) =>
+                schedule.mutate({ id }, { onSuccess: () => pushToast(t.seasonal.scheduled, 'success') })
+              }
+              onComplete={(id) => setStatus.mutate({ id, status: 'done' })}
+              onSkip={(id) => setStatus.mutate({ id, status: 'skipped' })}
               onOpenTicket={() => navigate('/owner/tickets')}
             />
           ) : null}
@@ -164,11 +162,12 @@ export function OwnerSeasonal() {
 }
 
 interface Group {
-  template: SeasonalTaskTemplate;
-  tasks: ReturnType<typeof useStore.getState>['seasonalTasks'];
-  due: ReturnType<typeof useStore.getState>['seasonalTasks'];
-  scheduled: ReturnType<typeof useStore.getState>['seasonalTasks'];
-  done: ReturnType<typeof useStore.getState>['seasonalTasks'];
+  /** The first task in the group — every one carries the same template fields */
+  template: SeasonalTaskView;
+  tasks: SeasonalTaskView[];
+  due: SeasonalTaskView[];
+  scheduled: SeasonalTaskView[];
+  done: SeasonalTaskView[];
   nextDate?: string;
   daysAway: number;
 }
@@ -176,7 +175,6 @@ interface Group {
 function TaskGroupList({
   title,
   groups,
-  properties,
   expanded,
   setExpanded,
   muted,
@@ -188,11 +186,10 @@ function TaskGroupList({
 }: {
   title: string;
   groups: Group[];
-  properties: ReturnType<typeof useStore.getState>['properties'];
   expanded: string | null;
   setExpanded: (id: string | null) => void;
   muted?: boolean;
-  onScheduleAll: (templateId: string, count: number) => void;
+  onScheduleAll: (group: Group) => void;
   onScheduleOne: (taskId: string) => void;
   onComplete: (taskId: string) => void;
   onSkip: (taskId: string) => void;
@@ -207,15 +204,15 @@ function TaskGroupList({
         {groups.map((group) => {
           const { template } = group;
           const Icon = SEASON_ICON[template.season];
-          const open = expanded === template.id;
+          const open = expanded === template.templateId;
           /* Ratio is expected cost avoided per shekel spent, not gross. */
-          const ratio = template.typical_cost
-            ? Math.round((template.avoided_cost * template.failure_rate) / template.typical_cost)
+          const ratio = template.typicalCost
+            ? Math.round((template.avoidedCost * template.failureRate) / template.typicalCost)
             : null;
 
           return (
             <li
-              key={template.id}
+              key={template.templateId}
               className={cn(
                 'overflow-hidden rounded-[var(--radius-card)] border transition-colors duration-200',
                 group.due.length && group.daysAway <= 45 ? 'border-signal/50' : 'border-line',
@@ -271,16 +268,16 @@ function TaskGroupList({
                 <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-[var(--radius-control)] bg-surface px-3 py-2 text-2xs">
                   <span className="text-muted">
                     {t.seasonal.typicalCost}:{' '}
-                    <Money value={template.typical_cost} board className="font-bold text-ink" />
+                    <Money value={template.typicalCost} board className="font-bold text-ink" />
                   </span>
                   <span className="text-muted">
                     {t.seasonal.avoidedCost}:{' '}
-                    <Money value={template.avoided_cost} board className="font-bold text-alert" />
+                    <Money value={template.avoidedCost} board className="font-bold text-alert" />
                   </span>
                   <span className="text-muted">
                     {t.seasonal.failureRate}:{' '}
                     <Num board className="font-bold text-ink">
-                      {Math.round(template.failure_rate * 100)}%
+                      {Math.round(template.failureRate * 100)}%
                     </Num>
                   </span>
                   {ratio && ratio > 1 ? (
@@ -293,12 +290,12 @@ function TaskGroupList({
 
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   {group.due.length ? (
-                    <Button size="sm" onClick={() => onScheduleAll(template.id, group.due.length)}>
+                    <Button size="sm" onClick={() => onScheduleAll(group)}>
                       <Flame className="h-3.5 w-3.5" />
                       {t.seasonal.scheduleAll} · <Num board>{group.due.length}</Num>
                     </Button>
                   ) : null}
-                  <Button size="sm" variant="ghost" onClick={() => setExpanded(open ? null : template.id)}>
+                  <Button size="sm" variant="ghost" onClick={() => setExpanded(open ? null : template.templateId)}>
                     {open ? t.ui.showLess : `${t.seasonal.units} · ${group.tasks.length}`}
                   </Button>
                   {group.scheduled.length ? (
@@ -313,14 +310,10 @@ function TaskGroupList({
               {open ? (
                 <ul className="divide-y divide-line border-t border-line bg-surface/50">
                   {group.tasks.map((task) => {
-                    const property = properties.find((p) => p.id === task.property_id);
                     return (
                       <li key={task.id} className="flex flex-wrap items-center gap-2 px-4 py-2.5">
                         <span className="min-w-40 flex-1 text-xs font-semibold text-ink">
-                          {property ? `${property.address.street} ${property.address.number}` : ''}
-                          <span className="ms-2 font-normal text-muted">
-                            {property?.address.neighborhood}
-                          </span>
+                          {task.propertyLabel}
                         </span>
 
                         {task.status === 'due' ? (
