@@ -42,19 +42,29 @@ export function OwnerProperties() {
   const [status, setStatus] = React.useState<UnitStatus | 'all'>('all');
   const [city, setCity] = React.useState('all');
 
+  /**
+   * `/properties` answers with every unit you have a relationship to, each
+   * projected for the relationship you hold — so an account that both lets
+   * flats and rents one gets `owner` rows and a `tenant` row in the same
+   * response. This page is the portfolio, so it takes only the former:
+   * the flat you live in is not a unit in your ownership, and listing it
+   * under a heading that says it is would be a lie about who pays whom.
+   */
+  const owned = React.useMemo(() => properties.filter(isOwned), [properties]);
+
   const cities = React.useMemo(
-    () => [...new Set(properties.map((p) => p.address.city))],
-    [properties],
+    () => [...new Set(owned.map((p) => p.address.city))],
+    [owned],
   );
 
   const rows = React.useMemo(
     () =>
-      properties.filter((p) => {
-        if (status !== 'all' && (!isOwned(p) || p.status !== status)) return false;
+      owned.filter((p) => {
+        if (status !== 'all' && p.status !== status) return false;
         if (city !== 'all' && p.address.city !== city) return false;
         return true;
       }),
-    [properties, status, city],
+    [owned, status, city],
   );
 
   const filtered = status !== 'all' || city !== 'all';

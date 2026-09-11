@@ -19,6 +19,7 @@ import { toAgorot } from '@miftan/shared';
 import { db, sql, schema as s } from './client.ts';
 import { seedId } from '../lib/ids.ts';
 import { hashPassword } from '../lib/auth.ts';
+import { DEMO_EMAIL, seedDemoAccount } from './seed-demo.ts';
 
 /**
  * Loads the demo portfolio into Postgres as development fixtures.
@@ -364,6 +365,11 @@ await db.transaction(async (tx) => {
       })),
     ),
   );
+
+  /* ── One account that holds all three roles ──────────────
+     Last, and in its own module, because it exists to make the product
+     demonstrable rather than to describe anything real. It only adds rows. */
+  await seedDemoAccount(tx, DEV_PASSWORD_HASH);
 });
 
 /* ── Report ────────────────────────────────────────────── */
@@ -392,4 +398,5 @@ console.log(`sign in with password: ${DEV_PASSWORD}`);
 console.log(`  owner   ${fxOwner.email}`);
 console.log(`  tenant  ${fxTenants.find((t) => t.id === 't11')?.email}  (נחלת בנימין 55)`);
 console.log(`  seeker  ${fxSeekers.find((x) => x.id === 's01')?.email}`);
+console.log(`  all 3   ${DEMO_EMAIL}  (owns 3, rents 1, queueing for 2)`);
 await sql.end();

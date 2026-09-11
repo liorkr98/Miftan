@@ -9,11 +9,19 @@ import { Field, Input } from '@/components/ui/field';
 import { cn } from '@/lib/utils';
 import { DoorOpen, LogIn } from 'lucide-react';
 
-/** Seeded accounts, so the three sides of the product are one click apart. */
+/**
+ * Seeded accounts, so the three sides of the product are one click apart.
+ *
+ * The first three hold exactly one relationship each, which is what real
+ * accounts look like. The last holds all three at once — nobody both lets a
+ * flat and rents one, but walking someone through the product without it means
+ * signing out twice and losing the thread each time.
+ */
 const DEMO_ACCOUNTS = [
-  { role: t.roles.owner, email: 'ran@almog-nadlan.co.il', name: 'רן אלמוג' },
-  { role: t.roles.tenant, email: 'michal.stern@gmail.com', name: 'מיכל שטרן' },
-  { role: t.roles.seeker, email: 'tal.aviram@gmail.com', name: 'טל אבירם' },
+  { role: t.roles.owner, email: 'ran@almog-nadlan.co.il', name: 'רן אלמוג', hint: null },
+  { role: t.roles.tenant, email: 'michal.stern@gmail.com', name: 'מיכל שטרן', hint: null },
+  { role: t.roles.seeker, email: 'tal.aviram@gmail.com', name: 'טל אבירם', hint: null },
+  { role: t.roles.all, email: 'dana@miftan-demo.co.il', name: 'דנה לוי', hint: t.roles.allHint },
 ];
 const DEMO_PASSWORD = 'miftan-dev-2026';
 
@@ -126,15 +134,21 @@ export function SignIn() {
                     void submit(account.email, DEMO_PASSWORD);
                   }}
                   className={cn(
-                    'press-sm flex items-center gap-3 rounded-[var(--radius-control)] border border-line bg-bg px-3 py-2 text-start',
+                    'press-sm flex flex-col gap-0.5 rounded-[var(--radius-control)] border bg-bg px-3 py-2 text-start',
                     'transition-[border-color,transform] duration-150 ease-[var(--ease-out)] hover:border-line-strong',
+                    /* The all-roles account is the odd one out, so it looks it
+                       rather than hiding among three that behave differently. */
+                    account.hint ? 'border-accent' : 'border-line',
                   )}
                 >
-                  <span className="text-xs font-bold text-ink">{account.role}</span>
-                  <span className="text-2xs text-muted">{account.name}</span>
-                  <span dir="ltr" className="ms-auto text-2xs text-muted">
-                    {account.email}
+                  <span className="flex w-full items-center gap-3">
+                    <span className="text-xs font-bold text-ink">{account.role}</span>
+                    <span className="text-2xs text-muted">{account.name}</span>
+                    <span dir="ltr" className="ms-auto text-2xs text-muted">
+                      {account.email}
+                    </span>
                   </span>
+                  {account.hint ? <span className="text-2xs text-muted">{account.hint}</span> : null}
                 </button>
               ))}
             </div>
