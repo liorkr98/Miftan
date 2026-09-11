@@ -474,6 +474,35 @@ export const seasonalTasks = pgTable(
  * text, no user agent, no address. That is the line between market data and a
  * dossier, and it is drawn in the schema rather than in a policy document.
  */
+/**
+ * An owner's own contract templates.
+ *
+ * The built-ins live in @miftan/shared and are never rows: they ship with the
+ * product and nobody should be able to edit the library out from under
+ * everyone. Editing one clones it here first, which means an owner's changes
+ * cannot break another owner's document and an updated built-in does not
+ * silently rewrite a clause somebody has been signing for a year.
+ */
+export const contractTemplates = pgTable(
+  'contract_templates',
+  {
+    id: text('id').primaryKey(),
+    ownerId: text('owner_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    /** The built-in it was cloned from, if any — for "reset to original" */
+    basedOn: text('based_on'),
+    name: text('name').notNull(),
+    description: text('description').notNull().default(''),
+    useWhen: text('use_when').notNull().default(''),
+    body: text('body').notNull(),
+    /** TemplateVariable[] */
+    variables: jsonb('variables').notNull().default([]),
+    archived: boolean('archived').notNull().default(false),
+    createdAt,
+    updatedAt,
+  },
+  (t) => [index('contract_templates_owner_idx').on(t.ownerId)],
+);
+
 export const reviewerRole = pgEnum('reviewer_role', ['owner', 'tenant']);
 
 /**

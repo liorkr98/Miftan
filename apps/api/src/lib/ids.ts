@@ -27,6 +27,7 @@ export const ID_PREFIX = {
   searchEvent: 'sev',
   viewingSlot: 'view',
   review: 'rev',
+  contractTemplate: 'ctpl',
   session: 'sess',
 } as const;
 
