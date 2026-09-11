@@ -474,6 +474,56 @@ export const seasonalTasks = pgTable(
  * text, no user agent, no address. That is the line between market data and a
  * dossier, and it is drawn in the schema rather than in a policy document.
  */
+export const reviewerRole = pgEnum('reviewer_role', ['owner', 'tenant']);
+
+/**
+ * Reviews, written only after a tenancy has ended.
+ *
+ * Two rules, both there to stop the thing that ruins landlord–tenant reviews:
+ *
+ *  1. **Not until the lease is over.** A review written mid-tenancy is written
+ *     by someone who still needs their deposit back, or who still has to let
+ *     the flat. Neither is a review; both are leverage.
+ *  2. **Double-blind.** Neither side sees the other's until both have written,
+ *     or a window closes. The first mover would otherwise set the tone and the
+ *     second would answer it, and a tenant who reads a bad review before
+ *     writing theirs is not describing a tenancy any more — they are
+ *     retaliating.
+ *
+ * Editing is deliberately absent. A review that can be revised after the other
+ * one appears is not a sealed account of anything.
+ */
+export const reviews = pgTable(
+  'reviews',
+  {
+    id: text('id').primaryKey(),
+    leaseId: text('lease_id').notNull().references(() => leases.id),
+    authorId: text('author_id').notNull().references(() => users.id),
+    subjectId: text('subject_id').notNull().references(() => users.id),
+    authorRole: reviewerRole('author_role').notNull(),
+
+    /* One overall score plus the two dimensions each side actually cares
+       about. Deliberately few: a ten-facet form gets abandoned. */
+    rating: integer('rating').notNull(),
+    communication: integer('communication'),
+    /** Owner rates care of the flat; tenant rates how repairs were handled */
+    reliability: integer('reliability'),
+    body: text('body').notNull(),
+
+    createdAt,
+    /**
+     * When it became visible. Null while sealed. Set when the counterpart
+     * arrives, or when the window expires with only one side written.
+     */
+    publishedAt: timestamp('published_at', { withTimezone: true }),
+  },
+  (t) => [
+    /* One review per side per tenancy. */
+    uniqueIndex('reviews_lease_author_key').on(t.leaseId, t.authorRole),
+    index('reviews_subject_idx').on(t.subjectId),
+  ],
+);
+
 export const viewingStatus = pgEnum('viewing_status', ['open', 'booked', 'attended', 'no_show', 'cancelled']);
 
 /**

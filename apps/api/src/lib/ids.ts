@@ -26,6 +26,7 @@ export const ID_PREFIX = {
   contractScan: 'scan',
   searchEvent: 'sev',
   viewingSlot: 'view',
+  review: 'rev',
   session: 'sess',
 } as const;
 
