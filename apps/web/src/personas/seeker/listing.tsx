@@ -1,12 +1,36 @@
 import * as React from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useStore, useStoreShallow } from '@/data/store';
-import { t, formatFloor, formatRooms, formatSqm, formatUntil, formatDate, type TrackRow } from '@miftan/shared';
-import { availabilityKind, leaseForProperty } from '@/data/selectors';
+import { useStore } from '@/data/store';
+import {
+  ApiError,
+  t,
+  formatDateTime,
+  formatFloor,
+  formatRooms,
+  formatSqm,
+  type Amenity,
+  type SeekerInquiry,
+  type SeekerLead,
+  type SeekerSlot,
+  type TrackRow,
+} from '@miftan/shared';
+import { AVAILABILITY_TONE } from '@/data/selectors';
+import {
+  useAskAvailability,
+  useInquiries,
+  useLeads,
+  useLeaveQueue,
+  useProperty,
+  useReserveQueue,
+  useViewingAction,
+  useViewings,
+} from '@/api/hooks';
 import { DepartureTrack } from '@/components/shared/departure-track';
 import { AvailabilityChip } from '@/components/shared/status';
 import { Money, Num, SectionTitle } from '@/components/shared/typography';
 import { EmptyState } from '@/components/shared/empty-state';
+import { ErrorState } from '@/components/shared/error-state';
+import { ListSkeleton } from '@/components/shared/skeleton';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -33,22 +57,27 @@ import {
 import { Field, Input, Textarea } from '@/components/ui/field';
 import { OfferRail } from '@/components/shared/revenue';
 
+function amenityLabel(key: string): string {
+  return key in t.amenity ? t.amenity[key as Amenity] : key;
+}
+
+function todayIso() {
+  return new Date().toISOString().slice(0, 10);
+}
+
 export function SeekerListing() {
   const { id = '' } = useParams();
   const navigate = useNavigate();
-  const { properties, leases, leads, seekers, inquiries, currentSeekerId } = useStoreShallow((s) => ({
-    properties: s.properties,
-    leases: s.leases,
-    leads: s.leads,
-    seekers: s.seekers,
-    inquiries: s.inquiries,
-    currentSeekerId: s.currentSeekerId,
-  }));
-  const reserveQueue = useStore((s) => s.reserveQueue);
-  const askAvailability = useStore((s) => s.askAvailability);
-  const leaveQueue = useStore((s) => s.leaveQueue);
-  const toggleWatch = useStore((s) => s.toggleWatch);
   const pushToast = useStore((s) => s.pushToast);
+
+  const { data: property, isLoading, isError, error, refetch } = useProperty(id);
+  const { data: leads = [] } = useLeads();
+  const { data: inquiries = [] } = useInquiries();
+  const { data: viewing } = useViewings(id);
+  const reserveQueue = useReserveQueue();
+  const leaveQueue = useLeaveQueue();
+  const askAvailability = useAskAvailability();
+  const viewingAction = useViewingAction();
 
   const [photoIndex, setPhotoIndex] = React.useState(0);
   const [profileGateOpen, setProfileGateOpen] = React.useState(false);
@@ -56,10 +85,32 @@ export function SeekerListing() {
   const [askText, setAskText] = React.useState('');
   const [askDate, setAskDate] = React.useState('');
 
-  const property = properties.find((p) => p.id === id);
-  const seeker = seekers.find((x) => x.id === currentSeekerId);
+  const mine = leads.find((l): l is SeekerLead => l.scope === 'seeker' && l.propertyId === id);
+  const watching = Boolean(mine?.watchOnly);
+  const reserved = Boolean(mine && !mine.watchOnly);
+  const myInquiry = inquiries.find((x): x is SeekerInquiry => x.scope === 'seeker' && x.propertyId === id);
 
-  if (!property) {
+  const onReserveError = (err: unknown) => {
+    if (err instanceof ApiError && err.code === 'forbidden' && /profile/i.test(err.message)) {
+      setProfileGateOpen(true);
+      return;
+    }
+    pushToast(t.auth.error.internal, 'alert');
+  };
+
+  const desiredMoveIn = askDate || property?.availability.date || todayIso();
+
+  const onReserve = (watchOnly = false) => {
+    reserveQueue.mutate(
+      { propertyId: id, desiredMoveIn, watchOnly },
+      {
+        onSuccess: () => pushToast(watchOnly ? t.seeker.listing.watching : t.seeker.listing.reserved, 'success'),
+        onError: onReserveError,
+      },
+    );
+  };
+
+  if (isError && error instanceof ApiError && error.code === 'not_found') {
     return (
       <div className="mx-auto max-w-3xl px-4 py-6">
         <EmptyState
@@ -72,64 +123,42 @@ export function SeekerListing() {
       </div>
     );
   }
+  if (isError) return <ErrorState onRetry={() => void refetch()} />;
+  if (isLoading || !property) return <ListSkeleton rows={6} />;
 
-  const lease = leaseForProperty(leases, property.id);
-  const kind = availabilityKind(property, lease);
-  const queue = leads
-    .filter((l) => l.property_id === property.id && !l.watch_only)
-    .sort((a, b) => a.queue_position - b.queue_position);
-  const mine = leads.find((l) => l.property_id === property.id && l.seeker_id === currentSeekerId);
-  const watching = Boolean(mine?.watch_only);
-  const reserved = Boolean(mine && !mine.watch_only);
-
-  /* No publishable date and the tenant hasn't said they're staying — this is
-     exactly the apartment the market currently hides. */
+  const kind = property.availability.kind;
   const undecided = kind === 'unknown' || kind === 'extending';
-  const myInquiry = inquiries.find(
-    (x) => x.property_id === property.id && x.seeker_id === currentSeekerId,
-  );
+  const totalMonthlyAgorot =
+    property.monthlyRentAgorot +
+    Math.round(property.arnonaBimonthlyAgorot / 2) +
+    property.vaadMonthlyAgorot;
 
-  const totalMonthly =
-    property.monthly_rent + Math.round(property.arnona_bimonthly / 2) + property.vaad_monthly;
-
-  const similar = properties
-    .filter(
-      (p) =>
-        p.id !== property.id &&
-        p.listed &&
-        p.address.neighborhood === property.address.neighborhood,
-    )
-    .slice(0, 3);
-
-  /* The same track, showing this unit's availability and the queue on it. */
   const trackRows: TrackRow[] = [
     {
       id: property.id,
       property_id: property.id,
       label: `${property.address.street} ${property.address.number}`,
       sublabel: property.address.neighborhood,
-      from: new Date().toISOString().slice(0, 10),
-      until: property.status === 'vacant' ? undefined : property.available_from,
-      tone: kind === 'now' ? 'open' : kind === 'dated' ? 'signal' : kind === 'extending' ? 'live' : 'muted',
-      confidence: property.availability_confidence,
-      marks: property.available_from
-        ? queue.slice(0, 6).map((lead) => ({
-            at: property.available_from!,
-            kind: 'queue' as const,
-            label: `${t.seeker.listing.yourPosition} ${lead.queue_position}`,
-          }))
+      from: todayIso(),
+      until: property.availability.date ?? undefined,
+      tone: AVAILABILITY_TONE[kind],
+      confidence: property.availability.confidence,
+      marks: property.availability.date
+        ? [
+            {
+              at: property.availability.date,
+              kind: 'queue' as const,
+              label: reserved && mine
+                ? `${t.seeker.listing.yourPosition} ${mine.queuePosition}`
+                : t.seeker.search.inQueue,
+            },
+          ]
         : [],
     },
   ];
 
-  const onReserve = () => {
-    if (!seeker?.profile_complete) {
-      setProfileGateOpen(true);
-      return;
-    }
-    reserveQueue(property.id);
-    pushToast(t.seeker.listing.reserved, 'success');
-  };
+  const seekerSlots = (viewing?.slots ?? []).filter((s): s is SeekerSlot => s.scope === 'seeker');
+  const queueLength = mine?.queueLength ?? property.queueCount;
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-4 sm:px-6">
@@ -138,13 +167,14 @@ export function SeekerListing() {
         {t.seeker.listing.backToSearch}
       </Button>
 
-      {/* Photos */}
       <div className="overflow-hidden rounded-[var(--radius-panel)] border border-line">
-        <img
-          src={property.photos[photoIndex]}
-          alt=""
-          className="aspect-[16/9] w-full object-cover"
-        />
+        {property.photos[photoIndex] ? (
+          <img src={property.photos[photoIndex]} alt="" className="aspect-[16/9] w-full object-cover" />
+        ) : (
+          <div className="grid aspect-[16/9] place-items-center bg-surface text-xs text-muted">
+            {t.unit.noPhotos}
+          </div>
+        )}
         {property.photos.length > 1 ? (
           <div className="flex gap-1.5 bg-surface p-2">
             {property.photos.map((src, i) => (
@@ -166,7 +196,6 @@ export function SeekerListing() {
         ) : null}
       </div>
 
-      {/* Header */}
       <header className="mt-4 flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h1 className="text-2xl font-extrabold tracking-[-0.01em] text-ink">
@@ -177,21 +206,25 @@ export function SeekerListing() {
           </p>
           <p className="mt-1 text-sm text-ink-soft">
             {formatRooms(property.rooms)} · {formatSqm(property.sqm)} ·{' '}
-            {formatFloor(property.floor, property.total_floors)}
+            {formatFloor(property.floor, property.totalFloors)}
           </p>
         </div>
         <div className="text-end">
-          <Money value={property.monthly_rent} board className="text-2xl font-bold text-ink" />
+          <Money agorot={property.monthlyRentAgorot} board className="text-2xl font-bold text-ink" />
           <p className="text-2xs text-muted">{t.ui.perMonth}</p>
         </div>
       </header>
 
       <div className="mt-3">
-        <AvailabilityChip kind={kind} date={property.available_from}
-              confidence={property.availability_confidence} size="lg" withCountdown />
+        <AvailabilityChip
+          kind={kind}
+          date={property.availability.date ?? undefined}
+          confidence={property.availability.confidence}
+          size="lg"
+          withCountdown
+        />
       </div>
 
-      {/* Availability timeline — the same component as the owner's board */}
       <section className="mt-5">
         <SectionTitle aside={<span className="text-2xs text-muted">{t.track.axisHint}</span>}>
           {t.seeker.listing.availability}
@@ -205,55 +238,38 @@ export function SeekerListing() {
         />
       </section>
 
-      {/* ── Undecided units: ask the owner ────────────────
-          The apartment has no publishable date because the tenant hasn't
-          decided. Rather than hide it, we let the seeker start the chain
-          that produces a date — without ever reaching the tenant. */}
       {undecided || myInquiry ? (
         <section
           className={cn(
             'mt-5 rounded-[var(--radius-card)] border p-4',
-            myInquiry?.owner_reply ? 'border-line bg-surface' : 'border-live/40 bg-live-soft',
+            myInquiry?.ownerReply ? 'border-line bg-surface' : 'border-live/40 bg-live-soft',
           )}
         >
           <div className="flex items-start gap-2.5">
             <Clock3
-              className={cn(
-                'mt-0.5 h-4 w-4 shrink-0',
-                myInquiry?.owner_reply ? 'text-muted' : 'text-live',
-              )}
+              className={cn('mt-0.5 h-4 w-4 shrink-0', myInquiry?.ownerReply ? 'text-muted' : 'text-live')}
             />
             <div className="min-w-0 flex-1">
               <h2 className="text-sm font-bold text-ink">
-                {myInquiry?.owner_reply ? t.inquiries.seeker.answered : t.availability.askable}
+                {myInquiry?.ownerReply ? t.inquiries.seeker.answered : t.availability.askable}
               </h2>
-              {!myInquiry?.owner_reply ? (
+              {!myInquiry?.ownerReply ? (
                 <p className="mt-1 text-xs leading-5 text-ink-soft">{t.inquiries.seeker.askBody}</p>
               ) : null}
 
               {myInquiry ? (
                 <div className="mt-3 space-y-2.5">
                   <div className="rounded-[var(--radius-control)] bg-bg p-3">
-                    <p className="mb-1 text-2xs font-bold text-ink-soft">
-                      {t.inquiries.seeker.yourQuestion}
-                    </p>
+                    <p className="mb-1 text-2xs font-bold text-ink-soft">{t.inquiries.seeker.yourQuestion}</p>
                     <p className="text-sm leading-6 text-ink-soft">{myInquiry.message}</p>
-                    <Badge
-                      tone={myInquiry.owner_reply ? 'openSoft' : 'neutral'}
-                      size="sm"
-                      className="mt-2"
-                    >
-                      {myInquiry.owner_reply
-                        ? t.inquiries.seeker.answered
-                        : t.inquiries.seeker.pending}
+                    <Badge tone={myInquiry.ownerReply ? 'openSoft' : 'neutral'} size="sm" className="mt-2">
+                      {myInquiry.ownerReply ? t.inquiries.seeker.answered : t.inquiries.seeker.pending}
                     </Badge>
                   </div>
-                  {myInquiry.owner_reply ? (
+                  {myInquiry.ownerReply ? (
                     <div className="rounded-[var(--radius-control)] bg-ink p-3 text-on-ink motion-safe:animate-[fade-up_240ms_var(--ease-out)_both]">
-                      <p className="mb-1 text-2xs font-bold text-on-ink-muted">
-                        {t.inquiries.seeker.ownerReply}
-                      </p>
-                      <p className="text-sm leading-6">{myInquiry.owner_reply}</p>
+                      <p className="mb-1 text-2xs font-bold text-on-ink-muted">{t.inquiries.seeker.ownerReply}</p>
+                      <p className="text-sm leading-6">{myInquiry.ownerReply}</p>
                     </div>
                   ) : null}
                 </div>
@@ -273,14 +289,13 @@ export function SeekerListing() {
         </section>
       ) : null}
 
-      {/* Queue + primary action */}
       <section className="mt-5 rounded-[var(--radius-card)] border border-line p-4">
         <SectionTitle
           aside={
-            queue.length ? (
+            queueLength ? (
               <span className="text-2xs text-muted">
                 <Num board className="font-bold text-ink">
-                  {queue.length}
+                  {queueLength}
                 </Num>{' '}
                 {t.seeker.listing.queueCount}
               </span>
@@ -290,24 +305,24 @@ export function SeekerListing() {
           {t.seeker.listing.queueTitle}
         </SectionTitle>
 
-        {queue.length === 0 ? (
+        {queueLength === 0 ? (
           <p className="text-xs text-muted">
             {t.seeker.listing.queueEmpty} — {t.seeker.listing.queueEmptyHint}
           </p>
         ) : (
           <ol className="mb-3 flex flex-wrap gap-1.5">
-            {queue.slice(0, 12).map((lead) => {
-              const isMine = lead.seeker_id === currentSeekerId;
+            {Array.from({ length: Math.min(queueLength, 12) }, (_, i) => i + 1).map((position) => {
+              const isMine = Boolean(reserved && mine && mine.queuePosition === position);
               return (
                 <li
-                  key={lead.id}
+                  key={position}
                   className={cn(
                     'grid h-7 w-7 place-items-center rounded-full text-2xs font-bold',
                     isMine ? 'bg-ink text-on-ink' : 'bg-surface-sunk text-muted',
                   )}
                   title={isMine ? t.seeker.listing.yourPosition : t.seeker.search.inQueue}
                 >
-                  <Num board>{lead.queue_position}</Num>
+                  <Num board>{position}</Num>
                 </li>
               );
             })}
@@ -317,30 +332,34 @@ export function SeekerListing() {
         {reserved && mine ? (
           <div className="flex flex-wrap items-center gap-3">
             <Badge tone="openSoft" size="lg">
-              {t.seeker.listing.yourPosition}: <Num board>{mine.queue_position}</Num>
+              {t.seeker.listing.yourPosition}: <Num board>{mine.queuePosition}</Num>
             </Badge>
             <Button
               variant="secondary"
-              onClick={() => {
-                leaveQueue(mine.id);
-                pushToast(t.seeker.queue.left);
-              }}
+              loading={leaveQueue.isPending}
+              onClick={() =>
+                leaveQueue.mutate(mine.id, { onSuccess: () => pushToast(t.seeker.queue.left) })
+              }
             >
               {t.seeker.listing.leaveQueue}
             </Button>
           </div>
         ) : (
           <div className="flex flex-wrap gap-2">
-            <Button size="lg" onClick={onReserve}>
+            <Button size="lg" loading={reserveQueue.isPending} onClick={() => onReserve(false)}>
               <Ticket className="h-4 w-4" />
               {t.seeker.listing.reserve}
             </Button>
             <Button
               size="lg"
               variant="secondary"
+              loading={watching ? leaveQueue.isPending : reserveQueue.isPending}
               onClick={() => {
-                toggleWatch(property.id);
-                pushToast(watching ? t.seeker.listing.unwatch : t.seeker.listing.watching, 'success');
+                if (watching && mine) {
+                  leaveQueue.mutate(mine.id, { onSuccess: () => pushToast(t.seeker.listing.unwatch) });
+                  return;
+                }
+                onReserve(true);
               }}
             >
               {watching ? <BellOff className="h-4 w-4" /> : <Bell className="h-4 w-4" />}
@@ -350,27 +369,99 @@ export function SeekerListing() {
         )}
 
         <p className="mt-2.5 text-2xs leading-5 text-muted">{t.seeker.listing.reserveHint}</p>
-
-        {/* The privacy rule, stated on the surface where it matters */}
         <p className="mt-2 flex items-start gap-1.5 rounded-[var(--radius-control)] bg-surface p-2.5 text-2xs leading-5 text-muted">
           <EyeOff className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           {t.seeker.listing.contactHint}
         </p>
       </section>
 
-      {/* Costs + amenities */}
+      <section className="mt-5 rounded-[var(--radius-card)] border border-line p-4">
+        <SectionTitle>{t.seeker.listing.viewings}</SectionTitle>
+        <p className="mb-3 text-xs text-muted">{t.seeker.listing.viewingsHint}</p>
+
+        {viewing && viewing.eligible === false ? (
+          <p className="rounded-[var(--radius-control)] bg-surface p-3 text-xs leading-5 text-ink-soft">
+            {viewing.ineligibleReason}
+          </p>
+        ) : !reserved ? (
+          <p className="text-xs text-muted">{t.seeker.listing.bookNeedQueue}</p>
+        ) : seekerSlots.length === 0 ? (
+          <EmptyState
+            icon={Clock3}
+            compact
+            title={t.seeker.listing.viewingsEmpty}
+            hint={t.seeker.listing.viewingsEmptyHint}
+          />
+        ) : (
+          <ul className="space-y-2">
+            {seekerSlots.map((slot) => (
+              <li
+                key={slot.id}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-[var(--radius-control)] border border-line px-3 py-2"
+              >
+                <span className="text-sm font-semibold text-ink">
+                  <Num board>{formatDateTime(slot.startsAt)}</Num>
+                </span>
+                {slot.mine ? (
+                  <span className="flex items-center gap-2">
+                    <Badge tone="openSoft" size="sm">
+                      {t.seeker.listing.slotMine}
+                    </Badge>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      loading={viewingAction.isPending}
+                      onClick={() =>
+                        viewingAction.mutate(
+                          { id: slot.id, action: 'cancel' },
+                          { onSuccess: () => pushToast(t.seeker.listing.cancelled, 'success') },
+                        )
+                      }
+                    >
+                      {t.seeker.listing.cancelSlot}
+                    </Button>
+                  </span>
+                ) : slot.taken ? (
+                  <Badge tone="neutral" size="sm">
+                    {t.seeker.listing.slotTaken}
+                  </Badge>
+                ) : (
+                  <Button
+                    size="sm"
+                    loading={viewingAction.isPending}
+                    disabled={!mine}
+                    onClick={() => {
+                      if (!mine) return;
+                      viewingAction.mutate(
+                        { id: slot.id, action: 'book', body: { leadId: mine.id } },
+                        { onSuccess: () => pushToast(t.seeker.listing.booked, 'success') },
+                      );
+                    }}
+                  >
+                    {t.seeker.listing.bookSlot}
+                  </Button>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
       <div className="mt-5 grid gap-4 md:grid-cols-2">
         <section className="rounded-[var(--radius-card)] border border-line p-4">
           <SectionTitle>{t.seeker.listing.costs}</SectionTitle>
           <dl className="space-y-2 text-sm">
-            <Line label={t.seeker.listing.rent} value={<Money value={property.monthly_rent} board />} />
-            <Line label={t.seeker.listing.arnona} value={<Money value={property.arnona_bimonthly} board />} />
-            <Line label={t.seeker.listing.vaad} value={<Money value={property.vaad_monthly} board />} />
+            <Line label={t.seeker.listing.rent} value={<Money agorot={property.monthlyRentAgorot} board />} />
+            <Line
+              label={t.seeker.listing.arnona}
+              value={<Money agorot={property.arnonaBimonthlyAgorot} board />}
+            />
+            <Line label={t.seeker.listing.vaad} value={<Money agorot={property.vaadMonthlyAgorot} board />} />
             <div className="border-t border-line pt-2">
               <Line
                 label={t.seeker.listing.totalMonthly}
                 strong
-                value={<Money value={totalMonthly} board />}
+                value={<Money agorot={totalMonthlyAgorot} board />}
               />
             </div>
           </dl>
@@ -381,11 +472,10 @@ export function SeekerListing() {
           <div className="flex flex-wrap gap-1.5">
             {property.amenities.map((a) => (
               <Badge key={a} tone="outline" size="sm">
-                {t.amenity[a]}
+                {amenityLabel(a)}
               </Badge>
             ))}
           </div>
-
           <SectionTitle className="mb-2 mt-4">{t.seeker.listing.floorPlan}</SectionTitle>
           <div className="grid h-28 place-items-center rounded-[var(--radius-control)] border border-dashed border-line text-2xs text-muted">
             {t.seeker.listing.floorPlanMock}
@@ -393,50 +483,8 @@ export function SeekerListing() {
         </section>
       </div>
 
-      {/* Similar */}
-      {similar.length ? (
-        <section className="mt-5">
-          <SectionTitle>{t.seeker.listing.similarUnits}</SectionTitle>
-          <ul className="grid gap-2.5 sm:grid-cols-3">
-            {similar.map((p) => {
-              const k = availabilityKind(p, leaseForProperty(leases, p.id));
-              return (
-                <li key={p.id}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPhotoIndex(0);
-                      navigate(`/search/${p.id}`);
-                    }}
-                    className="w-full overflow-hidden rounded-[var(--radius-card)] border border-line text-start transition-colors duration-150 hover:border-line-strong"
-                  >
-                    <img src={p.photos[0]} alt="" loading="lazy" className="h-24 w-full object-cover" />
-                    <span className="block p-2.5">
-                      <span className="block truncate text-xs font-bold text-ink">
-                        {p.address.street} {p.address.number}
-                      </span>
-                      <span className="mt-1 flex items-center justify-between gap-2">
-                        <Money value={p.monthly_rent} board className="text-xs font-bold text-ink" />
-                        <span className="text-2xs text-muted">
-                          {p.available_from ? formatUntil(p.available_from) : t.availability.now}
-                        </span>
-                      </span>
-                      <span className="mt-1.5 block">
-                        <AvailabilityChip kind={k} date={p.available_from}
-              confidence={p.availability_confidence} size="sm" />
-                      </span>
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-      ) : null}
-
       <OfferRail placement="queue" audience="seeker" className="mt-6" />
 
-      {/* Ask the owner about an undecided unit */}
       <Dialog open={askOpen} onOpenChange={setAskOpen}>
         <DialogContent>
           <DialogHeader>
@@ -449,7 +497,7 @@ export function SeekerListing() {
                 type="date"
                 dir="ltr"
                 className="num"
-                value={askDate || (property.available_from ?? '')}
+                value={askDate || (property.availability.date ?? '')}
                 onChange={(e) => setAskDate(e.target.value)}
               />
             </Field>
@@ -470,15 +518,22 @@ export function SeekerListing() {
           <DialogFooter>
             <Button
               disabled={!askText.trim()}
+              loading={askAvailability.isPending}
               onClick={() => {
-                askAvailability(
-                  property.id,
-                  askText.trim(),
-                  askDate || property.available_from || formatDate(new Date()),
+                askAvailability.mutate(
+                  {
+                    propertyId: property.id,
+                    message: askText.trim(),
+                    desiredMoveIn: askDate || property.availability.date || todayIso(),
+                  },
+                  {
+                    onSuccess: () => {
+                      setAskOpen(false);
+                      setAskText('');
+                      pushToast(t.inquiries.seeker.sent, 'success');
+                    },
+                  },
                 );
-                setAskOpen(false);
-                setAskText('');
-                pushToast(t.inquiries.seeker.sent, 'success');
               }}
             >
               {t.inquiries.seeker.send}
@@ -490,7 +545,6 @@ export function SeekerListing() {
         </DialogContent>
       </Dialog>
 
-      {/* Profile gate */}
       <Dialog open={profileGateOpen} onOpenChange={setProfileGateOpen}>
         <DialogContent>
           <DialogHeader>
@@ -503,9 +557,7 @@ export function SeekerListing() {
             </p>
           </DialogBody>
           <DialogFooter>
-            <Button onClick={() => navigate('/search/profile')}>
-              {t.seeker.listing.completeProfile}
-            </Button>
+            <Button onClick={() => navigate('/search/profile')}>{t.seeker.listing.completeProfile}</Button>
             <DialogClose asChild>
               <Button variant="secondary">{t.ui.cancel}</Button>
             </DialogClose>
@@ -528,9 +580,7 @@ function Line({
   return (
     <div className="flex items-baseline justify-between gap-3">
       <dt className="text-xs text-muted">{label}</dt>
-      <dd className={cn('text-sm', strong ? 'font-bold text-ink' : 'font-semibold text-ink-soft')}>
-        {value}
-      </dd>
+      <dd className={cn('text-sm', strong ? 'font-bold text-ink' : 'font-semibold text-ink-soft')}>{value}</dd>
     </div>
   );
 }
