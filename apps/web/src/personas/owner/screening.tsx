@@ -1,9 +1,16 @@
-import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useStore, useStoreShallow } from '@/data/store';
+import { useStore } from '@/data/store';
 import { t, formatDateTime, type ScreeningCriterion, type ScreeningCriterionId } from '@miftan/shared';
+import {
+  useActivatePreset,
+  useScreeningAudit,
+  useScreeningPresets,
+  useUpdatePreset,
+} from '@/api/hooks';
 import { Num, PageHeader, SectionTitle } from '@/components/shared/typography';
 import { EmptyState } from '@/components/shared/empty-state';
+import { ErrorState } from '@/components/shared/error-state';
+import { ListSkeleton } from '@/components/shared/skeleton';
 import { Button } from '@/components/ui/button';
 import { Input, Switch } from '@/components/ui/field';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -22,28 +29,87 @@ const THRESHOLD_UNIT: Partial<Record<ScreeningCriterionId, string>> = {
   lease_length: t.ui.months,
 };
 
+function downloadAuditCsv(
+  entries: Array<{
+    at: string;
+    leadName: string;
+    propertyLabel: string | null;
+    presetName: string;
+    detail: string;
+    flags: Array<{ passed: boolean; note: string }>;
+  }>,
+) {
+  const header = ['at', 'lead', 'property', 'preset', 'detail', 'flags'];
+  const lines = [
+    header.join(','),
+    ...entries.map((entry) =>
+      [
+        entry.at,
+        entry.leadName,
+        entry.propertyLabel ?? '',
+        entry.presetName,
+        entry.detail,
+        entry.flags
+          .filter((f) => !f.passed)
+          .map((f) => f.note)
+          .join('; '),
+      ]
+        .map((cell) => `"${cell.replaceAll('"', '""')}"`)
+        .join(','),
+    ),
+  ];
+  const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'miftan-screening-audit.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export function OwnerScreening() {
   const navigate = useNavigate();
-  const { screeningPresets, auditLog, properties, seekers } = useStoreShallow((s) => ({
-    screeningPresets: s.screeningPresets,
-    auditLog: s.auditLog,
-    properties: s.properties,
-    seekers: s.seekers,
-  }));
-  const setActivePreset = useStore((s) => s.setActivePreset);
-  const updatePresetCriteria = useStore((s) => s.updatePresetCriteria);
-  const exportAudit = useStore((s) => s.exportAudit);
+  const {
+    data: presets = [],
+    isLoading: presetsLoading,
+    isError: presetsError,
+    refetch: refetchPresets,
+  } = useScreeningPresets();
+  const {
+    data: audit,
+    isLoading: auditLoading,
+    isError: auditError,
+    refetch: refetchAudit,
+  } = useScreeningAudit();
+  const updatePreset = useUpdatePreset();
+  const activatePreset = useActivatePreset();
   const pushToast = useStore((s) => s.pushToast);
 
-  const active = screeningPresets.find((p) => p.is_active) ?? screeningPresets[0];
-  const propertyById = React.useMemo(() => new Map(properties.map((p) => [p.id, p])), [properties]);
+  const active = presets.find((p) => p.isActive) ?? presets[0];
+  const entries = audit?.entries ?? [];
 
   const patch = (id: ScreeningCriterionId, next: Partial<ScreeningCriterion>) => {
-    updatePresetCriteria(
-      active.id,
-      active.criteria.map((c) => (c.id === id ? { ...c, ...next } : c)),
-    );
+    if (!active) return;
+    updatePreset.mutate({
+      id: active.id,
+      criteria: active.criteria.map((c) => (c.id === id ? { ...c, ...next } : c)),
+    });
   };
+
+  if (presetsError || auditError) {
+    return (
+      <ErrorState
+        onRetry={() => {
+          void refetchPresets();
+          void refetchAudit();
+        }}
+      />
+    );
+  }
+  if (presetsLoading) return <ListSkeleton rows={6} />;
+  if (!active) {
+    return <EmptyState icon={Scale} title={t.screening.title} />;
+  }
 
   return (
     <div className="space-y-5">
@@ -55,7 +121,6 @@ export function OwnerScreening() {
         <PageHeader title={t.screening.title} subtitle={t.screening.subtitle} />
       </div>
 
-      {/* Why the criteria are what they are — stated once, plainly */}
       <div className="flex items-start gap-2.5 rounded-[var(--radius-card)] border border-line bg-surface p-3.5">
         <Scale className="mt-0.5 h-4 w-4 shrink-0 text-muted" />
         <div className="space-y-1.5">
@@ -69,27 +134,29 @@ export function OwnerScreening() {
           <TabsTrigger value="criteria">{t.screening.criteria}</TabsTrigger>
           <TabsTrigger value="audit">
             {t.screening.audit.title}
-            <Num className="ms-1.5 text-2xs text-muted">{auditLog.length}</Num>
+            <Num className="ms-1.5 text-2xs text-muted">{audit?.total ?? entries.length}</Num>
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="criteria" className="space-y-5">
-          {/* Presets */}
           <section>
             <SectionTitle>{t.screening.presets}</SectionTitle>
             <div className="flex flex-wrap gap-2">
-              {screeningPresets.map((preset) => (
+              {presets.map((preset) => (
                 <button
                   key={preset.id}
                   type="button"
                   onClick={() => {
-                    setActivePreset(preset.id);
-                    pushToast(`${t.screening.activePreset}: ${preset.name}`, 'success');
+                    if (preset.isActive) return;
+                    activatePreset.mutate(preset.id, {
+                      onSuccess: () =>
+                        pushToast(`${t.screening.activePreset}: ${preset.name}`, 'success'),
+                    });
                   }}
-                  aria-pressed={preset.is_active}
+                  aria-pressed={preset.isActive}
                   className={cn(
                     'rounded-[var(--radius-control)] border px-3.5 py-2.5 text-start transition-colors duration-150',
-                    preset.is_active
+                    preset.isActive
                       ? 'border-ink bg-ink text-on-ink'
                       : 'border-line text-ink hover:border-line-strong',
                   )}
@@ -98,7 +165,7 @@ export function OwnerScreening() {
                   <span
                     className={cn(
                       'mt-0.5 block text-2xs',
-                      preset.is_active ? 'text-on-ink-muted' : 'text-muted',
+                      preset.isActive ? 'text-on-ink-muted' : 'text-muted',
                     )}
                   >
                     <Num board>{preset.criteria.filter((c) => c.enabled).length}</Num>{' '}
@@ -109,7 +176,6 @@ export function OwnerScreening() {
             </div>
           </section>
 
-          {/* Criteria list */}
           <section>
             <SectionTitle aside={<span className="text-2xs text-muted">{active.name}</span>}>
               {t.screening.criteria}
@@ -137,9 +203,9 @@ export function OwnerScreening() {
                         dir="ltr"
                         step={criterion.id === 'income_to_rent' ? '0.5' : '1'}
                         className="num h-8 w-20"
-                        value={String(criterion.value ?? '')}
+                        defaultValue={String(criterion.value ?? '')}
                         disabled={!criterion.enabled}
-                        onChange={(e) => patch(criterion.id, { value: Number(e.target.value) })}
+                        onBlur={(e) => patch(criterion.id, { value: Number(e.target.value) })}
                         aria-label={t.screening.criterion[criterion.id]}
                       />
                       {THRESHOLD_UNIT[criterion.id]}
@@ -175,7 +241,6 @@ export function OwnerScreening() {
           </section>
         </TabsContent>
 
-        {/* ── Audit log ────────────────────────────────── */}
         <TabsContent value="audit" className="space-y-4">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
@@ -184,8 +249,9 @@ export function OwnerScreening() {
             </div>
             <Button
               variant="secondary"
+              disabled={entries.length === 0}
               onClick={() => {
-                exportAudit();
+                downloadAuditCsv(entries);
                 pushToast(t.screening.audit.exported, 'success');
               }}
             >
@@ -194,7 +260,9 @@ export function OwnerScreening() {
             </Button>
           </div>
 
-          {auditLog.length === 0 ? (
+          {auditLoading ? (
+            <ListSkeleton rows={6} />
+          ) : entries.length === 0 ? (
             <EmptyState
               icon={ScrollText}
               title={t.screening.audit.empty}
@@ -213,13 +281,10 @@ export function OwnerScreening() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-line">
-                  {auditLog.slice(0, 60).map((entry) => {
-                    const property = propertyById.get(entry.property_id);
+                  {entries.map((entry) => {
+                    /* Historic flags stay as they were written. Never re-score
+                       them against the live preset — that would rewrite the past. */
                     const failed = entry.flags.filter((f) => !f.passed);
-                    const name =
-                      entry.lead_name ||
-                      seekers.find((s) => s.id === entry.lead_id)?.name ||
-                      '—';
                     return (
                       <tr key={entry.id} className="align-top text-sm">
                         <td className="p-3">
@@ -227,13 +292,9 @@ export function OwnerScreening() {
                             {formatDateTime(entry.at)}
                           </Num>
                         </td>
-                        <td className="p-3 font-semibold text-ink">{name}</td>
-                        <td className="p-3 text-2xs text-muted">
-                          {property
-                            ? `${property.address.street} ${property.address.number}`
-                            : entry.property_id}
-                        </td>
-                        <td className="p-3 text-2xs text-ink-soft">{entry.preset_name}</td>
+                        <td className="p-3 font-semibold text-ink">{entry.leadName}</td>
+                        <td className="p-3 text-2xs text-muted">{entry.propertyLabel ?? '—'}</td>
+                        <td className="p-3 text-2xs text-ink-soft">{entry.presetName}</td>
                         <td className="p-3">
                           <p className="text-2xs text-ink-soft">{entry.detail}</p>
                           {failed.length ? (
@@ -260,11 +321,6 @@ export function OwnerScreening() {
                   })}
                 </tbody>
               </table>
-              {auditLog.length > 60 ? (
-                <p className="border-t border-line bg-surface p-3 text-center text-2xs text-muted">
-                  <Num board>{auditLog.length - 60}</Num> {t.ui.more}
-                </p>
-              ) : null}
             </div>
           )}
         </TabsContent>
