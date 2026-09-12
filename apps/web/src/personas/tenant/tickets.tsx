@@ -11,6 +11,7 @@ import { useConfirmSlot, usePostMessage, useTickets } from '@/api/hooks';
 import { useStore } from '@/data/store';
 import { Num, PageHeader, Phone } from '@/components/shared/typography';
 import { EmptyState } from '@/components/shared/empty-state';
+import { ErrorState } from '@/components/shared/error-state';
 import { SeverityBadge, TicketStatusBadge } from '@/components/shared/status';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -18,7 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ReceiptDialog } from '@/personas/owner/tickets';
 import { ListSkeleton } from '@/components/shared/skeleton';
 import { cn } from '@/lib/utils';
-import { CalendarCheck2, CheckCircle2, ListChecks, Receipt, ServerCrash, Wrench } from 'lucide-react';
+import { CalendarCheck2, CheckCircle2, ListChecks, Receipt, Wrench } from 'lucide-react';
 
 const OPEN_STATUSES = ['new', 'approved', 'assigned', 'in_progress', 'awaiting_receipt'];
 
@@ -26,19 +27,13 @@ export function TenantTickets() {
   const navigate = useNavigate();
   const { data: tickets = [], isLoading, isError, refetch } = useTickets();
 
-  const open = tickets.filter((tk) => OPEN_STATUSES.includes(tk.status));
-  const closed = tickets.filter((tk) => tk.status === 'closed');
+  /* Mixed-role accounts receive owner tickets in the same list. This screen
+     is the tenant's own faults, so the other relationship is filtered out. */
+  const mine = tickets.filter((tk) => tk.scope === 'tenant');
+  const open = mine.filter((tk) => OPEN_STATUSES.includes(tk.status));
+  const closed = mine.filter((tk) => tk.status === 'closed');
 
-  if (isError) {
-    return (
-      <EmptyState
-        icon={ServerCrash}
-        title={t.auth.error.internal}
-        action={t.ui.reset}
-        onAction={() => void refetch()}
-      />
-    );
-  }
+  if (isError) return <ErrorState onRetry={() => void refetch()} />;
 
   return (
     <div className="space-y-5">
@@ -116,6 +111,7 @@ function TenantTicketCard({ ticket }: { ticket: TicketView }) {
         </div>
 
         <h3 className="text-sm font-bold text-ink">{ticket.title}</h3>
+        <p className="text-2xs text-muted">{ticket.propertyLabel}</p>
         {ticket.description ? (
           <p className="mt-1 text-xs leading-5 text-muted">{ticket.description}</p>
         ) : null}
@@ -163,7 +159,7 @@ function TenantTicketCard({ ticket }: { ticket: TicketView }) {
                 <div className="mt-2.5 flex flex-wrap gap-2">
                   <Button
                     size="sm"
-                    disabled={confirmSlot.isPending}
+                    loading={confirmSlot.isPending}
                     onClick={() =>
                       confirmSlot.mutate(
                         { id: ticket.id },
@@ -176,7 +172,7 @@ function TenantTicketCard({ ticket }: { ticket: TicketView }) {
                   <Button
                     size="sm"
                     variant="secondary"
-                    disabled={postMessage.isPending}
+                    loading={postMessage.isPending}
                     onClick={() =>
                       postMessage.mutate(
                         { id: ticket.id, body: t.tenant.tickets.requestOther },
