@@ -4,6 +4,9 @@ import { useStore } from '@/data/store';
 import { useCreateTicket, useProperties, uploadFile } from '@/api/hooks';
 import { t, formatTime, formatWeekdayDate, type Severity, type TicketCategory } from '@miftan/shared';
 import { Num, PageHeader } from '@/components/shared/typography';
+import { EmptyState } from '@/components/shared/empty-state';
+import { ErrorState } from '@/components/shared/error-state';
+import { ListSkeleton } from '@/components/shared/skeleton';
 import { Button } from '@/components/ui/button';
 import { Field, Input, Textarea } from '@/components/ui/field';
 import { cn } from '@/lib/utils';
@@ -58,7 +61,7 @@ export function TenantReport() {
   const navigate = useNavigate();
   const pushToast = useStore((s) => s.pushToast);
   const createTicket = useCreateTicket();
-  const { data: properties = [] } = useProperties();
+  const { data: properties = [], isLoading, isError, refetch } = useProperties();
 
   /* The unit this person rents. `scope` comes from the server, so this cannot
      accidentally pick up a flat they merely own. */
@@ -159,6 +162,12 @@ export function TenantReport() {
         </div>
       </div>
     );
+  }
+
+  if (isError) return <ErrorState onRetry={() => void refetch()} />;
+  if (isLoading) return <ListSkeleton rows={6} />;
+  if (!property) {
+    return <EmptyState icon={KeyRound} title={t.unit.lease.noLease} hint={t.unit.lease.noLeaseHint} />;
   }
 
   return (
@@ -361,8 +370,8 @@ export function TenantReport() {
             {error}
           </p>
         ) : null}
-        <Button size="lg" className="w-full" onClick={submit} disabled={createTicket.isPending}>
-          {createTicket.isPending ? t.tenant.report.submitting : t.tenant.report.submit}
+        <Button size="lg" className="w-full" onClick={submit} loading={createTicket.isPending}>
+          {t.tenant.report.submit}
         </Button>
       </div>
     </div>
