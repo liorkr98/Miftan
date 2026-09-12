@@ -1,30 +1,54 @@
-import { useStore, useStoreShallow } from '@/data/store';
-import { t, formatDate, formatMonthYear } from '@miftan/shared';
+import { t, formatDate, type TenantProperty } from '@miftan/shared';
+import { useProperties, useTickets } from '@/api/hooks';
+import { useStore } from '@/data/store';
 import { Money, Num, PageHeader } from '@/components/shared/typography';
 import { EmptyState } from '@/components/shared/empty-state';
+import { ErrorState } from '@/components/shared/error-state';
+import { ListSkeleton } from '@/components/shared/skeleton';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { FileText, Receipt } from 'lucide-react';
+import { FileText, Receipt, Wallet } from 'lucide-react';
 
 export function TenantDocuments() {
-  const { leases, tickets, rentPayments, currentTenantId } = useStoreShallow((s) => ({
-    leases: s.leases,
-    tickets: s.tickets,
-    rentPayments: s.rentPayments,
-    currentTenantId: s.currentTenantId,
-  }));
+  const {
+    data: properties,
+    isLoading: propertiesLoading,
+    isError: propertiesError,
+    refetch: refetchProperties,
+  } = useProperties();
+  const {
+    data: tickets = [],
+    isLoading: ticketsLoading,
+    isError: ticketsError,
+    refetch: refetchTickets,
+  } = useTickets();
   const pushToast = useStore((s) => s.pushToast);
 
-  const lease = leases.find((l) => l.tenant_id === currentTenantId);
-  const receipts = tickets.filter((tk) => tk.tenant_id === currentTenantId && tk.receipt);
-  const payments = lease
-    ? rentPayments.filter((p) => p.lease_id === lease.id).sort((a, b) => b.month.localeCompare(a.month))
-    : [];
+  if (propertiesError || ticketsError) {
+    return (
+      <ErrorState
+        onRetry={() => {
+          void refetchProperties();
+          void refetchTickets();
+        }}
+      />
+    );
+  }
+  if (propertiesLoading || ticketsLoading) return <ListSkeleton rows={4} />;
 
-  if (!lease) {
+  /**
+   * `/properties` mixes every relationship this account holds. The lease
+   * document belongs to the flat they rent — not to one they own.
+   */
+  const home = properties?.find((p): p is TenantProperty => p.scope === 'tenant');
+
+  if (!home) {
     return <EmptyState icon={FileText} title={t.tenant.documents.empty} hint={t.tenant.documents.emptyHint} />;
   }
+
+  /* Receipts live on tickets, not on a documents table. Owner-scope tickets
+     on a mixed-role account are someone else's receipts. */
+  const receipts = tickets.filter((tk) => tk.scope === 'tenant' && tk.receipt?.file);
 
   return (
     <div className="space-y-5">
@@ -49,17 +73,13 @@ export function TenantDocuments() {
               <p className="text-sm font-bold text-ink">{t.tenant.documents.lease}</p>
               <p className="text-2xs text-muted">
                 {t.tenant.documents.signedOn}{' '}
-                <Num board>{formatDate(lease.start_date)}</Num> ·{' '}
+                <Num board>{formatDate(home.lease.startDate)}</Num> ·{' '}
                 <Num board>
-                  {formatDate(lease.start_date)} — {formatDate(lease.end_date)}
+                  {formatDate(home.lease.startDate)} — {formatDate(home.lease.endDate)}
                 </Num>
               </p>
             </div>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => pushToast(t.ui.demoNote)}
-            >
+            <Button size="sm" variant="secondary" onClick={() => pushToast(t.ui.demoNote)}>
               {t.tenant.documents.view}
             </Button>
           </div>
@@ -76,7 +96,7 @@ export function TenantDocuments() {
                   className="flex items-center gap-3 rounded-[var(--radius-card)] border border-line p-3"
                 >
                   <img
-                    src={ticket.receipt!.file}
+                    src={ticket.receipt!.file!}
                     alt=""
                     loading="lazy"
                     className="h-16 w-12 shrink-0 rounded-[4px] border border-line object-cover"
@@ -84,13 +104,9 @@ export function TenantDocuments() {
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-xs font-bold text-ink">{ticket.title}</p>
                     <p className="text-2xs text-muted">
-                      <Num board>{formatDate(ticket.receipt!.uploaded_at)}</Num>
+                      <Num board>{formatDate(ticket.receipt!.uploadedAt)}</Num>
                     </p>
-                    <Money
-                      value={ticket.receipt!.amount}
-                      board
-                      className="text-sm font-bold text-ink"
-                    />
+                    <Money agorot={ticket.receipt!.amountAgorot} board className="text-sm font-bold text-ink" />
                   </div>
                 </li>
               ))}
@@ -99,49 +115,13 @@ export function TenantDocuments() {
         </TabsContent>
 
         <TabsContent value="payments">
-          <div className="overflow-x-auto rounded-[var(--radius-card)] border border-line">
-            <table className="w-full min-w-[28rem] border-collapse">
-              <thead>
-                <tr className="border-b border-line bg-surface text-2xs text-muted">
-                  <th className="p-3 text-start font-bold">{t.tenant.documents.month}</th>
-                  <th className="p-3 text-start font-bold">{t.finance.expected}</th>
-                  <th className="p-3 text-start font-bold">{t.finance.paid}</th>
-                  <th className="p-3 text-start font-bold">{t.tenant.documents.status}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-line">
-                {payments.map((payment) => {
-                  const state =
-                    payment.paid >= payment.due ? 'paid' : payment.paid > 0 ? 'partial' : 'unpaid';
-                  return (
-                    <tr key={payment.id} className="text-sm">
-                      <td className="p-3 text-ink">{formatMonthYear(`${payment.month}-01`)}</td>
-                      <td className="p-3">
-                        <Money value={payment.due} board className="text-ink-soft" />
-                      </td>
-                      <td className="p-3">
-                        <Money value={payment.paid} board className="font-bold text-ink" />
-                      </td>
-                      <td className="p-3">
-                        <Badge
-                          tone={
-                            state === 'paid' ? 'openSoft' : state === 'partial' ? 'signalSoft' : 'alertSoft'
-                          }
-                          size="sm"
-                        >
-                          {state === 'paid'
-                            ? t.finance.paid
-                            : state === 'partial'
-                              ? t.finance.partial
-                              : t.finance.unpaid}
-                        </Badge>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          {/* Rent payments have no endpoint yet. An empty state that admits the
+              gap is better than a fixture table that looks like live figures. */}
+          <EmptyState
+            icon={Wallet}
+            title={t.tenant.documents.paymentsEmpty}
+            hint={t.tenant.documents.paymentsEmptyHint}
+          />
         </TabsContent>
       </Tabs>
     </div>
