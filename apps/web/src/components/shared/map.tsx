@@ -1,9 +1,18 @@
 import * as React from 'react';
 import { MapContainer, Marker, TileLayer, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { formatDateShort, formatMoneyShort, type Property } from '@miftan/shared';
+import { formatDateShort, formatMoneyShort } from '@miftan/shared';
 import type { AvailabilityKind } from '@/data/selectors';
 import { AVAILABILITY_COLOR } from './status';
+
+export type MapListing = {
+  id: string;
+  lat: number;
+  lng: number;
+  monthlyRentShekels: number;
+  availabilityKind: AvailabilityKind;
+  availableDate: string | null;
+};
 
 /**
  * Pin design carries the product's argument.
@@ -78,13 +87,11 @@ function KeepSized() {
 }
 
 /** Keeps the viewport in step with the filtered result set. */
-function FitBounds({ properties }: { properties: Property[] }) {
+function FitBounds({ listings }: { listings: MapListing[] }) {
   const map = useMap();
   React.useEffect(() => {
-    if (properties.length === 0) return;
-    const bounds = L.latLngBounds(
-      properties.map((p) => [p.address.lat, p.address.lng] as [number, number]),
-    );
+    if (listings.length === 0) return;
+    const bounds = L.latLngBounds(listings.map((p) => [p.lat, p.lng] as [number, number]));
     const fit = () => {
       map.invalidateSize({ animate: false });
       map.fitBounds(bounds, { padding: [48, 48], maxZoom: 15, animate: true });
@@ -92,19 +99,17 @@ function FitBounds({ properties }: { properties: Property[] }) {
     fit();
     const id = window.setTimeout(fit, 80);
     return () => window.clearTimeout(id);
-  }, [map, properties]);
+  }, [map, listings]);
   return null;
 }
 
 export function ResultsMap({
-  properties,
-  kindOf,
+  listings,
   activeId,
   onSelect,
   className,
 }: {
-  properties: Property[];
-  kindOf: (property: Property) => AvailabilityKind;
+  listings: MapListing[];
   activeId?: string | null;
   onSelect: (id: string) => void;
   className?: string;
@@ -129,19 +134,19 @@ export function ResultsMap({
         maxZoom={19}
       />
       <KeepSized />
-      <FitBounds properties={properties} />
-      {properties.map((property) => (
+      <FitBounds listings={listings} />
+      {listings.map((listing) => (
         <Marker
-          key={property.id}
-          position={[property.address.lat, property.address.lng]}
+          key={listing.id}
+          position={[listing.lat, listing.lng]}
           icon={pinIcon(
-            kindOf(property),
-            formatMoneyShort(property.monthly_rent),
-            property.available_from ? formatDateShort(property.available_from) : undefined,
-            activeId === property.id,
+            listing.availabilityKind,
+            formatMoneyShort(listing.monthlyRentShekels),
+            listing.availableDate ? formatDateShort(listing.availableDate) : undefined,
+            activeId === listing.id,
           )}
-          eventHandlers={{ click: () => onSelect(property.id) }}
-          zIndexOffset={activeId === property.id ? 1000 : kindOf(property) === 'dated' ? 500 : 0}
+          eventHandlers={{ click: () => onSelect(listing.id) }}
+          zIndexOffset={activeId === listing.id ? 1000 : listing.availabilityKind === 'dated' ? 500 : 0}
         />
       ))}
     </MapContainer>
