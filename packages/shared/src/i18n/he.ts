@@ -252,7 +252,9 @@ export const t = {
       tickets: 'תקלות',
       expenses: 'הוצאות',
       leads: 'מועמדים',
+      viewings: 'צפיות',
     },
+    listedReadOnly: 'הפרסום מתעדכן רק דרך ה־API — אין עדיין עריכה מכאן',
     specs: 'מפרט',
     amenities: 'מה יש בדירה',
     costs: 'עלויות נלוות',
@@ -677,6 +679,7 @@ export const t = {
       negotiate: 'בקש לדבר על התנאים',
       accepted: 'אישרת את התנאים',
       deadline: 'צריך לענות עד',
+      waitingForAsk: 'כשבעל הדירה ישאל על החידוש, אפשר יהיה לענות מכאן.',
       privacyTitle: 'מה מפתן מפרסמת',
       privacyBody:
         'מחפשי דירה לא רואים מי גר בדירה ולא יכולים לפנות אליך. מה שמתפרסם הוא רק תאריך: "צפויה להתפנות בספטמבר" או "הדייר מתכוון להאריך".',
@@ -696,6 +699,9 @@ export const t = {
       month: 'חודש',
       status: 'סטטוס',
       mockNote: 'בהדגמה המסמכים אינם קבצים אמיתיים',
+      paymentsEmpty: 'היסטוריית התשלומים עדיין לא מחוברת',
+      paymentsEmptyHint:
+        'תשלומי השכירות יופיעו כאן כשהחיבור לחשבון יושלם. בינתיים החוזה והקבלות זמינים בלשוניות האחרות.',
     },
   },
 
@@ -729,6 +735,16 @@ export const t = {
       inQueue: 'בתור',
       openListing: 'הצג דירה',
       thesis: 'גם דירות מאוכלסות מופיעות כאן — עם התאריך שבו הן מתפנות',
+      district: 'מחוז',
+      allDistricts: 'כל המחוזות',
+      availableBy: 'זמין עד',
+      confirmedOnly: 'רק תאריך מאושר',
+      sqmRange: 'שטח',
+      minLeaseMonths: 'מינימום חודשי שכירות',
+      laterResults: 'אין דירות בתאריך הזה — {count} דירות בלי מגבלת תאריך',
+      sortPriceAsc: 'מחיר עולה',
+      sortPriceDesc: 'מחיר יורד',
+      sortSqm: 'שטח',
     },
 
     listing: {
@@ -762,6 +778,18 @@ export const t = {
       amenities: 'מה יש בדירה',
       notFound: 'הדירה לא נמצאה',
       notFoundHint: 'ייתכן שהיא הוסרה מהפרסום.',
+      viewings: 'תיאום צפייה',
+      viewingsHint: 'בעל הדירה פרסם שעות. בוחרים אחת.',
+      viewingsEmpty: 'אין שעות צפייה פתוחות',
+      viewingsEmptyHint: 'כשבעל הדירה יפרסם שעות, הן יופיעו כאן.',
+      bookSlot: 'קבע צפייה',
+      slotMine: 'השעה שלך',
+      slotTaken: 'תפוס',
+      slotOpen: 'פנוי',
+      bookNeedQueue: 'קודם שריין מקום בתור, ואז אפשר לקבוע צפייה.',
+      cancelSlot: 'בטל צפייה',
+      booked: 'הצפייה נקבעה',
+      cancelled: 'הצפייה בוטלה',
     },
 
     queue: {
@@ -924,6 +952,8 @@ export const t = {
       sent: 'המחפש עודכן',
       willPublish: 'מה יתפרסם בחיפוש',
       privacyNote: 'העדכון נשלח מבעל הדירה. זהות הדייר לא נחשפת בשום שלב.',
+      publishDate: 'תאריך לפינוי',
+      dateConfidence: 'ודאות התאריך',
     },
 
     seeker: {
@@ -999,6 +1029,30 @@ export const t = {
     },
     photosCount: 'תמונות',
     requiredBadge: 'חובה',
+    compare: 'השוואת כניסה ליציאה',
+  },
+
+  /* ── Viewings ──────────────────────────────────────── */
+  viewings: {
+    title: 'שעות צפייה',
+    publish: 'פרסם שעות',
+    date: 'תאריך',
+    from: 'משעה',
+    until: 'עד שעה',
+    duration: 'משך בדקות',
+    gap: 'הפסקה בדקות',
+    published: 'השעות נוספו ליומן',
+    empty: 'אין שעות צפייה',
+    emptyHint: 'פרסם חלון זמן — המערכת תחלק אותו לשעות קצרות.',
+    cancelled: 'השעה בוטלה',
+    applicant: 'מועמד',
+    status: {
+      open: 'פתוח',
+      booked: 'תואם',
+      attended: 'התקיים',
+      no_show: 'לא הגיע',
+      cancelled: 'בוטל',
+    },
   },
 
   /* ── Contract intake ───────────────────────────────── */
@@ -1058,6 +1112,18 @@ export const t = {
     history: 'מסמכים שנסרקו',
     noHistory: 'עדיין לא נסרקו חוזים',
     noHistoryHint: 'העלה חוזה קיים כדי למלא את פרטי הדירה בלי להקליד.',
+    templates: 'ספריית תבניות',
+    pickTemplate: 'תבנית',
+    pickLease: 'מלא מחוזה קיים',
+    noLease: 'בלי חוזה קיים',
+    render: 'הפק טיוטה',
+    missingFields: 'חסרים שדות חובה',
+    clone: 'ערוך — יוצר עותק שלך',
+    deleteClone: 'מחק עותק והחזר את המקור',
+    builtIn: 'מובנה',
+    yourCopy: 'העותק שלך',
+    prefilledFrom: 'מולא מהחוזה',
+    useWhen: 'מתי להשתמש',
   },
 
   /* ── Seasonal preventive maintenance ───────────────── */
