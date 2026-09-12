@@ -1,8 +1,27 @@
 import * as React from 'react';
-import { useStore, useStoreShallow } from '@/data/store';
-import { t, formatDate, formatDateTime, type ProtocolKind, type ProtocolRun, type ProtocolSection } from '@miftan/shared';
+import { useStore } from '@/data/store';
+import {
+  t,
+  formatDate,
+  formatDateTime,
+  protocolItems,
+  type ProtocolKind,
+  type ProtocolRunView as ProtocolRun,
+  type ProtocolSection,
+} from '@miftan/shared';
+import {
+  uploadFile,
+  useCompleteProtocol,
+  useProperty,
+  useProtocolComparison,
+  useProtocols,
+  useStartProtocol,
+  useUpdateProtocolEntry,
+} from '@/api/hooks';
 import { Num, SectionTitle } from './typography';
 import { EmptyState } from './empty-state';
+import { ErrorState } from './error-state';
+import { ListSkeleton } from './skeleton';
 import { Meter } from './meter';
 import { OfferRail } from './revenue';
 import { Button } from '@/components/ui/button';
@@ -35,32 +54,39 @@ const SECTION_ICON: Record<ProtocolSection, React.ComponentType<{ className?: st
 /**
  * פרוטוקול כניסה / יציאה.
  *
- * Deposit disputes are won on paper. The design bets on two things: the same
- * item list for both directions so the runs can be compared line by line, and
- * making the photo the fastest action on every condition row — because the
- * photo is the part that actually settles the argument.
+ * Both parties write entries. Completing is owner-only. A completed run is
+ * locked — completedAt is the lock, not a style.
  */
 export function ProtocolPanel({ propertyId }: { propertyId: string }) {
-  const { protocolRuns, protocolItems, tenants } = useStoreShallow((s) => ({
-    protocolRuns: s.protocolRuns,
-    protocolItems: s.protocolItems,
-    tenants: s.tenants,
-  }));
-  const startProtocol = useStore((s) => s.startProtocol);
+  const { data: runs = [], isLoading, isError, refetch } = useProtocols();
+  const { data: property } = useProperty(propertyId);
+  const { data: comparison } = useProtocolComparison(propertyId);
+  const start = useStartProtocol();
   const pushToast = useStore((s) => s.pushToast);
 
-  const runs = protocolRuns
-    .filter((r) => r.property_id === propertyId)
-    .sort((a, b) => b.started_at.localeCompare(a.started_at));
+  const mine = runs
+    .filter((r) => r.propertyId === propertyId)
+    .slice()
+    .sort((a, b) => b.startedAt.localeCompare(a.startedAt));
 
-  const [activeId, setActiveId] = React.useState<string | null>(runs[0]?.id ?? null);
-  const active = runs.find((r) => r.id === activeId) ?? runs[0];
+  const [activeId, setActiveId] = React.useState<string | null>(null);
+  const active = mine.find((r) => r.id === (activeId ?? mine[0]?.id));
+  const canComplete = property?.scope === 'owner';
 
   const begin = (kind: ProtocolKind) => {
-    const id = startProtocol(propertyId, kind);
-    setActiveId(id);
-    pushToast(kind === 'move_in' ? t.protocol.moveIn : t.protocol.moveOut, 'success');
+    start.mutate(
+      { propertyId, kind },
+      {
+        onSuccess: (run) => {
+          setActiveId(run.id);
+          pushToast(kind === 'move_in' ? t.protocol.moveIn : t.protocol.moveOut, 'success');
+        },
+      },
+    );
   };
+
+  if (isError) return <ErrorState onRetry={() => void refetch()} />;
+  if (isLoading) return <ListSkeleton rows={4} />;
 
   return (
     <div className="space-y-5">
@@ -70,18 +96,18 @@ export function ProtocolPanel({ propertyId }: { propertyId: string }) {
           <p className="mt-0.5 text-xs text-muted">{t.protocol.subtitle}</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button size="sm" variant="secondary" onClick={() => begin('move_in')}>
+          <Button size="sm" variant="secondary" loading={start.isPending} onClick={() => begin('move_in')}>
             <LogIn className="h-3.5 w-3.5" />
             {t.protocol.startMoveIn}
           </Button>
-          <Button size="sm" onClick={() => begin('move_out')}>
+          <Button size="sm" loading={start.isPending} onClick={() => begin('move_out')}>
             <DoorOpen className="h-3.5 w-3.5" />
             {t.protocol.startMoveOut}
           </Button>
         </div>
       </div>
 
-      {runs.length === 0 ? (
+      {mine.length === 0 ? (
         <EmptyState
           icon={ClipboardCheck}
           title={t.protocol.empty}
@@ -91,9 +117,9 @@ export function ProtocolPanel({ propertyId }: { propertyId: string }) {
         />
       ) : (
         <>
-          {runs.length > 1 ? (
+          {mine.length > 1 ? (
             <div className="flex flex-wrap gap-1.5">
-              {runs.map((run) => (
+              {mine.map((run) => (
                 <button
                   key={run.id}
                   type="button"
@@ -109,19 +135,31 @@ export function ProtocolPanel({ propertyId }: { propertyId: string }) {
                 >
                   {run.kind === 'move_in' ? t.protocol.moveIn : t.protocol.moveOut}
                   <Num board className="ms-1.5 font-medium opacity-70">
-                    {formatDate(run.started_at)}
+                    {formatDate(run.startedAt)}
                   </Num>
                 </button>
               ))}
             </div>
           ) : null}
 
-          {active ? (
-            <ProtocolRunView
-              run={active}
-              items={protocolItems}
-              tenantName={tenants.find((x) => x.id === active.tenant_id)?.name}
-            />
+          {active ? <ProtocolEditor run={active} canComplete={canComplete} /> : null}
+
+          {comparison && comparison.rows.some((row) => row.changed) ? (
+            <section className="rounded-[var(--radius-card)] border border-line p-4">
+              <h3 className="mb-2 text-sm font-bold text-ink">{t.protocol.compare}</h3>
+              <ul className="space-y-1.5">
+                {comparison.rows
+                  .filter((row) => row.changed)
+                  .map((row) => (
+                    <li key={row.itemId} className="flex items-baseline justify-between gap-3 text-2xs">
+                      <span className="text-ink-soft">{row.label}</span>
+                      <span className="text-muted">
+                        {row.moveIn ?? '—'} → {row.moveOut ?? '—'}
+                      </span>
+                    </li>
+                  ))}
+              </ul>
+            </section>
           ) : null}
         </>
       )}
@@ -129,42 +167,45 @@ export function ProtocolPanel({ propertyId }: { propertyId: string }) {
   );
 }
 
-function ProtocolRunView({
-  run,
-  items,
-  tenantName,
-}: {
-  run: ProtocolRun;
-  items: ReturnType<typeof useStore.getState>['protocolItems'];
-  tenantName?: string;
-}) {
-  const setEntry = useStore((s) => s.setProtocolEntry);
-  const addPhoto = useStore((s) => s.addProtocolPhoto);
-  const complete = useStore((s) => s.completeProtocol);
+function ProtocolEditor({ run, canComplete }: { run: ProtocolRun; canComplete: boolean }) {
+  const update = useUpdateProtocolEntry();
+  const complete = useCompleteProtocol();
   const pushToast = useStore((s) => s.pushToast);
+  const fileInput = React.useRef<HTMLInputElement>(null);
+  const [photoItem, setPhotoItem] = React.useState<string | null>(null);
 
-  const byItem = new Map(run.entries.map((e) => [e.item_id, e]));
+  const byItem = new Map(run.entries.map((e) => [e.itemId, e]));
   const done = run.entries.filter((e) => e.done).length;
-  const requiredLeft = items.filter((i) => i.required && !byItem.get(i.id)?.done).length;
-  const locked = Boolean(run.completed_at);
+  const requiredLeft = run.missingRequired.length;
+  const locked = Boolean(run.completedAt);
+
+  const patch = (itemId: string, body: { done?: boolean; value?: string | null; photos?: string[]; note?: string | null }) => {
+    if (locked) return;
+    update.mutate({ runId: run.id, itemId, ...body });
+  };
+
+  const addPhoto = async (itemId: string, file: File) => {
+    const url = await uploadFile(file, 'protocol');
+    const existing = byItem.get(itemId)?.photos ?? [];
+    patch(itemId, { photos: [...existing, url], done: true });
+  };
 
   return (
     <div className="space-y-5">
-      {/* Progress */}
       <section className="rounded-[var(--radius-card)] border border-line p-4">
         <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
           <h3 className="text-sm font-bold text-ink">
             {run.kind === 'move_in' ? t.protocol.moveIn : t.protocol.moveOut}
-            {tenantName ? <span className="ms-2 text-xs font-normal text-muted">{tenantName}</span> : null}
+            {run.tenantName ? <span className="ms-2 text-xs font-normal text-muted">{run.tenantName}</span> : null}
           </h3>
           <span className="text-2xs text-muted">
             {locked ? (
               <>
-                {t.protocol.completedAt} <Num board>{formatDateTime(run.completed_at!)}</Num>
+                {t.protocol.completedAt} <Num board>{formatDateTime(run.completedAt!)}</Num>
               </>
             ) : (
               <>
-                {t.protocol.startedAt} <Num board>{formatDateTime(run.started_at)}</Num>
+                {t.protocol.startedAt} <Num board>{formatDateTime(run.startedAt)}</Num>
               </>
             )}
           </span>
@@ -175,7 +216,7 @@ function ProtocolRunView({
             {done}
           </Num>
           <span className="text-xs text-muted">
-            {t.ui.of} <Num board>{items.length}</Num> {t.protocol.itemsDone}
+            {t.ui.of} <Num board>{protocolItems.length}</Num> {t.protocol.itemsDone}
           </span>
           {requiredLeft > 0 ? (
             <Badge tone="signalSoft" size="sm" className="ms-auto">
@@ -190,7 +231,7 @@ function ProtocolRunView({
 
         <Meter
           value={done}
-          max={items.length}
+          max={protocolItems.length}
           tone={requiredLeft === 0 ? 'open' : 'ink'}
           label={t.protocol.progress}
         />
@@ -207,28 +248,41 @@ function ProtocolRunView({
                 {t.protocol.exportPdf}
               </Button>
             </>
-          ) : (
+          ) : canComplete ? (
             <>
               <Button
                 size="sm"
+                loading={complete.isPending}
                 disabled={requiredLeft > 0}
-                onClick={() => {
-                  complete(run.id);
-                  pushToast(t.protocol.completed, 'success');
-                }}
+                onClick={() =>
+                  complete.mutate(run.id, { onSuccess: () => pushToast(t.protocol.completed, 'success') })
+                }
               >
                 <PencilLine className="h-3.5 w-3.5" />
                 {t.protocol.complete}
               </Button>
               <span className="self-center text-2xs text-muted">{t.protocol.signHint}</span>
             </>
-          )}
+          ) : null}
         </div>
       </section>
 
-      {/* Sections */}
+      <input
+        ref={fileInput}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="sr-only"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file && photoItem) void addPhoto(photoItem, file);
+          e.target.value = '';
+          setPhotoItem(null);
+        }}
+      />
+
       {SECTION_ORDER.map((section) => {
-        const sectionItems = items.filter((i) => i.section === section);
+        const sectionItems = protocolItems.filter((i) => i.section === section);
         if (sectionItems.length === 0) return null;
         const Icon = SECTION_ICON[section];
 
@@ -265,7 +319,7 @@ function ProtocolRunView({
                     <Checkbox
                       checked={checked}
                       disabled={locked}
-                      onCheckedChange={(v) => setEntry(run.id, item.id, { done: Boolean(v) })}
+                      onCheckedChange={(v) => patch(item.id, { done: Boolean(v) })}
                       aria-label={item.label}
                     />
 
@@ -278,9 +332,7 @@ function ProtocolRunView({
                       >
                         {item.label}
                       </span>
-                      {entry?.note ? (
-                        <span className="block text-2xs text-muted">{entry.note}</span>
-                      ) : null}
+                      {entry?.note ? <span className="block text-2xs text-muted">{entry.note}</span> : null}
                     </span>
 
                     {item.required ? (
@@ -296,11 +348,9 @@ function ProtocolRunView({
                           dir="ltr"
                           disabled={locked}
                           className="num h-8 w-24"
-                          value={entry?.value ?? ''}
+                          defaultValue={entry?.value ?? ''}
                           placeholder={item.unit}
-                          onChange={(e) =>
-                            setEntry(run.id, item.id, { value: e.target.value, done: true })
-                          }
+                          onBlur={(e) => patch(item.id, { value: e.target.value, done: true })}
                           aria-label={`${item.label} — ${t.protocol.reading}`}
                         />
                         {item.unit}
@@ -309,7 +359,7 @@ function ProtocolRunView({
 
                     {item.wants_photo ? (
                       <span className="flex items-center gap-1.5">
-                        {entry?.photos.map((src) => (
+                        {(entry?.photos ?? []).map((src) => (
                           <img
                             key={src}
                             src={src}
@@ -323,7 +373,10 @@ function ProtocolRunView({
                             size="iconSm"
                             variant="secondary"
                             aria-label={`${t.protocol.addPhoto} — ${item.label}`}
-                            onClick={() => addPhoto(run.id, item.id)}
+                            onClick={() => {
+                              setPhotoItem(item.id);
+                              fileInput.current?.click();
+                            }}
                           >
                             <Camera className="h-3.5 w-3.5" />
                           </Button>
@@ -338,10 +391,9 @@ function ProtocolRunView({
         );
       })}
 
-      {/* Services the moment naturally calls for */}
       <OfferRail
         placement={run.kind === 'move_in' ? 'protocol_move_in' : 'protocol_move_out'}
-        title={run.kind === 'move_in' ? t.offers.sectionOwner : t.offers.sectionOwner}
+        title={t.offers.sectionOwner}
       />
     </div>
   );
