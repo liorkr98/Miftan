@@ -82,10 +82,13 @@ export function OwnerTickets() {
   const [params, setParams] = useSearchParams();
   const { data: tickets = [], isLoading, isError, refetch } = useTickets();
 
-  const openId = params.get('ticket');
-  const openTicket = tickets.find((tk) => tk.id === openId);
+  /* Mixed-role accounts also receive the ticket on the flat they rent. */
+  const mine = tickets.filter((tk) => tk.scope === 'owner');
 
-  const open = tickets.filter((tk) => tk.status !== 'closed');
+  const openId = params.get('ticket');
+  const openTicket = mine.find((tk) => tk.id === openId);
+
+  const open = mine.filter((tk) => tk.status !== 'closed');
   const urgent = open.filter((tk) => tk.severity === 'urgent');
 
   const setOpen = (id: string | null) => {
@@ -136,7 +139,7 @@ export function OwnerTickets() {
       ) : (
         <div className="hide-scrollbar -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0">
           {COLUMNS.map((status) => {
-            const column = tickets
+            const column = mine
               .filter((tk) => tk.status === status)
               .sort(
                 (a, b) =>
