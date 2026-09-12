@@ -1,13 +1,15 @@
 import * as React from 'react';
-import { useStore, useStoreShallow } from '@/data/store';
-import { t, daysUntil, formatDate, formatAge, type RenewalIntent } from '@miftan/shared';
-import { availabilityKind } from '@/data/selectors';
+import { useStore } from '@/data/store';
+import { t, daysUntil, formatDate, formatAge, type RenewalIntent, type TenantProperty } from '@miftan/shared';
+import { useInquiries, useInquiryAction, useProperties } from '@/api/hooks';
 import { Money, Num, PageHeader, SectionTitle } from '@/components/shared/typography';
 import { EmptyState } from '@/components/shared/empty-state';
+import { ErrorState } from '@/components/shared/error-state';
+import { ListSkeleton } from '@/components/shared/skeleton';
 import { AvailabilityChip } from '@/components/shared/status';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { addMonths, parseISO, subDays } from 'date-fns';
+import { parseISO, subDays } from 'date-fns';
 import { cn } from '@/lib/utils';
 import {
   CalendarCheck2,
@@ -34,76 +36,85 @@ const OPTIONS: {
 ];
 
 export function TenantRenewal() {
-  const { properties, leases, inquiries, currentTenantId } = useStoreShallow((s) => ({
-    properties: s.properties,
-    leases: s.leases,
-    inquiries: s.inquiries,
-    currentTenantId: s.currentTenantId,
-  }));
-  const setRenewalIntent = useStore((s) => s.setRenewalIntent);
-  const answerInquiryAsTenant = useStore((s) => s.answerInquiryAsTenant);
-  const acceptRenewalProposal = useStore((s) => s.acceptRenewalProposal);
+  const {
+    data: properties,
+    isLoading: propertiesLoading,
+    isError: propertiesError,
+    refetch: refetchProperties,
+  } = useProperties();
+  const {
+    data: inquiries = [],
+    isLoading: inquiriesLoading,
+    isError: inquiriesError,
+    refetch: refetchInquiries,
+  } = useInquiries();
+  const inquiryAction = useInquiryAction();
   const pushToast = useStore((s) => s.pushToast);
 
-  const lease = leases.find((l) => l.tenant_id === currentTenantId);
-  const property = lease ? properties.find((p) => p.id === lease.property_id) : undefined;
   const [changing, setChanging] = React.useState(false);
   const [note, setNote] = React.useState('');
 
-  /* An inquiry the owner has forwarded. The tenant sees a question about
-     their own lease — never a seeker, never a name. */
-  const pendingInquiry = inquiries.find(
-    (x) => x.property_id === property?.id && x.status === 'asked_tenant',
-  );
+  if (propertiesError || inquiriesError) {
+    return (
+      <ErrorState
+        onRetry={() => {
+          void refetchProperties();
+          void refetchInquiries();
+        }}
+      />
+    );
+  }
+  if (propertiesLoading || inquiriesLoading) return <ListSkeleton rows={5} />;
 
-  if (!lease || !property) {
+  const home = properties?.find((p): p is TenantProperty => p.scope === 'tenant');
+
+  if (!home) {
     return <EmptyState icon={CalendarCheck2} title={t.unit.lease.noLease} hint={t.unit.lease.noLeaseHint} />;
   }
 
-  /* A standing answer must not hide a fresh question. When the owner has
-     explicitly asked again — because someone is interested — the options are
-     open regardless of what the tenant said last time. Intentions change. */
-  const answered = Boolean(lease.renewal_intent) && !changing && !pendingInquiry;
-  const proposal = lease.proposed_renewal;
-  const deadline = subDays(parseISO(lease.end_date), lease.notice_period_days);
-  const kind = availabilityKind(property, lease);
+  const { lease, address, availability } = home;
+
+  /* A tenant never sees the seeker. Filter to this relationship, then take
+     the unanswered question — a standing answer must not hide a fresh one. */
+  const pendingInquiry = inquiries.find((x) => x.scope === 'tenant' && !x.answered);
+
+  const answered = Boolean(lease.renewalIntent) && !changing && !pendingInquiry;
+  const canAnswer = Boolean(pendingInquiry);
+  const deadline = subDays(parseISO(lease.endDate), lease.noticePeriodDays);
 
   const choose = (intent: RenewalIntent) => {
-    if (pendingInquiry) {
-      answerInquiryAsTenant(pendingInquiry.id, intent, note.trim() || undefined);
-      setNote('');
-      pushToast(t.inquiries.tenantPrompt.answered, 'success');
-    } else {
-      setRenewalIntent(lease.id, intent);
-      pushToast(t.tenant.renewalPage.answered, 'success');
-    }
-    setChanging(false);
+    if (!pendingInquiry || pendingInquiry.scope !== 'tenant') return;
+    inquiryAction.mutate(
+      { id: pendingInquiry.id, action: 'answer', body: { answer: intent, note: note.trim() || undefined } },
+      {
+        onSuccess: () => {
+          setNote('');
+          setChanging(false);
+          pushToast(t.inquiries.tenantPrompt.answered, 'success');
+        },
+      },
+    );
   };
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title={t.tenant.renewalPage.title}
-        subtitle={`${property.address.street} ${property.address.number}`}
-      />
+      <PageHeader title={t.tenant.renewalPage.title} subtitle={`${address.street} ${address.number}`} />
 
-      {/* The owner has forwarded a question because someone is interested */}
-      {pendingInquiry ? (
+      {pendingInquiry && pendingInquiry.scope === 'tenant' ? (
         <section className="rounded-[var(--radius-card)] border border-signal/50 bg-signal-soft p-4 motion-safe:animate-[fade-up_260ms_var(--ease-out)_both]">
           <div className="flex items-start gap-2.5">
             <MessageCircleQuestion className="mt-0.5 h-4 w-4 shrink-0 text-signal-deep" />
             <div className="min-w-0 flex-1">
               <h2 className="text-sm font-bold text-ink">{t.inquiries.tenantPrompt.title}</h2>
               <p className="mt-1 text-xs leading-5 text-ink-soft">{t.inquiries.tenantPrompt.body}</p>
-              <p className="mt-1 text-2xs text-muted">
-                {t.inquiries.asked} {formatAge(pendingInquiry.asked_tenant_at ?? pendingInquiry.created_at)}
-              </p>
+              {pendingInquiry.askedTenantAt ? (
+                <p className="mt-1 text-2xs text-muted">
+                  {t.inquiries.asked} {formatAge(pendingInquiry.askedTenantAt)}
+                </p>
+              ) : null}
 
               <div className="mt-3">
-                <label
-                  htmlFor="renewal-note"
-                  className="mb-1.5 block text-2xs font-bold text-ink-soft"
-                >
+                <label htmlFor="renewal-note" className="mb-1.5 block text-2xs font-bold text-ink-soft">
                   {t.inquiries.tenantPrompt.note}
                 </label>
                 <Textarea
@@ -127,7 +138,6 @@ export function TenantRenewal() {
         </section>
       ) : null}
 
-      {/* The question */}
       <section className="rounded-[var(--radius-card)] border border-line p-5">
         <h2 className="text-lg font-extrabold text-ink">{t.tenant.renewalPage.question}</h2>
         <p className="mt-1 text-xs leading-5 text-muted">{t.tenant.renewalPage.questionHint}</p>
@@ -144,28 +154,30 @@ export function TenantRenewal() {
           <div className="mt-4 flex flex-wrap items-center gap-3">
             <Badge
               tone={
-                lease.renewal_intent === 'extend'
+                lease.renewalIntent === 'extend'
                   ? 'openSoft'
-                  : lease.renewal_intent === 'leave'
+                  : lease.renewalIntent === 'leave'
                     ? 'signalSoft'
                     : 'neutral'
               }
               size="lg"
             >
-              {t.unit.intent[lease.renewal_intent!]}
+              {t.unit.intent[lease.renewalIntent!]}
             </Badge>
             <span className="text-xs text-muted">{t.tenant.renewalPage.answered}</span>
-            <Button variant="quiet" size="sm" onClick={() => setChanging(true)}>
-              {t.tenant.renewalPage.changeAnswer}
-            </Button>
+            {canAnswer ? (
+              <Button variant="quiet" size="sm" onClick={() => setChanging(true)}>
+                {t.tenant.renewalPage.changeAnswer}
+              </Button>
+            ) : null}
           </div>
-        ) : (
+        ) : canAnswer ? (
           <>
-            {pendingInquiry && lease.renewal_intent ? (
+            {lease.renewalIntent ? (
               <p className="mt-3 flex items-center gap-2 text-xs text-muted">
                 {t.unit.lease.renewalIntent}:
                 <Badge tone="neutral" size="sm">
-                  {t.unit.intent[lease.renewal_intent]}
+                  {t.unit.intent[lease.renewalIntent]}
                 </Badge>
               </p>
             ) : null}
@@ -175,11 +187,13 @@ export function TenantRenewal() {
                 <button
                   key={option.id}
                   type="button"
+                  disabled={inquiryAction.isPending}
                   onClick={() => choose(option.id)}
                   className={cn(
                     'press flex flex-col items-center gap-2 rounded-[var(--radius-card)] border p-4 text-center',
                     'transition-[background-color,border-color,color,transform] duration-150 ease-[var(--ease-out)]',
-                    lease.renewal_intent === option.id
+                    'disabled:pointer-events-none disabled:opacity-50',
+                    lease.renewalIntent === option.id
                       ? 'border-ink bg-ink text-on-ink'
                       : 'border-line hover:border-line-strong hover:bg-surface',
                   )}
@@ -190,97 +204,40 @@ export function TenantRenewal() {
               ))}
             </div>
           </>
+        ) : (
+          <p className="mt-4 text-xs leading-5 text-muted">{t.tenant.renewalPage.waitingForAsk}</p>
         )}
       </section>
 
-      {/* Terms */}
       <div className="grid gap-4 md:grid-cols-2">
         <section className="rounded-[var(--radius-card)] border border-line p-4">
           <SectionTitle>{t.tenant.renewalPage.currentTerms}</SectionTitle>
           <dl className="space-y-2 text-sm">
-            <Line label={t.unit.lease.monthlyRent} value={<Money value={lease.monthly_rent} board />} />
+            <Line label={t.unit.lease.monthlyRent} value={<Money agorot={lease.monthlyRentAgorot} board />} />
             <Line
               label={t.unit.lease.period}
               value={
                 <Num board>
-                  {formatDate(lease.start_date)} — {formatDate(lease.end_date)}
+                  {formatDate(lease.startDate)} — {formatDate(lease.endDate)}
                 </Num>
               }
             />
-            <Line label={t.unit.lease.payment} value={t.paymentMethod[lease.payment_method]} />
+            <Line label={t.unit.lease.payment} value={t.paymentMethod[lease.paymentMethod]} />
             <Line
               label={t.unit.lease.extensionOption}
-              value={lease.has_extension_option ? t.unit.lease.hasOption : t.unit.lease.noOption}
+              value={lease.hasExtensionOption ? t.unit.lease.hasOption : t.unit.lease.noOption}
             />
           </dl>
         </section>
 
-        <section
-          className={cn(
-            'rounded-[var(--radius-card)] border p-4',
-            proposal ? 'border-signal/45 bg-signal-soft' : 'border-line',
-          )}
-        >
+        <section className="rounded-[var(--radius-card)] border border-line p-4">
           <SectionTitle>{t.tenant.renewalPage.proposedTerms}</SectionTitle>
-          {!proposal ? (
-            <>
-              <p className="text-sm text-ink-soft">{t.tenant.renewalPage.noProposal}</p>
-              <p className="mt-1 text-2xs leading-5 text-muted">{t.tenant.renewalPage.noProposalHint}</p>
-            </>
-          ) : (
-            <>
-              <dl className="space-y-2 text-sm">
-                <Line
-                  label={t.tenant.renewalPage.newRent}
-                  value={<Money value={proposal.monthly_rent} board />}
-                />
-                <Line
-                  label={t.tenant.renewalPage.newPeriod}
-                  value={
-                    <Num board>
-                      {formatDate(proposal.start_date)} —{' '}
-                      {formatDate(addMonths(parseISO(proposal.start_date), proposal.months))}
-                    </Num>
-                  }
-                />
-                <Line
-                  label={t.tenant.renewalPage.changeFromCurrent}
-                  value={
-                    <span
-                      className={cn(
-                        'font-bold',
-                        proposal.monthly_rent > lease.monthly_rent ? 'text-alert' : 'text-open',
-                      )}
-                    >
-                      <Money value={proposal.monthly_rent - lease.monthly_rent} board />
-                    </span>
-                  }
-                />
-              </dl>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <Button
-                  size="sm"
-                  onClick={() => {
-                    acceptRenewalProposal(lease.id);
-                    pushToast(t.tenant.renewalPage.accepted, 'success');
-                  }}
-                >
-                  {t.tenant.renewalPage.accept}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => pushToast(t.tenant.renewalPage.negotiate)}
-                >
-                  {t.tenant.renewalPage.negotiate}
-                </Button>
-              </div>
-            </>
-          )}
+          <p className="text-sm text-ink-soft">{t.tenant.renewalPage.noProposal}</p>
+          <p className="mt-1 text-2xs leading-5 text-muted">{t.tenant.renewalPage.noProposalHint}</p>
         </section>
       </div>
 
-      {/* Privacy — what the seeker side actually sees */}
+      {/* What a seeker actually sees — the derived signal, never the raw intent. */}
       <section className="rounded-[var(--radius-card)] border border-line bg-surface p-4">
         <div className="flex items-start gap-2.5">
           <EyeOff className="mt-0.5 h-4 w-4 shrink-0 text-muted" />
@@ -289,11 +246,13 @@ export function TenantRenewal() {
             <p className="mt-1 text-2xs leading-5 text-muted">{t.tenant.renewalPage.privacyBody}</p>
 
             <div className="mt-3 rounded-[var(--radius-control)] border border-line bg-bg p-3">
-              <p className="mb-1.5 text-2xs font-bold text-ink-soft">
-                {t.tenant.renewalPage.publishedAs}
-              </p>
-              <AvailabilityChip kind={kind} date={property.available_from}
-              confidence={property.availability_confidence} withCountdown />
+              <p className="mb-1.5 text-2xs font-bold text-ink-soft">{t.tenant.renewalPage.publishedAs}</p>
+              <AvailabilityChip
+                kind={availability.kind}
+                date={availability.date ?? undefined}
+                confidence={availability.confidence}
+                withCountdown
+              />
             </div>
           </div>
         </div>
