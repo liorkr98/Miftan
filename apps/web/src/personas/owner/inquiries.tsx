@@ -1,16 +1,23 @@
 import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useStore, useStoreShallow } from '@/data/store';
-import { t, formatAge, formatDate, type AvailabilityInquiry, type InquiryStatus } from '@miftan/shared';
-import { availabilityKind, leaseForProperty } from '@/data/selectors';
+import { useStore } from '@/data/store';
+import {
+  t,
+  formatAge,
+  formatDate,
+  type InquiryStatus,
+  type OwnerInquiry,
+  type OwnerProperty,
+} from '@miftan/shared';
+import { useInquiries, useInquiryAction, useProperties } from '@/api/hooks';
 import { AvailabilityChip } from '@/components/shared/status';
 import { Num, PageHeader } from '@/components/shared/typography';
 import { EmptyState } from '@/components/shared/empty-state';
+import { ErrorState } from '@/components/shared/error-state';
 import { ListSkeleton } from '@/components/shared/skeleton';
-import { useDelayedReady } from '@/lib/use-delayed-ready';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Textarea } from '@/components/ui/field';
+import { Field, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Textarea } from '@/components/ui/field';
 import {
   Dialog,
   DialogBody,
@@ -31,7 +38,6 @@ const STATUS_TONE: Record<InquiryStatus, 'signal' | 'liveSoft' | 'openSoft' | 'n
   declined: 'outline',
 };
 
-/** The four-step chain, drawn so the owner can see where a request is stuck. */
 const STEPS: { key: InquiryStatus | 'done'; label: string }[] = [
   { key: 'new', label: t.inquiries.steps.seekerAsked },
   { key: 'asked_tenant', label: t.inquiries.steps.ownerAsks },
@@ -48,23 +54,36 @@ const STEP_INDEX: Record<InquiryStatus, number> = {
 };
 
 export function OwnerInquiries() {
-  const ready = useDelayedReady();
-  const { inquiries, properties, seekers, leases } = useStoreShallow((s) => ({
-    inquiries: s.inquiries,
-    properties: s.properties,
-    seekers: s.seekers,
-    leases: s.leases,
-  }));
-
+  const {
+    data: inquiries = [],
+    isLoading,
+    isError,
+    refetch,
+  } = useInquiries();
+  const { data: properties = [] } = useProperties();
   const [openId, setOpenId] = React.useState<string | null>(null);
 
+  const owned = React.useMemo(
+    () => properties.filter((p): p is OwnerProperty => p.scope === 'owner'),
+    [properties],
+  );
+  const propertyById = React.useMemo(() => new Map(owned.map((p) => [p.id, p])), [owned]);
+
   const rows = React.useMemo(
-    () => [...inquiries].sort((a, b) => STEP_INDEX[a.status] - STEP_INDEX[b.status] || b.created_at.localeCompare(a.created_at)),
+    () =>
+      (inquiries.filter((x): x is OwnerInquiry => x.scope === 'owner') as OwnerInquiry[])
+        .slice()
+        .sort(
+          (a, b) =>
+            STEP_INDEX[a.status] - STEP_INDEX[b.status] || b.createdAt.localeCompare(a.createdAt),
+        ),
     [inquiries],
   );
 
-  const waiting = inquiries.filter((x) => x.status === 'new' || x.status === 'answered').length;
-  const open = inquiries.find((x) => x.id === openId);
+  const waiting = rows.filter((x) => x.status === 'new' || x.status === 'answered').length;
+  const open = rows.find((x) => x.id === openId);
+
+  if (isError) return <ErrorState onRetry={() => void refetch()} />;
 
   return (
     <div className="space-y-5">
@@ -80,7 +99,7 @@ export function OwnerInquiries() {
         }
       />
 
-      {!ready ? (
+      {isLoading ? (
         <ListSkeleton rows={4} />
       ) : rows.length === 0 ? (
         <EmptyState
@@ -91,9 +110,7 @@ export function OwnerInquiries() {
       ) : (
         <ul className="stagger space-y-2.5">
           {rows.map((inquiry) => {
-            const property = properties.find((p) => p.id === inquiry.property_id);
-            const seeker = seekers.find((x) => x.id === inquiry.seeker_id);
-            const lease = property ? leaseForProperty(leases, property.id) : undefined;
+            const property = propertyById.get(inquiry.propertyId);
             const step = STEP_INDEX[inquiry.status];
             const actionable = inquiry.status === 'new' || inquiry.status === 'answered';
 
@@ -111,29 +128,26 @@ export function OwnerInquiries() {
                   )}
                 >
                   <span className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm font-bold text-ink">
-                      {property ? `${property.address.street} ${property.address.number}` : ''}
-                    </span>
-                    <span className="text-2xs text-muted">{property?.address.neighborhood}</span>
+                    <span className="text-sm font-bold text-ink">{inquiry.propertyLabel}</span>
                     <Badge tone={STATUS_TONE[inquiry.status]} size="sm">
                       {t.inquiries.status[inquiry.status]}
                     </Badge>
                     {property ? (
                       <AvailabilityChip
-                        kind={availabilityKind(property, lease)}
-                        date={property.available_from}
-              confidence={property.availability_confidence}
+                        kind={property.availability.kind}
+                        date={property.availability.date ?? undefined}
+                        confidence={property.availability.confidence}
                         size="sm"
                         className="max-sm:hidden"
                       />
                     ) : null}
-                    <span className="ms-auto text-2xs text-muted">{formatAge(inquiry.created_at)}</span>
+                    <span className="ms-auto text-2xs text-muted">{formatAge(inquiry.createdAt)}</span>
                   </span>
 
                   <span className="mt-1.5 flex items-center gap-1.5 text-2xs text-muted">
                     <UserRound className="h-3 w-3" />
-                    {seeker?.name} · {t.inquiries.wants}{' '}
-                    <Num board>{formatDate(inquiry.desired_move_in)}</Num>
+                    {inquiry.seeker.name} · {t.inquiries.wants}{' '}
+                    <Num board>{formatDate(inquiry.desiredMoveIn)}</Num>
                   </span>
 
                   <span className="mt-1.5 block line-clamp-2 text-xs leading-5 text-ink-soft">
@@ -150,7 +164,7 @@ export function OwnerInquiries() {
         </ul>
       )}
 
-      <InquiryDrawer inquiry={open} onClose={() => setOpenId(null)} />
+      <InquiryDrawer inquiry={open} property={open ? propertyById.get(open.propertyId) : undefined} onClose={() => setOpenId(null)} />
     </div>
   );
 }
@@ -186,56 +200,32 @@ function StepRail({ step, declined }: { step: number; declined?: boolean }) {
   );
 }
 
-/* ── Detail: ask the tenant, then update the seeker ────── */
-
 function InquiryDrawer({
   inquiry,
+  property,
   onClose,
 }: {
-  inquiry?: AvailabilityInquiry;
+  inquiry?: OwnerInquiry;
+  property?: OwnerProperty;
   onClose: () => void;
 }) {
   const navigate = useNavigate();
-  const { properties, seekers, leases, tenants } = useStoreShallow((s) => ({
-    properties: s.properties,
-    seekers: s.seekers,
-    leases: s.leases,
-    tenants: s.tenants,
-  }));
-  const askTenant = useStore((s) => s.askTenantAboutRenewal);
-  const replyToInquiry = useStore((s) => s.replyToInquiry);
-  const declineInquiry = useStore((s) => s.declineInquiry);
+  const action = useInquiryAction();
   const pushToast = useStore((s) => s.pushToast);
 
   const [draft, setDraft] = React.useState('');
-
-  const property = properties.find((p) => p.id === inquiry?.property_id);
-  const lease = property ? leaseForProperty(leases, property.id) : undefined;
-  const seeker = seekers.find((x) => x.id === inquiry?.seeker_id);
-  const tenant = lease ? tenants.find((x) => x.id === lease.tenant_id) : undefined;
-
-  /* A suggested reply written from the tenant's answer, so the owner is
-     editing a sentence rather than composing one. */
-  const suggested = React.useMemo(() => {
-    if (!inquiry?.tenant_answer) return '';
-    const when = lease ? formatDate(lease.end_date) : '';
-    const draft = t.inquiries.reply.draft;
-    const template =
-      inquiry.tenant_answer === 'leave'
-        ? draft.leave
-        : inquiry.tenant_answer === 'extend'
-          ? draft.extend
-          : inquiry.tenant_answer === 'too_early'
-            ? draft.too_early
-            : draft.undecided;
-    return template.replace('{date}', when);
-  }, [inquiry?.tenant_answer, lease]);
+  const [availableFrom, setAvailableFrom] = React.useState('');
+  const [confidence, setConfidence] = React.useState<'confirmed' | 'likely' | 'unknown'>('likely');
 
   React.useEffect(() => {
-    setDraft(suggested);
-  }, [suggested, inquiry?.id]);
+    /* Empty on purpose. The reply is the owner's own words — never a paste
+       of what the tenant wrote, even as a "suggestion". */
+    setDraft('');
+    setAvailableFrom('');
+    setConfidence('likely');
+  }, [inquiry?.id]);
 
-  if (!inquiry || !property) return null;
+  if (!inquiry) return null;
 
   return (
     <Dialog open onOpenChange={(v) => !v && onClose()}>
@@ -245,58 +235,57 @@ function InquiryDrawer({
             <Badge tone={STATUS_TONE[inquiry.status]} size="sm">
               {t.inquiries.status[inquiry.status]}
             </Badge>
-            <AvailabilityChip
-              kind={availabilityKind(property, lease)}
-              date={property.available_from}
-              confidence={property.availability_confidence}
-              size="sm"
-            />
+            {property ? (
+              <AvailabilityChip
+                kind={property.availability.kind}
+                date={property.availability.date ?? undefined}
+                confidence={property.availability.confidence}
+                size="sm"
+              />
+            ) : null}
           </div>
-          <DialogTitle className="mt-1.5">
-            {property.address.street} {property.address.number}
-          </DialogTitle>
+          <DialogTitle className="mt-1.5">{inquiry.propertyLabel}</DialogTitle>
           <p className="mt-0.5 text-xs text-muted">
-            {property.address.neighborhood} · {seeker?.name} · {formatAge(inquiry.created_at)}
+            {inquiry.seeker.name} · {formatAge(inquiry.createdAt)}
           </p>
         </DialogHeader>
 
         <DialogBody className="space-y-4">
           <StepRail step={STEP_INDEX[inquiry.status]} declined={inquiry.status === 'declined'} />
 
-          {/* The seeker's question */}
           <section className="rounded-[var(--radius-control)] bg-surface p-3">
             <p className="mb-1 text-2xs font-bold text-ink-soft">{t.inquiries.fromSeeker}</p>
             <p className="text-sm leading-6 text-ink">{inquiry.message}</p>
             <p className="mt-1.5 text-2xs text-muted">
-              {t.inquiries.wants} <Num board>{formatDate(inquiry.desired_move_in)}</Num>
+              {t.inquiries.wants} <Num board>{formatDate(inquiry.desiredMoveIn)}</Num>
             </p>
           </section>
 
-          {/* What the tenant said, if anything */}
-          {inquiry.tenant_answer ? (
+          {inquiry.tenantAnswer ? (
             <section className="rounded-[var(--radius-control)] border border-line p-3">
               <p className="mb-1 flex items-center justify-between gap-2 text-2xs font-bold text-ink-soft">
                 <span>
-                  {t.inquiries.reply.tenantSaid} · {tenant?.name}
+                  {t.inquiries.reply.tenantSaid}
+                  {inquiry.tenant?.name ? ` · ${inquiry.tenant.name}` : ''}
                 </span>
-                {inquiry.tenant_answered_at ? (
-                  <span className="font-medium text-muted">{formatAge(inquiry.tenant_answered_at)}</span>
+                {inquiry.tenantAnsweredAt ? (
+                  <span className="font-medium text-muted">{formatAge(inquiry.tenantAnsweredAt)}</span>
                 ) : null}
               </p>
               <Badge
                 tone={
-                  inquiry.tenant_answer === 'leave'
+                  inquiry.tenantAnswer === 'leave'
                     ? 'signalSoft'
-                    : inquiry.tenant_answer === 'extend'
+                    : inquiry.tenantAnswer === 'extend'
                       ? 'liveSoft'
                       : 'neutral'
                 }
                 size="md"
               >
-                {t.unit.intent[inquiry.tenant_answer]}
+                {t.unit.intent[inquiry.tenantAnswer]}
               </Badge>
-              {inquiry.tenant_answer_note ? (
-                <p className="mt-2 text-sm leading-6 text-ink-soft">{inquiry.tenant_answer_note}</p>
+              {inquiry.tenantAnswerNote ? (
+                <p className="mt-2 text-sm leading-6 text-ink-soft">{inquiry.tenantAnswerNote}</p>
               ) : null}
               <p className="mt-2 flex items-start gap-1.5 border-t border-line pt-2 text-2xs leading-4 text-muted">
                 <EyeOff className="mt-0.5 h-3 w-3 shrink-0" />
@@ -305,17 +294,14 @@ function InquiryDrawer({
             </section>
           ) : null}
 
-          {/* The owner's reply, once sent */}
-          {inquiry.owner_reply ? (
+          {inquiry.ownerReply ? (
             <section className="rounded-[var(--radius-control)] bg-ink p-3 text-on-ink">
-              <p className="mb-1 text-2xs font-bold text-on-ink-muted">
-                {t.inquiries.seeker.ownerReply}
-              </p>
-              <p className="text-sm leading-6">{inquiry.owner_reply}</p>
+              <p className="mb-1 text-2xs font-bold text-on-ink-muted">{t.inquiries.seeker.ownerReply}</p>
+              <p className="text-sm leading-6">{inquiry.ownerReply}</p>
             </section>
           ) : inquiry.status === 'answered' ? (
-            <section>
-              <p className="mb-1.5 text-2xs font-bold text-ink-soft">{t.inquiries.reply.suggested}</p>
+            <section className="space-y-3">
+              <p className="text-2xs font-bold text-ink-soft">{t.inquiries.reply.title}</p>
               <Textarea
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
@@ -323,6 +309,32 @@ function InquiryDrawer({
                 className="min-h-28"
                 aria-label={t.inquiries.reply.title}
               />
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label={t.inquiries.reply.publishDate} htmlFor="publish-date">
+                  <Input
+                    id="publish-date"
+                    type="date"
+                    dir="ltr"
+                    value={availableFrom}
+                    onChange={(e) => setAvailableFrom(e.target.value)}
+                  />
+                </Field>
+                <Field label={t.inquiries.reply.dateConfidence}>
+                  <Select
+                    value={confidence}
+                    onValueChange={(v) => setConfidence(v as 'confirmed' | 'likely' | 'unknown')}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="confirmed">{t.availability.confirmed}</SelectItem>
+                      <SelectItem value="likely">{t.availability.likely}</SelectItem>
+                      <SelectItem value="unknown">{t.availability.unknown}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </Field>
+              </div>
             </section>
           ) : null}
         </DialogBody>
@@ -331,36 +343,60 @@ function InquiryDrawer({
           {inquiry.status === 'new' ? (
             <>
               <Button
-                onClick={() => {
-                  askTenant(inquiry.id);
-                  pushToast(t.inquiries.askTenant.sent, 'success');
-                }}
+                loading={action.isPending}
+                onClick={() =>
+                  action.mutate(
+                    { id: inquiry.id, action: 'ask-tenant' },
+                    {
+                      onSuccess: () => {
+                        pushToast(t.inquiries.askTenant.sent, 'success');
+                        onClose();
+                      },
+                    },
+                  )
+                }
               >
                 <Send className="h-4 w-4" />
                 {t.inquiries.actions.askTenant}
               </Button>
-              <Button variant="secondary" onClick={() => declineInquiry(inquiry.id)}>
+              <Button
+                variant="secondary"
+                loading={action.isPending}
+                onClick={() =>
+                  action.mutate(
+                    { id: inquiry.id, action: 'decline' },
+                    { onSuccess: onClose },
+                  )
+                }
+              >
                 {t.inquiries.actions.decline}
               </Button>
             </>
           ) : null}
 
-          {inquiry.status === 'asked_tenant' ? (
-            <Button
-              variant="secondary"
-              onClick={() => pushToast(t.inquiries.actions.askTenantAgain, 'success')}
-            >
-              {t.inquiries.actions.askTenantAgain}
-            </Button>
-          ) : null}
-
           {inquiry.status === 'answered' ? (
             <Button
+              loading={action.isPending}
               disabled={!draft.trim()}
-              onClick={() => {
-                replyToInquiry(inquiry.id, draft.trim());
-                pushToast(t.inquiries.reply.sent, 'success');
-              }}
+              onClick={() =>
+                action.mutate(
+                  {
+                    id: inquiry.id,
+                    action: 'reply',
+                    body: {
+                      reply: draft.trim(),
+                      availableFrom: availableFrom || undefined,
+                      confidence,
+                    },
+                  },
+                  {
+                    onSuccess: () => {
+                      pushToast(t.inquiries.reply.sent, 'success');
+                      onClose();
+                    },
+                  },
+                )
+              }
             >
               <Send className="h-4 w-4" />
               {t.inquiries.reply.send}
@@ -371,7 +407,7 @@ function InquiryDrawer({
             variant="ghost"
             onClick={() => {
               onClose();
-              navigate(`/owner/properties/${property.id}`);
+              navigate(`/owner/properties/${inquiry.propertyId}`);
             }}
           >
             {t.inquiries.actions.viewUnit}
