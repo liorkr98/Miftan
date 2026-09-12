@@ -1,8 +1,10 @@
 import * as React from 'react';
-import { useStore, useStoreShallow } from '@/data/store';
-import { t, type Trade, type Vendor } from '@miftan/shared';
+import { useStore } from '@/data/store';
+import { t, type Trade, type VendorView } from '@miftan/shared';
+import { useProperties, useVendors } from '@/api/hooks';
 import { Money, Num, PageHeader, Phone } from '@/components/shared/typography';
 import { EmptyState } from '@/components/shared/empty-state';
+import { ErrorState } from '@/components/shared/error-state';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -25,30 +27,25 @@ import {
 } from '@/components/ui/dialog';
 import { ListSkeleton } from '@/components/shared/skeleton';
 import { RevenueMarker } from '@/components/shared/revenue';
-import { useDelayedReady } from '@/lib/use-delayed-ready';
 import { cn } from '@/lib/utils';
 import { Info, Phone as PhoneIcon, Star, Users } from 'lucide-react';
 
 type Sort = 'rating' | 'response' | 'fee';
 
 export function OwnerVendors() {
-  const ready = useDelayedReady();
-  const { vendors, properties } = useStoreShallow((s) => ({
-    vendors: s.vendors,
-    properties: s.properties,
-  }));
+  const { data: vendors = [], isLoading, isError, refetch } = useVendors();
+  const { data: properties = [] } = useProperties();
   const pushToast = useStore((s) => s.pushToast);
+
+  const owned = properties.filter((p) => p.scope === 'owner');
 
   const [trade, setTrade] = React.useState<Trade | 'all'>('all');
   const [area, setArea] = React.useState('all');
   const [sort, setSort] = React.useState<Sort>('rating');
-  const [booking, setBooking] = React.useState<Vendor | null>(null);
+  const [booking, setBooking] = React.useState<VendorView | null>(null);
   const [disclosureOpen, setDisclosureOpen] = React.useState(false);
 
-  const areas = React.useMemo(
-    () => [...new Set(vendors.flatMap((v) => v.areas))],
-    [vendors],
-  );
+  const areas = React.useMemo(() => [...new Set(vendors.flatMap((v) => v.areas))], [vendors]);
 
   const rows = React.useMemo(() => {
     const filtered = vendors.filter(
@@ -56,20 +53,21 @@ export function OwnerVendors() {
     );
     /* Network partners are NOT boosted — the sort is the same for everyone,
        which is exactly what the disclosure claims. */
-    return filtered.sort((a, b) => {
+    return filtered.slice().sort((a, b) => {
       if (sort === 'rating') return b.rating - a.rating;
-      if (sort === 'response') return a.avg_response_hours - b.avg_response_hours;
-      return a.callout_fee - b.callout_fee;
+      if (sort === 'response') return a.avgResponseHours - b.avgResponseHours;
+      return a.calloutFeeAgorot - b.calloutFeeAgorot;
     });
   }, [vendors, trade, area, sort]);
 
   const filtered = trade !== 'all' || area !== 'all';
 
+  if (isError) return <ErrorState onRetry={() => void refetch()} />;
+
   return (
     <div className="space-y-5">
       <PageHeader title={t.vendors.title} subtitle={t.vendors.subtitle} />
 
-      {/* Disclosed commercial relationship — stated, not buried */}
       <div className="flex flex-wrap items-center gap-2 rounded-[var(--radius-card)] border border-line bg-signal-soft px-3.5 py-2.5">
         <Badge tone="signal" size="sm">
           {t.vendors.partner}
@@ -127,7 +125,7 @@ export function OwnerVendors() {
         </Field>
       </div>
 
-      {!ready ? (
+      {isLoading ? (
         <ListSkeleton rows={6} />
       ) : rows.length === 0 ? (
         <EmptyState
@@ -151,7 +149,7 @@ export function OwnerVendors() {
               key={vendor.id}
               className={cn(
                 'flex flex-col rounded-[var(--radius-card)] border p-4',
-                vendor.is_network_partner ? 'border-signal/45' : 'border-line',
+                vendor.isNetworkPartner ? 'border-signal/45' : 'border-line',
               )}
             >
               <div className="mb-1 flex flex-wrap items-start justify-between gap-2">
@@ -159,7 +157,7 @@ export function OwnerVendors() {
                   <h3 className="text-sm font-bold text-ink">{vendor.name}</h3>
                   <p className="text-2xs text-muted">{t.trade[vendor.trade]}</p>
                 </div>
-                {vendor.is_network_partner ? (
+                {vendor.isNetworkPartner ? (
                   <Badge tone="signal" size="sm">
                     {t.vendors.partner}
                   </Badge>
@@ -180,15 +178,15 @@ export function OwnerVendors() {
                   label={t.vendors.responseTime}
                   value={
                     <>
-                      <Num board>{vendor.avg_response_hours}</Num> {t.vendors.hours}
+                      <Num board>{vendor.avgResponseHours}</Num> {t.vendors.hours}
                     </>
                   }
                 />
-                <Stat label={t.vendors.calloutFee} value={<Money value={vendor.callout_fee} board />} />
                 <Stat
-                  label={t.vendors.jobsDoneForYou}
-                  value={<Num board>{vendor.jobs_done}</Num>}
+                  label={t.vendors.calloutFee}
+                  value={<Money agorot={vendor.calloutFeeAgorot} board />}
                 />
+                <Stat label={t.vendors.jobsDoneForYou} value={<Num board>{vendor.jobsDone}</Num>} />
               </dl>
 
               <p className="mt-2.5 text-2xs text-muted">
@@ -215,7 +213,6 @@ export function OwnerVendors() {
         </ul>
       )}
 
-      {/* Booking */}
       <Dialog open={Boolean(booking)} onOpenChange={(v) => !v && setBooking(null)}>
         <DialogContent>
           <DialogHeader>
@@ -227,16 +224,16 @@ export function OwnerVendors() {
                 <p className="text-sm font-bold text-ink">{booking.name}</p>
                 <p className="text-2xs text-muted">
                   {t.trade[booking.trade]} · {t.vendors.calloutFee}{' '}
-                  <Money value={booking.callout_fee} board />
+                  <Money agorot={booking.calloutFeeAgorot} board />
                 </p>
               </div>
               <Field label={t.properties.address}>
-                <Select defaultValue={properties[0]?.id}>
+                <Select defaultValue={owned[0]?.id}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {properties.map((p) => (
+                    {owned.map((p) => (
                       <SelectItem key={p.id} value={p.id}>
                         {p.address.street} {p.address.number}, {p.address.neighborhood}
                       </SelectItem>
@@ -265,7 +262,6 @@ export function OwnerVendors() {
         </DialogContent>
       </Dialog>
 
-      {/* Full disclosure text */}
       <Dialog open={disclosureOpen} onOpenChange={setDisclosureOpen}>
         <DialogContent>
           <DialogHeader>
