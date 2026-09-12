@@ -1,8 +1,26 @@
 import * as React from 'react';
-import { useStore, useStoreShallow } from '@/data/store';
-import { t, formatDate, type ContractScan } from '@miftan/shared';
-import { Money, Num, PageHeader, SectionTitle } from '@/components/shared/typography';
+import { useStore } from '@/data/store';
+import {
+  t,
+  formatDate,
+  type ContractScanView,
+  type OwnerProperty,
+  type RenderedContract,
+} from '@miftan/shared';
+import {
+  useCommitScan,
+  useContractScans,
+  useContractTemplates,
+  useDeleteTemplate,
+  useProperties,
+  useRenderTemplate,
+  useSaveTemplate,
+  useScanContract,
+} from '@/api/hooks';
+import { Num, PageHeader, SectionTitle } from '@/components/shared/typography';
 import { EmptyState } from '@/components/shared/empty-state';
+import { ErrorState } from '@/components/shared/error-state';
+import { ListSkeleton } from '@/components/shared/skeleton';
 import { OfferRail, RevenueMarker } from '@/components/shared/revenue';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -24,6 +42,7 @@ import {
   FileText,
   ScanLine,
   Sparkles,
+  Trash2,
   Upload,
 } from 'lucide-react';
 
@@ -34,45 +53,49 @@ const SCAN_STEPS = [
   t.contracts.scanStep.review,
 ];
 
-export function OwnerContracts() {
-  const { properties, leads, seekers, contractScans } = useStoreShallow((s) => ({
-    properties: s.properties,
-    leads: s.leads,
-    seekers: s.seekers,
-    contractScans: s.contractScans,
-  }));
-  const startScan = useStore((s) => s.startContractScan);
-  const advanceScan = useStore((s) => s.advanceContractScan);
-  const generateContract = useStore((s) => s.generateContract);
+function parseShekels(raw: string): number | undefined {
+  const n = Number(raw.replace(/[^\d.]/g, ''));
+  return Number.isFinite(n) && n > 0 ? n : undefined;
+}
 
-  const [unitId, setUnitId] = React.useState(properties[0]?.id ?? '');
+function parseIntish(raw: string): number | undefined {
+  const n = Number.parseInt(raw.replace(/[^\d]/g, ''), 10);
+  return Number.isFinite(n) ? n : undefined;
+}
+
+export function OwnerContracts() {
+  const { data: scans = [], isLoading, isError, refetch } = useContractScans();
+  const { data: properties = [] } = useProperties();
+  const scanContract = useScanContract();
+  const fileInput = React.useRef<HTMLInputElement>(null);
+
+  const owned = properties.filter((p): p is OwnerProperty => p.scope === 'owner');
+  const [unitId, setUnitId] = React.useState('');
   const [activeScanId, setActiveScanId] = React.useState<string | null>(null);
 
-  const active = contractScans.find((x) => x.id === activeScanId);
-  const history = contractScans.filter((x) => x.status === 'committed');
-
-  /* Drive the mock pipeline forward on a timer so the review step is reached
-     the way it would be in a real one — asynchronously, with visible stages. */
   React.useEffect(() => {
-    if (!active) return;
-    if (active.status === 'uploading') {
-      const id = window.setTimeout(() => advanceScan(active.id), 700);
-      return () => window.clearTimeout(id);
-    }
-    if (active.status === 'scanning') {
-      const id = window.setTimeout(() => advanceScan(active.id), 1600);
-      return () => window.clearTimeout(id);
-    }
-  }, [active, advanceScan]);
+    if (!unitId && owned[0]) setUnitId(owned[0].id);
+  }, [owned, unitId]);
 
-  const upload = () => {
+  const active = scans.find((x) => x.id === activeScanId);
+  const history = scans.filter((x) => x.status === 'committed');
+
+  const upload = async (file: File) => {
     if (!unitId) return;
-    const property = properties.find((p) => p.id === unitId);
-    const name = t.contracts.fileNamePattern
-      .replace('{street}', property?.address.street ?? '')
-      .replace('{number}', property?.address.number ?? '');
-    setActiveScanId(startScan(unitId, name));
+    const property = owned.find((p) => p.id === unitId);
+    const name =
+      file.name ||
+      t.contracts.fileNamePattern
+        .replace('{street}', property?.address.street ?? '')
+        .replace('{number}', property?.address.number ?? '');
+    const text = await file.text();
+    scanContract.mutate(
+      { propertyId: unitId, fileName: name, text },
+      { onSuccess: (scan) => setActiveScanId(scan.id) },
+    );
   };
+
+  if (isError) return <ErrorState onRetry={() => void refetch()} />;
 
   return (
     <div className="space-y-5">
@@ -88,100 +111,101 @@ export function OwnerContracts() {
           </TabsTrigger>
         </TabsList>
 
-        {/* ── Upload + scan ─────────────────────────────── */}
         <TabsContent value="scan" className="space-y-5">
-          <div className="grid gap-4 lg:grid-cols-[20rem_1fr]">
-            <section className="space-y-4">
-              <Field label={t.contracts.pickUnit}>
-                <Select value={unitId} onValueChange={setUnitId}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {properties.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.address.street} {p.address.number} · {p.address.neighborhood}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
+          {isLoading ? (
+            <ListSkeleton rows={4} />
+          ) : (
+            <div className="grid gap-4 lg:grid-cols-[20rem_1fr]">
+              <section className="space-y-4">
+                <Field label={t.contracts.pickUnit}>
+                  <Select value={unitId} onValueChange={setUnitId}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {owned.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.address.street} {p.address.number} · {p.address.neighborhood}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
 
-              <button
-                type="button"
-                onClick={upload}
-                disabled={Boolean(active && active.status !== 'committed' && active.status !== 'review')}
-                className={cn(
-                  'press flex w-full flex-col items-center gap-2 rounded-[var(--radius-card)] border border-dashed border-line px-4 py-10',
-                  'transition-[border-color,background-color,transform] duration-150 ease-[var(--ease-out)]',
-                  'hover:border-line-strong hover:bg-surface disabled:pointer-events-none disabled:opacity-50',
-                )}
-              >
-                <Upload className="h-6 w-6 text-line-strong" />
-                <span className="text-sm font-bold text-ink">{t.contracts.dropHere}</span>
-                <span className="text-2xs text-muted">{t.contracts.uploadHint}</span>
-              </button>
-
-              <p className="flex items-start gap-1.5 rounded-[var(--radius-control)] bg-surface p-3 text-2xs leading-5 text-muted">
-                <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                {t.contracts.aiNote}
-              </p>
-            </section>
-
-            <section>
-              {!active ? (
-                <EmptyState
-                  icon={ScanLine}
-                  title={t.contracts.upload}
-                  hint={t.contracts.uploadHint}
-                  className="h-full"
+                <input
+                  ref={fileInput}
+                  type="file"
+                  accept=".txt,.pdf,.png,.jpg,.jpeg"
+                  className="sr-only"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) void upload(file);
+                    e.target.value = '';
+                  }}
                 />
-              ) : (
-                <ScanPanel scan={active} onReset={() => setActiveScanId(null)} />
-              )}
-            </section>
-          </div>
+                <button
+                  type="button"
+                  onClick={() => fileInput.current?.click()}
+                  disabled={scanContract.isPending}
+                  className={cn(
+                    'press flex w-full flex-col items-center gap-2 rounded-[var(--radius-card)] border border-dashed border-line px-4 py-10',
+                    'transition-[border-color,background-color,transform] duration-150 ease-[var(--ease-out)]',
+                    'hover:border-line-strong hover:bg-surface disabled:pointer-events-none disabled:opacity-50',
+                  )}
+                >
+                  <Upload className="h-6 w-6 text-line-strong" />
+                  <span className="text-sm font-bold text-ink">{t.contracts.dropHere}</span>
+                  <span className="text-2xs text-muted">{t.contracts.uploadHint}</span>
+                </button>
+
+                <p className="flex items-start gap-1.5 rounded-[var(--radius-control)] bg-surface p-3 text-2xs leading-5 text-muted">
+                  <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  {t.contracts.aiNote}
+                </p>
+              </section>
+
+              <section>
+                {scanContract.isPending ? (
+                  <ScanningPanel />
+                ) : !active ? (
+                  <EmptyState
+                    icon={ScanLine}
+                    title={t.contracts.upload}
+                    hint={t.contracts.uploadHint}
+                    className="h-full"
+                  />
+                ) : (
+                  <ScanPanel scan={active} onReset={() => setActiveScanId(null)} />
+                )}
+              </section>
+            </div>
+          )}
         </TabsContent>
 
-        {/* ── Generator ─────────────────────────────────── */}
         <TabsContent value="generate" className="space-y-5">
-          <ContractGenerator
-            properties={properties}
-            leads={leads}
-            seekers={seekers}
-            onGenerate={generateContract}
-          />
+          <ContractGenerator owned={owned} />
           <OfferRail placement="lease" audience="owner" />
         </TabsContent>
 
-        {/* ── History ───────────────────────────────────── */}
         <TabsContent value="history">
           {history.length === 0 ? (
-            <EmptyState
-              icon={FileText}
-              title={t.contracts.noHistory}
-              hint={t.contracts.noHistoryHint}
-            />
+            <EmptyState icon={FileText} title={t.contracts.noHistory} hint={t.contracts.noHistoryHint} />
           ) : (
             <ul className="divide-y divide-line overflow-hidden rounded-[var(--radius-card)] border border-line">
-              {history.map((scan) => {
-                const property = properties.find((p) => p.id === scan.property_id);
-                return (
-                  <li key={scan.id} className="flex items-center gap-3 p-3.5">
-                    <FileText className="h-4 w-4 shrink-0 text-muted" />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-bold text-ink">{scan.file_name}</span>
-                      <span className="block text-2xs text-muted">
-                        {property ? `${property.address.street} ${property.address.number}` : ''} ·{' '}
-                        <Num board>{formatDate(scan.uploaded_at)}</Num>
-                      </span>
+              {history.map((scan) => (
+                <li key={scan.id} className="flex items-center gap-3 p-3.5">
+                  <FileText className="h-4 w-4 shrink-0 text-muted" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-bold text-ink">{scan.fileName}</span>
+                    <span className="block text-2xs text-muted">
+                      {scan.propertyLabel} · <Num board>{formatDate(scan.uploadedAt)}</Num>
                     </span>
-                    <Badge tone="openSoft" size="sm">
-                      {t.contracts.committed}
-                    </Badge>
-                  </li>
-                );
-              })}
+                  </span>
+                  <Badge tone="openSoft" size="sm">
+                    {t.contracts.committed}
+                  </Badge>
+                </li>
+              ))}
             </ul>
           )}
         </TabsContent>
@@ -190,45 +214,85 @@ export function OwnerContracts() {
   );
 }
 
-/* ── The scan pipeline ─────────────────────────────────── */
+function ScanningPanel() {
+  return (
+    <div className="rounded-[var(--radius-card)] border border-line p-4">
+      <ol className="mb-4 flex items-center gap-1.5">
+        {SCAN_STEPS.map((label, i) => (
+          <React.Fragment key={label}>
+            {i > 0 ? <span className={cn('h-px flex-1', i <= 2 ? 'bg-ink' : 'bg-line')} aria-hidden /> : null}
+            <li
+              className={cn(
+                'rounded-full px-2 py-0.5 text-[10px] font-bold',
+                i < 2 ? 'bg-ink text-on-ink' : i === 2 ? 'bg-signal text-ink' : 'bg-surface-sunk text-muted',
+              )}
+            >
+              {label}
+            </li>
+          </React.Fragment>
+        ))}
+      </ol>
+      <div className="flex flex-col items-center gap-3 py-8">
+        <div className="relative h-28 w-20 overflow-hidden rounded-[6px] border border-line bg-surface">
+          <div className="space-y-1.5 p-2.5">
+            {[10, 8, 11, 6, 9, 7, 10].map((w, i) => (
+              <span key={i} className="block h-1 rounded-full bg-line-strong" style={{ width: `${w * 8}%` }} />
+            ))}
+          </div>
+          <span
+            className="absolute inset-x-0 top-0 h-6 bg-gradient-to-b from-transparent via-signal/60 to-transparent motion-safe:animate-[scan-sweep_1.4s_var(--ease-in-out)_infinite] motion-reduce:hidden"
+            aria-hidden
+          />
+        </div>
+        <p className="text-sm font-bold text-ink">{t.contracts.scanning}</p>
+        <p className="max-w-xs text-center text-2xs leading-4 text-muted">{t.contracts.scanningHint}</p>
+      </div>
+    </div>
+  );
+}
 
-function ScanPanel({ scan, onReset }: { scan: ContractScan; onReset: () => void }) {
-  const setScanField = useStore((s) => s.setScanField);
-  const commit = useStore((s) => s.commitContractScan);
+function ScanPanel({ scan, onReset }: { scan: ContractScanView; onReset: () => void }) {
+  const commit = useCommitScan();
   const pushToast = useStore((s) => s.pushToast);
+  const [values, setValues] = React.useState<Record<string, string>>(() =>
+    Object.fromEntries(scan.fields.map((f) => [f.key, f.value])),
+  );
 
-  const stage = scan.status === 'uploading' ? 0 : scan.status === 'scanning' ? 2 : 3;
-  const busy = scan.status === 'uploading' || scan.status === 'scanning';
-  const lowConfidence = scan.fields.filter((f) => f.confidence < 0.8).length;
+  React.useEffect(() => {
+    setValues(Object.fromEntries(scan.fields.map((f) => [f.key, f.value])));
+  }, [scan.id, scan.fields]);
+
+  const stage = scan.status === 'committed' ? 3 : 3;
+  const lowConfidence = scan.fields.filter((f) => f.needsReview).length;
 
   return (
     <div className="rounded-[var(--radius-card)] border border-line p-4">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <span className="flex items-center gap-2 text-sm font-bold text-ink">
           <FileText className="h-4 w-4 text-muted" />
-          {scan.file_name}
+          {scan.fileName}
         </span>
         {scan.status === 'committed' ? (
           <Badge tone="openSoft" size="sm">
             <Check className="h-3 w-3" strokeWidth={3} />
             {t.contracts.committed}
           </Badge>
+        ) : scan.status === 'failed' ? (
+          <Badge tone="alertSoft" size="sm">
+            {t.contracts.failed}
+          </Badge>
         ) : null}
       </div>
 
-      {/* Stage rail */}
       <ol className="mb-4 flex items-center gap-1.5">
         {SCAN_STEPS.map((label, i) => (
           <React.Fragment key={label}>
             {i > 0 ? (
-              <span
-                className={cn('h-px flex-1 transition-colors duration-300', i <= stage ? 'bg-ink' : 'bg-line')}
-                aria-hidden
-              />
+              <span className={cn('h-px flex-1', i <= stage ? 'bg-ink' : 'bg-line')} aria-hidden />
             ) : null}
             <li
               className={cn(
-                'rounded-full px-2 py-0.5 text-[10px] font-bold transition-colors duration-300',
+                'rounded-full px-2 py-0.5 text-[10px] font-bold',
                 i < stage
                   ? 'bg-ink text-on-ink'
                   : i === stage
@@ -242,26 +306,8 @@ function ScanPanel({ scan, onReset }: { scan: ContractScan; onReset: () => void 
         ))}
       </ol>
 
-      {busy ? (
-        /* A document with a sweeping scan line reads as "reading this",
-           where a spinner would only read as "waiting". */
-        <div className="flex flex-col items-center gap-3 py-8">
-          <div className="relative h-28 w-20 overflow-hidden rounded-[6px] border border-line bg-surface">
-            <div className="space-y-1.5 p-2.5">
-              {[10, 8, 11, 6, 9, 7, 10].map((w, i) => (
-                <span key={i} className="block h-1 rounded-full bg-line-strong" style={{ width: `${w * 8}%` }} />
-              ))}
-            </div>
-            <span
-              className="absolute inset-x-0 top-0 h-6 bg-gradient-to-b from-transparent via-signal/60 to-transparent motion-safe:animate-[scan-sweep_1.4s_var(--ease-in-out)_infinite] motion-reduce:hidden"
-              aria-hidden
-            />
-          </div>
-          <p className="text-sm font-bold text-ink">{t.contracts.scanning}</p>
-          <p className="max-w-xs text-center text-2xs leading-4 text-muted">
-            {t.contracts.scanningHint}
-          </p>
-        </div>
+      {scan.status === 'failed' ? (
+        <EmptyState icon={AlertTriangle} title={t.contracts.failed} hint={t.contracts.failedHint} />
       ) : (
         <>
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -279,7 +325,7 @@ function ScanPanel({ scan, onReset }: { scan: ContractScan; onReset: () => void 
 
           <ul className="stagger space-y-2">
             {scan.fields.map((field) => {
-              const low = field.confidence < 0.8;
+              const low = field.needsReview;
               return (
                 <li
                   key={field.key}
@@ -298,13 +344,13 @@ function ScanPanel({ scan, onReset }: { scan: ContractScan; onReset: () => void 
                     </span>
                   </div>
                   <Input
-                    value={field.value}
+                    value={values[field.key] ?? ''}
                     disabled={scan.status === 'committed'}
-                    onChange={(e) => setScanField(scan.id, field.key, e.target.value)}
+                    onChange={(e) => setValues((prev) => ({ ...prev, [field.key]: e.target.value }))}
                     aria-label={field.label}
                   />
                   <p className="mt-1 text-2xs text-muted">
-                    {t.contracts.sourceHint}: {field.source_hint}
+                    {t.contracts.sourceHint}: {field.sourceHint}
                   </p>
                 </li>
               );
@@ -333,10 +379,21 @@ function ScanPanel({ scan, onReset }: { scan: ContractScan; onReset: () => void 
             ) : (
               <>
                 <Button
-                  onClick={() => {
-                    commit(scan.id);
-                    pushToast(t.contracts.committed, 'success');
-                  }}
+                  loading={commit.isPending}
+                  onClick={() =>
+                    commit.mutate(
+                      {
+                        id: scan.id,
+                        monthlyRent: parseShekels(values.monthlyRent ?? ''),
+                        deposit: parseShekels(values.deposit ?? ''),
+                        startDate: values.startDate || undefined,
+                        endDate: values.endDate || undefined,
+                        noticePeriodDays: parseIntish(values.noticePeriodDays ?? ''),
+                        extensionMonths: parseIntish(values.extensionMonths ?? ''),
+                      },
+                      { onSuccess: () => pushToast(t.contracts.committed, 'success') },
+                    )
+                  }
                 >
                   <Check className="h-4 w-4" />
                   {t.contracts.commit}
@@ -353,101 +410,187 @@ function ScanPanel({ scan, onReset }: { scan: ContractScan; onReset: () => void 
   );
 }
 
-/* ── Generator ─────────────────────────────────────────── */
+function ContractGenerator({ owned }: { owned: OwnerProperty[] }) {
+  const { data, isLoading, isError, refetch } = useContractTemplates();
+  const render = useRenderTemplate();
+  const save = useSaveTemplate();
+  const remove = useDeleteTemplate();
+  const pushToast = useStore((s) => s.pushToast);
 
-function ContractGenerator({
-  properties,
-  leads,
-  seekers,
-  onGenerate,
-}: {
-  properties: ReturnType<typeof useStore.getState>['properties'];
-  leads: ReturnType<typeof useStore.getState>['leads'];
-  seekers: ReturnType<typeof useStore.getState>['seekers'];
-  onGenerate: (propertyId: string, leadId?: string) => void;
-}) {
-  const [unitId, setUnitId] = React.useState(properties[0]?.id ?? '');
-  const [leadId, setLeadId] = React.useState('none');
+  const templates = data?.templates ?? [];
+  const [templateId, setTemplateId] = React.useState('');
+  const [leaseId, setLeaseId] = React.useState('none');
+  const [values, setValues] = React.useState<Record<string, string>>({});
+  const [rendered, setRendered] = React.useState<RenderedContract | null>(null);
 
-  const property = properties.find((p) => p.id === unitId);
-  const unitLeads = leads.filter((l) => l.property_id === unitId);
+  const template = templates.find((tpl) => tpl.id === templateId) ?? templates[0];
+  const leases = owned.flatMap((p) =>
+    p.lease
+      ? [{ id: p.lease.id, label: `${p.address.street} ${p.address.number} · ${p.tenant?.name ?? ''}` }]
+      : [],
+  );
+
+  React.useEffect(() => {
+    if (!templateId && templates[0]) setTemplateId(templates[0].id);
+  }, [templates, templateId]);
+
+  React.useEffect(() => {
+    setValues({});
+    setRendered(null);
+  }, [templateId, leaseId]);
+
+  if (isError) return <ErrorState onRetry={() => void refetch()} />;
+  if (isLoading) return <ListSkeleton rows={4} />;
+  if (!template) {
+    return <EmptyState icon={FileSignature} title={t.contracts.templates} />;
+  }
+
+  const cloneBuiltIn = () => {
+    save.mutate(
+      {
+        basedOn: template.isBuiltIn ? template.id : template.basedOn ?? template.id,
+        name: template.name,
+        description: template.description,
+        useWhen: template.useWhen,
+        body: template.body,
+        variables: template.variables,
+      },
+      { onSuccess: (copy) => setTemplateId(copy.id) },
+    );
+  };
 
   return (
     <div className="grid gap-4 lg:grid-cols-[20rem_1fr]">
       <section className="space-y-4">
-        <Field label={t.contracts.pickUnit}>
-          <Select value={unitId} onValueChange={setUnitId}>
+        <Field label={t.contracts.pickTemplate}>
+          <Select
+            value={template.id}
+            onValueChange={(id) => {
+              setTemplateId(id);
+            }}
+          >
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {properties.map((p) => (
-                <SelectItem key={p.id} value={p.id}>
-                  {p.address.street} {p.address.number}
+              {templates.map((tpl) => (
+                <SelectItem key={tpl.id} value={tpl.id}>
+                  {tpl.name}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </Field>
 
-        <Field label={t.contracts.pickLead}>
-          <Select value={leadId} onValueChange={setLeadId}>
+        <div className="rounded-[var(--radius-control)] bg-surface p-3">
+          <p className="text-xs font-bold text-ink">{template.name}</p>
+          <p className="mt-1 text-2xs leading-5 text-muted">{template.description}</p>
+          <p className="mt-1.5 text-2xs text-ink-soft">
+            {t.contracts.useWhen}: {template.useWhen}
+          </p>
+          <Badge tone="outline" size="sm" className="mt-2">
+            {template.isBuiltIn ? t.contracts.builtIn : t.contracts.yourCopy}
+          </Badge>
+        </div>
+
+        <Field label={t.contracts.pickLease}>
+          <Select value={leaseId} onValueChange={setLeaseId}>
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="none">{t.contracts.noLead}</SelectItem>
-              {unitLeads.map((lead) => (
-                <SelectItem key={lead.id} value={lead.id}>
-                  {seekers.find((x) => x.id === lead.seeker_id)?.name}
+              <SelectItem value="none">{t.contracts.noLease}</SelectItem>
+              {leases.map((lease) => (
+                <SelectItem key={lease.id} value={lease.id}>
+                  {lease.label}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </Field>
 
+        {template.variables
+          .filter((v) => v.required)
+          .map((variable) => (
+            <Field key={variable.key} label={variable.label} hint={variable.hint ?? undefined} htmlFor={variable.key}>
+              <Input
+                id={variable.key}
+                value={values[variable.key] ?? ''}
+                onChange={(e) => setValues((prev) => ({ ...prev, [variable.key]: e.target.value }))}
+              />
+            </Field>
+          ))}
+
+        <div className="flex flex-wrap gap-2">
+          <Button
+            loading={render.isPending}
+            onClick={() =>
+              render.mutate(
+                {
+                  id: template.id,
+                  leaseId: leaseId === 'none' ? undefined : leaseId,
+                  values,
+                },
+                { onSuccess: setRendered },
+              )
+            }
+          >
+            <FileSignature className="h-4 w-4" />
+            {t.contracts.render}
+          </Button>
+          {template.isBuiltIn ? (
+            <Button variant="secondary" loading={save.isPending} onClick={cloneBuiltIn}>
+              {t.contracts.clone}
+            </Button>
+          ) : (
+            <Button
+              variant="ghost"
+              loading={remove.isPending}
+              onClick={() =>
+                remove.mutate(template.id, {
+                  onSuccess: () => {
+                    setTemplateId('');
+                    pushToast(t.ui.delete);
+                  },
+                })
+              }
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              {t.contracts.deleteClone}
+            </Button>
+          )}
+        </div>
         <p className="text-2xs leading-5 text-muted">{t.contracts.generatorHint}</p>
       </section>
 
       <section className="rounded-[var(--radius-card)] border border-line p-4">
         <SectionTitle>{t.contracts.terms}</SectionTitle>
-        {property ? (
-          <dl className="space-y-2 text-sm">
-            <Row label={t.properties.address} value={`${property.address.street} ${property.address.number}`} />
-            <Row label={t.unit.lease.monthlyRent} value={<Money value={property.monthly_rent} board />} />
-            <Row label={t.unit.lease.deposit} value={<Money value={property.monthly_rent * 2} board />} />
-            <Row label={t.unit.arnona} value={<Money value={property.arnona_bimonthly} board />} />
-            <Row label={t.unit.vaad} value={<Money value={property.vaad_monthly} board />} />
-            <Row
-              label={t.contracts.pickLead}
-              value={
-                leadId === 'none'
-                  ? t.contracts.noLead
-                  : seekers.find(
-                      (x) => x.id === leads.find((l) => l.id === leadId)?.seeker_id,
-                    )?.name ?? '—'
-              }
-            />
-          </dl>
-        ) : null}
-
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          <Button onClick={() => onGenerate(unitId, leadId === 'none' ? undefined : leadId)}>
-            <FileSignature className="h-4 w-4" />
-            {t.contracts.generate}
-          </Button>
-          <RevenueMarker streamId="rs-doc" />
-        </div>
+        {!rendered ? (
+          <EmptyState
+            icon={FileText}
+            title={t.contracts.generator}
+            hint={t.contracts.generatorHint}
+            compact
+          />
+        ) : (
+          <>
+            {rendered.missing.length ? (
+              <p className="mb-3 rounded-[var(--radius-control)] bg-signal-soft px-3 py-2 text-2xs text-signal-deep">
+                {t.contracts.missingFields}: {rendered.missing.join(' · ')}
+              </p>
+            ) : null}
+            {rendered.prefilled.length ? (
+              <p className="mb-3 text-2xs text-muted">
+                {t.contracts.prefilledFrom}: {rendered.prefilled.join(' · ')}
+              </p>
+            ) : null}
+            <pre className="max-h-[40rem] overflow-auto whitespace-pre-wrap rounded-[var(--radius-control)] bg-surface p-4 text-sm leading-7 text-ink">
+              {rendered.text}
+            </pre>
+            <RevenueMarker streamId="rs-doc" className="mt-3" />
+          </>
+        )}
       </section>
-    </div>
-  );
-}
-
-function Row({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div className="flex items-baseline justify-between gap-3">
-      <dt className="text-xs text-muted">{label}</dt>
-      <dd className="text-sm font-semibold text-ink">{value}</dd>
     </div>
   );
 }

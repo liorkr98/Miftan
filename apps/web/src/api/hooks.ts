@@ -23,6 +23,8 @@ import type {
   ReviewView,
   MyReview,
   VendorView,
+  TemplateView,
+  RenderedContract,
 } from '@miftan/shared';
 
 /* Shapes the client assembles from an endpoint rather than importing whole. */
@@ -517,6 +519,48 @@ export function useCommitScan() {
       void qc.invalidateQueries({ queryKey: keys.contracts });
       void qc.invalidateQueries({ queryKey: keys.properties });
     },
+  });
+}
+
+export function useContractTemplates() {
+  return useQuery({
+    queryKey: keys.templates,
+    queryFn: () => api.request<{ templates: TemplateView[]; disclaimer: string }>('/contract-templates'),
+  });
+}
+
+export function useSaveTemplate() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: Record<string, unknown>) =>
+      api.request<TemplateView>('/contract-templates', { method: 'POST', body: JSON.stringify(body) }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: keys.templates }),
+  });
+}
+
+export function useDeleteTemplate() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.request<{ ok: true }>(`/contract-templates/${id}`, { method: 'DELETE' }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: keys.templates }),
+  });
+}
+
+export function useRenderTemplate() {
+  return useMutation({
+    mutationFn: ({
+      id,
+      leaseId,
+      values,
+    }: {
+      id: string;
+      leaseId?: string | null;
+      values?: Record<string, string>;
+    }) =>
+      api.request<RenderedContract>(`/contract-templates/${id}/render`, {
+        method: 'POST',
+        body: JSON.stringify({ leaseId, values: values ?? {} }),
+      }),
   });
 }
 
