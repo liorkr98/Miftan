@@ -1,7 +1,7 @@
 @import 'tailwindcss';
 
 /* ─────────────────────────────────────────────────────────────
-   מפתח · design tokens
+   מפתן · design tokens
    Composed in OKLCH. Every ink/text pair verified for WCAG:
    ink/bg 16.3:1 · muted/bg 5.3:1 · ink/signal 8.1:1
    white/live 4.9:1 · white/open 4.7:1 · white/alert 5.4:1

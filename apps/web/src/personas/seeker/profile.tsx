@@ -1,10 +1,14 @@
 import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useStore, useStoreShallow } from '@/data/store';
-import { t } from '@miftan/shared';
+import { t, type Employment, type RenterProfileMissing } from '@miftan/shared';
+import { useLeads, useRenterProfile, useUpdateRenterProfile } from '@/api/hooks';
+import { useAuth } from '@/api/auth';
+import { useStore } from '@/data/store';
 import { Num, PageHeader, SectionTitle } from '@/components/shared/typography';
 import { Button } from '@/components/ui/button';
 import { Meter } from '@/components/shared/meter';
+import { ErrorState } from '@/components/shared/error-state';
+import { ListSkeleton } from '@/components/shared/skeleton';
 import {
   Field,
   Input,
@@ -26,64 +30,84 @@ const INCOME_BANDS = [
   { id: 'b5', ratio: 5.5 },
 ] as const;
 
+function bandFor(ratio: number): string {
+  const found = [...INCOME_BANDS].reverse().find((b) => ratio >= b.ratio);
+  return found?.id ?? 'b3';
+}
+
 export function SeekerProfile() {
   const navigate = useNavigate();
-  const { seekers, currentSeekerId, leads } = useStoreShallow((s) => ({
-    seekers: s.seekers,
-    currentSeekerId: s.currentSeekerId,
-    leads: s.leads,
-  }));
-  const updateSeekerProfile = useStore((s) => s.updateSeekerProfile);
+  const { data: profile, isLoading, isError, refetch } = useRenterProfile();
+  const { data: leads = [] } = useLeads();
+  const update = useUpdateRenterProfile();
+  const { refreshMe } = useAuth();
   const pushToast = useStore((s) => s.pushToast);
 
-  const seeker = seekers.find((x) => x.id === currentSeekerId)!;
+  const [name, setName] = React.useState('');
+  const [phone, setPhone] = React.useState('');
+  const [about, setAbout] = React.useState('');
+  const [band, setBand] = React.useState('b3');
+  const [employment, setEmployment] = React.useState<Employment>('salaried');
+  const [guarantors, setGuarantors] = React.useState(false);
+  const [occupants, setOccupants] = React.useState('1');
+  const [leaseMonths, setLeaseMonths] = React.useState('12');
+  const [pets, setPets] = React.useState(false);
+  const [smoker, setSmoker] = React.useState(false);
+  const [reference, setReference] = React.useState(false);
+  const [hydrated, setHydrated] = React.useState(false);
 
-  const [name, setName] = React.useState(seeker.name);
-  const [phone, setPhone] = React.useState(seeker.phone);
-  const [email, setEmail] = React.useState(seeker.email);
-  const [about, setAbout] = React.useState(seeker.about ?? '');
-  const [band, setBand] = React.useState<string>(() => {
-    const found = [...INCOME_BANDS]
-      .reverse()
-      .find((b) => seeker.profile.income_to_rent_ratio >= b.ratio);
-    return found?.id ?? 'b3';
-  });
-  const [employment, setEmployment] = React.useState(seeker.profile.employment);
-  const [guarantors, setGuarantors] = React.useState(seeker.profile.has_guarantors);
-  const [occupants, setOccupants] = React.useState(String(seeker.profile.occupants));
-  const [leaseMonths, setLeaseMonths] = React.useState(String(seeker.profile.lease_length_months));
-  const [pets, setPets] = React.useState(seeker.profile.pets);
-  const [smoker, setSmoker] = React.useState(seeker.profile.smoker);
-  const [reference, setReference] = React.useState(seeker.profile.prior_landlord_reference);
+  React.useEffect(() => {
+    if (!profile || hydrated) return;
+    setName(profile.name);
+    setPhone(profile.phone ?? '');
+    setAbout(profile.about ?? '');
+    setBand(bandFor(profile.incomeToRentRatio));
+    setEmployment(profile.employment ?? 'salaried');
+    setGuarantors(profile.hasGuarantors);
+    setOccupants(String(profile.occupants));
+    setLeaseMonths(String(profile.leaseLengthMonths));
+    setPets(profile.pets);
+    setSmoker(profile.smoker);
+    setReference(profile.priorLandlordReference);
+    setHydrated(true);
+  }, [profile, hydrated]);
 
-  const openApplications = leads.filter((l) => l.seeker_id === currentSeekerId && !l.watch_only).length;
-
-  const filled = [name, phone, email, employment, occupants, leaseMonths].filter(Boolean).length;
-  const completeness = Math.round((filled / 6) * 100);
+  const openApplications = leads.filter((l) => l.scope === 'seeker' && !l.watchOnly).length;
+  const missing = profile?.missing ?? [];
+  const completeness = profile?.complete ? 100 : Math.round(((6 - missing.length) / 6) * 100);
 
   const save = () => {
-    updateSeekerProfile({
-      name,
-      phone,
-      email,
-      about,
-      income_to_rent_ratio: INCOME_BANDS.find((b) => b.id === band)?.ratio ?? 3,
-      employment,
-      has_guarantors: guarantors,
-      occupants: Number(occupants) || 1,
-      lease_length_months: Number(leaseMonths) || 12,
-      pets,
-      smoker,
-      prior_landlord_reference: reference,
-    });
-    pushToast(t.seeker.profile.saved, 'success');
+    update.mutate(
+      {
+        name,
+        phone,
+        about: about.trim() || null,
+        incomeToRentRatio: INCOME_BANDS.find((b) => b.id === band)?.ratio ?? 3.2,
+        employment,
+        hasGuarantors: guarantors,
+        occupants: Number(occupants) || 1,
+        leaseLengthMonths: Number(leaseMonths) || 12,
+        pets,
+        smoker,
+        priorLandlordReference: reference,
+      },
+      {
+        onSuccess: async (next) => {
+          setHydrated(false);
+          await refreshMe();
+          pushToast(next.complete ? t.seeker.profile.saved : t.seeker.profile.saved, 'success');
+        },
+      },
+    );
   };
+
+  if (isError) return <ErrorState onRetry={() => void refetch()} />;
+  if (isLoading || !profile) return <ListSkeleton rows={8} />;
 
   return (
     <div className="mx-auto max-w-2xl space-y-6 px-4 py-5 sm:px-6">
       <PageHeader title={t.seeker.profile.title} subtitle={t.seeker.profile.subtitle} />
 
-      {/* Why */}
       <section className="rounded-[var(--radius-card)] border border-line bg-surface p-4">
         <div className="flex items-start gap-2.5">
           <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-muted" />
@@ -112,6 +136,11 @@ export function SeekerProfile() {
           tone={completeness === 100 ? 'open' : 'signal'}
           label={t.seeker.profile.completeness}
         />
+        {missing.length > 0 ? (
+          <p className="mt-2 text-2xs text-muted">
+            {missing.map((key: RenterProfileMissing) => t.seeker.profile.missing[key]).join(' · ')}
+          </p>
+        ) : null}
         {openApplications > 0 ? (
           <p className="mt-2 text-2xs text-muted">
             {t.seeker.queue.title}: <Num board className="font-bold text-ink">{openApplications}</Num>
@@ -119,7 +148,6 @@ export function SeekerProfile() {
         ) : null}
       </section>
 
-      {/* Contact */}
       <section className="space-y-4">
         <SectionTitle>{t.seeker.profile.personal}</SectionTitle>
         <Field label={t.seeker.profile.name} htmlFor="p-name">
@@ -129,19 +157,12 @@ export function SeekerProfile() {
           <Field label={t.seeker.profile.phone} htmlFor="p-phone">
             <Input id="p-phone" dir="ltr" className="num" value={phone} onChange={(e) => setPhone(e.target.value)} />
           </Field>
-          <Field label={t.seeker.profile.email} htmlFor="p-email">
-            <Input
-              id="p-email"
-              type="email"
-              dir="ltr"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
+          <Field label={t.seeker.profile.email} hint={t.seeker.profile.emailReadOnly} htmlFor="p-email">
+            <Input id="p-email" type="email" dir="ltr" value={profile.email} readOnly disabled />
           </Field>
         </div>
       </section>
 
-      {/* Financial */}
       <section className="space-y-4">
         <SectionTitle>{t.seeker.profile.financial}</SectionTitle>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -160,33 +181,24 @@ export function SeekerProfile() {
             </Select>
           </Field>
           <Field label={t.seeker.profile.employment} htmlFor="p-employment">
-            <Select value={employment} onValueChange={setEmployment}>
+            <Select value={employment} onValueChange={(v) => setEmployment(v as Employment)}>
               <SelectTrigger id="p-employment">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {Object.entries(t.seeker.profile.employmentOptions).map(([key, label]) => (
+                {(Object.keys(t.seeker.profile.employmentOptions) as Employment[]).map((key) => (
                   <SelectItem key={key} value={key}>
-                    {label}
+                    {t.seeker.profile.employmentOptions[key]}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </Field>
         </div>
-        <Toggle
-          label={t.seeker.profile.guarantors}
-          checked={guarantors}
-          onChange={setGuarantors}
-        />
-        <Toggle
-          label={t.screening.criterion.reference}
-          checked={reference}
-          onChange={setReference}
-        />
+        <Toggle label={t.seeker.profile.guarantors} checked={guarantors} onChange={setGuarantors} />
+        <Toggle label={t.screening.criterion.reference} checked={reference} onChange={setReference} />
       </section>
 
-      {/* Household */}
       <section className="space-y-4">
         <SectionTitle>{t.seeker.profile.household}</SectionTitle>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -201,11 +213,7 @@ export function SeekerProfile() {
               onChange={(e) => setOccupants(e.target.value)}
             />
           </Field>
-          <Field
-            label={t.seeker.profile.leaseLength}
-            hint={t.seeker.profile.leaseMonths}
-            htmlFor="p-lease"
-          >
+          <Field label={t.seeker.profile.leaseLength} hint={t.seeker.profile.leaseMonths} htmlFor="p-lease">
             <Input
               id="p-lease"
               type="number"
@@ -230,7 +238,6 @@ export function SeekerProfile() {
         </Field>
       </section>
 
-      {/* What is never collected — the same rule as the owner's screening page */}
       <section className="rounded-[var(--radius-card)] border border-line p-4">
         <div className="flex items-start gap-2.5">
           <ShieldOff className="mt-0.5 h-4 w-4 shrink-0 text-muted" />
@@ -242,7 +249,7 @@ export function SeekerProfile() {
       </section>
 
       <div className="sticky bottom-0 -mx-4 flex gap-2 border-t border-line bg-bg/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6">
-        <Button size="lg" className="flex-1" onClick={save}>
+        <Button size="lg" className="flex-1" onClick={save} loading={update.isPending}>
           {t.seeker.profile.save}
         </Button>
         <Button size="lg" variant="secondary" onClick={() => navigate('/search')}>
