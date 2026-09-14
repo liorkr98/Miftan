@@ -10,6 +10,7 @@ import {
   useTickets,
 } from '@/api/hooks';
 import { useAuth } from '@/api/auth';
+import { queryClient } from '@/api/query';
 import { APP_NAME, t, daysUntil } from '@miftan/shared';
 import { cn } from '@/lib/utils';
 import { RoleSwitcher } from './role-switcher';
@@ -38,7 +39,6 @@ import {
   Home,
   Inbox,
   LogOut,
-  DoorOpen,
   ListChecks,
   MapPin,
   RotateCcw,
@@ -46,6 +46,8 @@ import {
   Users,
   Wrench,
   Coins,
+  Star,
+  TrendingUp,
 } from 'lucide-react';
 
 interface NavItem {
@@ -70,8 +72,8 @@ function TopBar() {
       className="sticky top-0 flex h-14 shrink-0 items-center gap-3 bg-ink px-3 sm:px-4"
     >
       <div className="flex shrink-0 items-center gap-2">
-        <span className="grid h-7 w-7 place-items-center rounded-[8px] bg-signal text-ink">
-          <DoorOpen className="h-4 w-4" strokeWidth={2.5} />
+        <span className="grid h-7 w-7 place-items-center overflow-hidden rounded-[8px] bg-signal" title={APP_NAME}>
+          <img src="/favicon.svg" alt="" width={28} height={28} className="h-7 w-7" />
         </span>
         <span className="hidden text-base font-extrabold tracking-[-0.01em] text-on-ink sm:inline">
           {APP_NAME}
@@ -118,6 +120,7 @@ function TopBar() {
               variant="danger"
               onClick={() => {
                 resetDemo();
+                queryClient.clear();
                 setResetOpen(false);
                 pushToast(t.shell.resetDemo, 'success');
               }}
@@ -273,7 +276,9 @@ export function OwnerShell() {
   const { data: threads } = useThreads();
 
   const owned = properties.filter((p) => p.scope === 'owner').length;
-  const openTickets = tickets.filter((tk) => OPEN_TICKET_STATUSES.includes(tk.status)).length;
+  const openTickets = tickets.filter(
+    (tk) => tk.scope === 'owner' && OPEN_TICKET_STATUSES.includes(tk.status),
+  ).length;
   const ownedLeads = leads.filter((l) => l.scope === 'owner').length;
   const unread = threads?.totalUnread ?? 0;
   /* The ones actually waiting on the owner: a new question, or a tenant's
@@ -295,6 +300,8 @@ export function OwnerShell() {
     { to: '/owner/vendors', label: t.ownerNav.vendors, Icon: ListChecks },
     { to: '/owner/contracts', label: t.ownerNav.contracts, Icon: FileSignature },
     { to: '/owner/finance', label: t.ownerNav.finance, Icon: Banknote },
+    { to: '/owner/market', label: t.ownerNav.market, Icon: TrendingUp },
+    { to: '/owner/reviews', label: t.ownerNav.reviews, Icon: Star },
     { to: '/owner/revenue', label: t.ownerNav.revenue, Icon: Coins },
     { to: '/owner/messages', label: t.ownerNav.messages, Icon: Inbox, count: unread },
   ];
@@ -333,13 +340,12 @@ export function OwnerShell() {
 /* ── Tenant: no rail, five large destinations ──────────── */
 
 export function TenantShell() {
-  const tickets = useStore((s) => s.tickets);
-  const currentTenantId = useStore((s) => s.currentTenantId);
+  const { data: tickets = [] } = useTickets();
   const main = React.useRef<HTMLElement>(null!);
   useScrollReset(main);
 
   const open = tickets.filter(
-    (tk) => tk.tenant_id === currentTenantId && OPEN_TICKET_STATUSES.includes(tk.status),
+    (tk) => tk.scope === 'tenant' && OPEN_TICKET_STATUSES.includes(tk.status),
   ).length;
 
   const items: NavItem[] = [
@@ -348,6 +354,7 @@ export function TenantShell() {
     { to: '/tenant/tickets', label: t.tenantNav.tickets, Icon: ListChecks, count: open },
     { to: '/tenant/renewal', label: t.tenantNav.renewal, Icon: CalendarCheck2 },
     { to: '/tenant/documents', label: t.tenantNav.documents, Icon: FileText },
+    { to: '/tenant/reviews', label: t.tenantNav.reviews, Icon: Star },
   ];
 
   return (
@@ -369,12 +376,11 @@ export function TenantShell() {
 /* ── Seeker: no chrome in the way of the map ───────────── */
 
 export function SeekerShell() {
-  const leads = useStore((s) => s.leads);
-  const currentSeekerId = useStore((s) => s.currentSeekerId);
+  const { data: leads = [] } = useLeads();
   const main = React.useRef<HTMLElement>(null!);
   useScrollReset(main);
 
-  const queued = leads.filter((l) => l.seeker_id === currentSeekerId && !l.watch_only).length;
+  const queued = leads.filter((l) => l.scope === 'seeker' && !l.watchOnly).length;
 
   const items: NavItem[] = [
     { to: '/search', label: t.seekerNav.search, Icon: Search, end: true },

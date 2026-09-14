@@ -116,7 +116,7 @@ Its own phase because it is the product.
 - [x] Receipt → expense auto-creation, in one transaction
 - [x] Integration tests over the whole flow
 
-### Phase 5 — Wire the app to real data · ~3 sessions · **IN PROGRESS**
+### Phase 5 — Wire the app to real data · **DONE**
 - [x] TanStack Query, typed client, one hooks file so invalidation is reviewable
 - [x] Real login, route guard, session that survives a reload
 - [x] **Persona switcher deleted.** Replaced by a role switcher driven by
@@ -125,10 +125,15 @@ Its own phase because it is the product.
 - [x] `/owner/properties` off the mock store and onto Postgres
 - [x] Owner ticket board, tenant tickets, tenant report — all on the API,
       with real camera capture and presigned upload
-- [ ] Remaining screens with an API: seeker search + listing, owner finance
-- [ ] Screens still on fixtures — CRM, inquiries, screening, protocol, seasonal,
-      contracts, messages. **Their endpoints now exist** (Phase 4b); this is
-      wiring, not new API work
+- [x] Seeker search + listing on `POST /search`
+- [x] CRM, inquiries, screening, protocol, seasonal, contracts, messages
+- [x] Renter profile `GET/PATCH /me/renter-profile` — queue join is no longer a dead end
+- [x] Property create/update + listed toggle
+- [x] Rent payments read — owner finance, dashboard collection rate, tenant history
+- [x] Market demand, reviews, budget auto-approve, viewing briefings, start-thread
+
+128 API tests, 7 shared. Every surface's privacy test scans the raw response
+body rather than asserting field by field, so a widened schema fails it.
 
 ### Phase 4b — The remaining API surfaces · **DONE**
 - [x] **Leads, screening, audit.** Flags recomputed on every read, never stored;
@@ -150,8 +155,9 @@ Its own phase because it is the product.
 body rather than asserting field by field, so a widened schema fails it.
 
 ### Phase 6 — Mobile-grade web · ~2 sessions
+- [x] PWA manifest, favicon, apple-touch-icon, theme-color (install prompt + service worker still open)
 - [ ] Polish at 390px for the flows that actually happen on a phone: report a fault, my tickets, search, listing
-- [ ] **PWA**: manifest, service worker, installable, "add to home screen" prompt for tenants
+- [ ] **PWA**: service worker, installable, "add to home screen" prompt for tenants
 - [ ] Camera capture through the file input — opens the native camera on both platforms
 - [ ] Offline-tolerant submit; a fault gets reported in a stairwell with one bar
 

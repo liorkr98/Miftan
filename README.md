@@ -1,60 +1,76 @@
 # מפתן · Miftan
 
-A clickable, front-end-only prototype of an Israeli rental-management product.
-Hebrew UI, RTL, no backend, no auth, no network calls.
+Israeli rental ops plus a time-based marketplace. Hebrew UI, RTL.
 
-One landlord runs their whole operation — maintenance, dispatch, receipts,
-leases, renewals, rent changes and a lead pipeline — while apartment seekers
-browse **every** apartment the landlord owns, including occupied ones, see when
-each frees up, and get in line months in advance.
+Yad2 shows flights already boarding; מפתן shows the schedule. Occupied units
+with a known free-date are the inventory. Privacy is shape, not a filter:
+seeker → owner → tenant → owner → seeker, and the two ends never meet.
+
+The API (Fastify + Postgres) and the privacy layer are in place. Most screens
+read the API. Revenue (`/owner/revenue`) stays on fixtures on purpose — wiring
+it would imply the numbers are measured.
 
 ---
 
 ## Run it
 
+Postgres must be up. Then, once:
+
 ```bash
 npm install
+cd apps/api && npm run db:reset && npm run db:migrate && npm run db:seed
 ```
 
 ```bash
-npm run dev
+# API
+cd apps/api && npm run dev          # http://127.0.0.1:4000
+
+# Web (separate terminal, from the repo root)
+npm run dev -w @miftan/web          # http://localhost:5178
 ```
 
-Then open http://localhost:5173.
+The web dev server proxies `/api` → `127.0.0.1:4000`, so the app and API are
+same-origin. **Do not change that** — the refresh cookie is `sameSite=lax` and
+a cross-origin setup silently breaks session persistence on reload.
+
+Password for every seeded account: `miftan-dev-2026`
+
+| Account | Email | Holds |
+|---|---|---|
+| Owner | `ran@almog-nadlan.co.il` | 22 properties |
+| Tenant | `michal.stern@gmail.com` | 1 lease |
+| Seeker | `tal.aviram@gmail.com` | queue rows only |
+| **All three** | `dana@miftan-demo.co.il` | owns 3, rents 1, queues for 2 |
+
+Test with Dana. It is the only account that holds all three relationships.
 
 ```bash
+npm run typecheck
 npm run build
+npm run test
 ```
-
-```bash
-npx tsc --noEmit
-```
-
-Both are clean.
 
 ## Renaming the app
 
-`APP_NAME` in [`src/i18n/he.ts`](src/i18n/he.ts) is the single source. Change it
-there and the top bar, page title and copy follow.
+`APP_NAME` in [`packages/shared/src/i18n/he.ts`](packages/shared/src/i18n/he.ts)
+is the single source. Change it there and the top bar, page title and copy follow.
 
 ---
 
 ## The three personas
 
-A segmented control in the top bar switches the entire app shell, navigation and
-route set. Each persona is deep-linkable:
+A role switcher in the top bar offers only the relationships the signed-in
+account actually holds. Each persona is deep-linkable:
 
 | Persona | Routes | Shape |
 |---|---|---|
-| בעל דירות | `/owner/*` | Side rail, 7 sections, dense. A workstation. |
-| דייר | `/tenant/*` | No rail, 5 large destinations. A consumer app. |
+| בעל דירות | `/owner/*` | Side rail, dense. A workstation. |
+| דייר | `/tenant/*` | No rail, large destinations. A consumer app. |
 | מחפש דירה | `/search/*` | No chrome in the way of the map. A browser. |
 
 Switching persona routes to that persona's root rather than mapping to an
 "equivalent" screen — there is no equivalence between a portfolio board and a
 search map, and pretending otherwise would misrepresent the product.
-
-Opening a deep link directly (e.g. `/tenant/renewal`) sets the persona to match.
 
 ---
 
@@ -67,9 +83,10 @@ they'll be home → receipt is uploaded → **an expense is auto-created against
 unit** and the ticket closes.
 
 **Queue.** Seeker filters by `זמין החל מ־` (a date, not a boolean) → opens an
-occupied apartment with a known free-date → `שריין מקום בתור` → the lead appears
-in the owner's CRM, scored against the active screening preset, with an audit
-entry written. Leaving the queue moves everyone behind you up.
+occupied apartment with a known free-date → fills a renter profile → `שריין מקום בתור`
+→ the lead appears in the owner's CRM, scored against the active screening
+preset, with an audit entry written. Leaving the queue moves everyone behind
+you up. `POST /leads` refuses an incomplete profile.
 
 **Availability inquiry.** This is the one that makes undecided apartments
 useful. A seeker opens a unit whose tenant hasn't decided → `שאל מתי הדירה
@@ -80,125 +97,103 @@ pre-written reply to edit and sends it → the seeker sees the answer and the
 unit now carries a **projected** date.
 
 The seeker and the tenant never touch. The tenant sees a question about their
-own lease, never a person; the seeker sees a date, never an identity. That rule
-is enforced in `availabilityKind()`, which is never given the tenant.
+own lease, never a person; the seeker sees a date, never an identity.
 
 **Contract intake.** Pick a unit → upload → staged pipeline (upload → read →
 extract → your review) → every field comes back with a confidence score and a
-source hint, two of them deliberately low → edit anything → commit writes to
-the lease. Editing a field sets its confidence to 1: a human-confirmed field.
+source hint → edit anything → commit writes to the lease. Extraction sits
+behind an interface; an LLM can slot in later. The scan is not "AI".
 
-**Preventive maintenance.** Eight seasonal templates fan out across eligible
-units (a gutters task only lands on units with a balcony). Scheduling opens a
-real ticket, so preventive work lives in the same board as reactive work.
-
-All five were walked click-by-click in a browser before this was called done.
+**Preventive maintenance.** Seasonal templates fan out across eligible units.
+Scheduling opens a real ticket, so preventive work lives in the same board as
+reactive work.
 
 ---
 
-## What's mocked, and where a real backend attaches
+## What is still mocked, and what is not
 
-| Area | Now | Where it attaches |
-|---|---|---|
-| **Persistence** | Zustand store in memory, hydrated from `src/data/seed/*`. A hard page reload restores seed state. | Swap `src/data/store.ts` actions for API calls; `src/data/reset.ts` becomes the test fixture loader. |
-| **Auth** | None. `currentTenantId` / `currentSeekerId` are fixed demo identities in the store. | Session provider above the router; the persona switcher becomes a role claim, not a control. |
-| **Photo & receipt uploads** | `picsum.photos` seeded URLs; "upload" appends a URL. | Object storage + signed URLs. `Ticket.photos` and `Receipt.file` already hold URLs, so the shape doesn't change. |
-| **Documents** | Lease PDF and receipts are placeholders. | Document service; `tenant/documents.tsx` renders whatever URLs it's given. |
-| **Contract generation / e-signature** | Out of scope. | Would slot between `LeadStage.offer` and `signed`. |
-| **Payments & rent collection** | `RentPayment` rows are seeded, nothing charges anything. | Payment provider; `standing_order` / `post_dated_checks` are already modelled. |
-| **Notifications** | Toasts only. | Push/SMS on `assignVendor`, `sendRenewalProposal`, and any `available_from` change on a watched unit. |
-| **Yad2 / Madlan ingestion** | None. Comparables come from the owner's own portfolio. | Would feed `rentComparison()` in `src/data/selectors.ts`. |
-| **Contract OCR / extraction** | `advanceContractScan()` returns plausible values derived from the picked unit, on a timer, with two fields deliberately low-confidence. | Document AI endpoint returning `ExtractedField[]`. The shape, the confidence scores and the review-before-commit step are already the real design. |
-| **Protocol signatures** | `signed: true` on complete. | E-signature provider; both parties sign the same `ProtocolRun`. |
-| **Affiliate fulfilment** | `requestOffer()` records intent locally. Provider names are invented placeholders. | Partner APIs / lead handoff. `RevenueStream.unit_revenue` is where real rate cards attach. |
-| **Map** | OpenStreetMap raster tiles, no key, no billing. No clustering. | Swap the `TileLayer` URL; add clustering when pin density warrants it. |
+| Area | Now |
+|---|---|
+| **Persistence** | Postgres. Mixed-scope lists; money as integer agorot. |
+| **Auth** | Refresh-rotating sessions. Roles are relationships, not a column. |
+| **Photo & receipt uploads** | Presigned R2 (or local disk in development). |
+| **Rent payments** | `GET /rent-payments` — owner roll and tenant history. Nothing charges anything. |
+| **Renter profile** | `GET/PATCH /me/renter-profile`. Completeness gates queue join. |
+| **Property create / listed** | `POST/PATCH /properties`. Photos via `PUT /properties/:id/photos`. |
+| **Notifications** | Toasts only. WhatsApp/SMS is Phase 7 (Meta Business verification). |
+| **Revenue model** | `/owner/revenue` is **deliberately** still fixtures. Do not wire it. |
+| **Yad2 / Madlan ingestion** | None. Comparables come from the owner's own portfolio. |
+| **Contract OCR** | Extractor interface; default implementation is deterministic, not an LLM. |
+| **Affiliate fulfilment** | `requestOffer()` is still a toast. Provider names are placeholders. |
 
-`resetDemo()` (top bar → אפס הדגמה) restores the full seed state at any time.
+`resetDemo()` (top bar → אפס הדגמה) restores the in-memory fixture store **and**
+clears the React Query cache. It does not reseed Postgres.
 
 ---
 
 ## Hebrew / RTL
 
 - `<html dir="rtl" lang="he">`; layout uses logical properties throughout
-  (`ms/me`, `ps/pe`, `start/end`). The only physical values are transforms in
-  the departures board, documented in [`src/lib/rtl.ts`](src/lib/rtl.ts).
+  (`ms/me`, `ps/pe`, `start/end`).
 - **Time runs right to left.** On the departures board, today is pinned at the
-  right edge and the future extends left. Recharts time axes use `reversed` for
-  the same reason.
+  right edge and the future extends left. Recharts time axes use `reversed`.
 - **Every LTR island is isolated.** Money, phone numbers, dates and Latin vendor
-  names go through `<Money>`, `<Num>`, `<Phone>` or `<Ltr>` in
-  [`src/components/shared/typography.tsx`](src/components/shared/typography.tsx),
-  which wrap them in `dir="ltr"` + `unicode-bidi: isolate`.
-- **Currency.** `Intl.NumberFormat('he-IL')` for the digits, `₪` placed by us in
-  the leading position. `style: 'currency'` on `he-IL` emits two embedded RLM
-  marks that fight the LTR isolate and put the sign on the wrong side.
-- **All user-facing strings** are in [`src/i18n/he.ts`](src/i18n/he.ts) as one
-  flat typed dictionary — including relative times and units. Zero hardcoded
-  Hebrew outside it. That file is the seam for Arabic / English / Russian.
-- Tested at 390px. The 18-month Gantt does not shrink on mobile; it re-renders
-  as a month-grouped list carrying the same data.
+  names go through `<Money>`, `<Num>`, `<Phone>` in
+  [`apps/web/src/components/shared/typography.tsx`](apps/web/src/components/shared/typography.tsx).
+- **Currency.** Integer agorot on the wire. Shekels only at form edges
+  (`toAgorot`) and in `<Money>`. Never pass agorot to `value=`.
+- **All user-facing strings** are in
+  [`packages/shared/src/i18n/he.ts`](packages/shared/src/i18n/he.ts). Zero
+  hardcoded Hebrew in components.
 
 ---
 
 ## Deploying
 
-The web app deploys to Cloudflare from `wrangler.jsonc` at the repository root.
-It exists because Cloudflare runs `wrangler deploy` from the root of the
-workspace and cannot otherwise tell which app to ship, and it sets
-`not_found_handling: single-page-application` so deep links survive a cold load
-instead of 404ing.
+Do not attempt to deploy from this repo until the account owner has:
 
-**The deployed frontend cannot sign in yet, and that is expected.** The app
-calls `/api/*`, which Vite proxies in development and nothing serves in
-production. Until the API is deployed the site will render the login screen and
-stop there.
+1. A Neon Postgres project in `aws-eu-central-1` (pooled + direct URLs).
+2. `VITE_API_URL` set as a **build** environment variable on Cloudflare.
 
-When the API goes up it has to be reachable at the *same origin* as the web app —
-`miftan.co.il/api`, not `api.miftan.co.il` — or the `sameSite=lax` refresh
-cookie will never be sent and every reload will look like a signed-out session.
-`COOKIE_PATH` in `apps/api/.env.example` has to match the path the browser
-sees. Getting either wrong fails silently.
+Cookie pairing in production is `miftan.co.il` / `api.miftan.co.il` with
+matching `COOKIE_PATH`. Same-origin `/api` proxy is required in development.
+Full detail in `HOSTING.md` and `HANDOFF.md`.
+
+---
 
 ## Structure
 
 ```
-src/
-  app/          routes, three persona shells, persona switcher
+apps/api/          Fastify 5 + Drizzle + Postgres
+apps/web/          Vite + React 18 + Tailwind (dev server on 5178)
+packages/shared/   Domain + Zod contracts + Hebrew dictionary
+packages/fixtures/ Seed data only
+```
+
+```
+apps/web/src/
+  app/          routes, three persona shells, role switcher
   personas/
     owner/      dashboard · properties · unit detail · tickets · maintenance · vendors
-                crm · screening · inquiries · contracts · finance · revenue · messages
-    tenant/     home · report · tickets · renewal · documents
+                crm · screening · inquiries · contracts · finance · market · reviews
+                revenue · messages
+    tenant/     home · report · tickets · renewal · documents · reviews
     seeker/     search+map · listing · queue · profile
+  api/          typed client, hooks, query keys, auth
   components/
-    ui/         shadcn-idiom primitives on Radix (button, badge, card, dialog, tabs, field)
+    ui/         primitives on Radix
     shared/     departure-track · map · protocol · revenue · status · typography
-                empty-state · skeleton · charts · meter · toaster
-  data/         seed/*.ts · store.ts (zustand) · reset.ts · selectors.ts
-  i18n/         he.ts
-  types/        index.ts
-  lib/          format.ts (₪, dates, phones) · rtl.ts · screening.ts · utils.ts
+  data/         leftover fixture store (revenue, reset-demo)
 ```
 
 ## Where the product makes money
 
 `/owner/revenue` is the model, and the **revenue lens** (₪ toggle in the top
-bar) marks every earning point *inside the running product* — turn it on and
-walk the app rather than describing it on a slide.
-
-Eleven active streams, modelled as data in `src/data/seed/revenue.ts`, each
-naming the exact surface it fires on: vendor commission, seasonal maintenance
-packages, owner subscription, building insurance, contents insurance, painting,
-end-of-lease cleaning, upholstery cleaning, moving, digital contracts, applicant
-verification. Totals are computed from the live portfolio size — nothing is
-hardcoded — and the portfolio field is editable so you can answer "and at 500
-units?" on the spot.
+bar) marks every earning point *inside the running product*. It is presentation,
+not measurement — leave it on fixtures.
 
 Three streams are modelled and **deliberately rejected**, with the reason shown:
-paid queue-jumping, broker fees from seekers, and selling rental data. That
-section exists because it's the second question a serious partner asks.
-
-Provider names in the affiliate offers are invented placeholders — no real
-insurer or service company is implied.
+paid queue-jumping, broker fees from seekers, and selling rental data.
 
 ## Screening and the law
 
@@ -208,12 +203,10 @@ move-in date, lease length, smoking, pets, occupancy vs. permitted, prior
 landlord reference.
 
 Protected characteristics are **not representable in the type system** —
-`ScreeningProfile` in [`src/types/index.ts`](src/types/index.ts) has no field for
-family status, parenthood, age, gender, nationality, country of origin, religion,
-ethnicity or sexual orientation, so no preset can be built on them.
+`renter_profiles` has no field for family status, parenthood, age, gender,
+nationality, country of origin, religion, ethnicity or sexual orientation.
 
-Screening is a **soft sort, never a filter**: a lead that misses a criterion
-ranks lower and is flagged with the reason, and always stays in the list. Every
-ranking decision writes a line to an exportable audit log.
+Screening is a **soft sort, never a filter**. Flags are recomputed on every
+read. The audit log records the rule as it stood at the decision.
 
-See [DECISIONS.md](DECISIONS.md) for the design reasoning.
+See [DECISIONS.md](DECISIONS.md), [PRODUCT.md](PRODUCT.md) and [HANDOFF.md](HANDOFF.md).

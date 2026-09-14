@@ -12,6 +12,7 @@ import { OwnerVendors } from '@/personas/owner/vendors';
 import { OwnerCrm } from '@/personas/owner/crm';
 import { OwnerScreening } from '@/personas/owner/screening';
 import { OwnerFinance } from '@/personas/owner/finance';
+import { OwnerMarket } from '@/personas/owner/market';
 import { OwnerMessages } from '@/personas/owner/messages';
 import { OwnerInquiries } from '@/personas/owner/inquiries';
 import { OwnerContracts } from '@/personas/owner/contracts';
@@ -22,6 +23,7 @@ import { TenantReport } from '@/personas/tenant/report';
 import { TenantTickets } from '@/personas/tenant/tickets';
 import { TenantRenewal } from '@/personas/tenant/renewal';
 import { TenantDocuments } from '@/personas/tenant/documents';
+import { ReviewsPage } from '@/personas/shared/reviews';
 import { SeekerSearch } from '@/personas/seeker/search';
 import { SeekerListing } from '@/personas/seeker/listing';
 import { SeekerQueue } from '@/personas/seeker/queue';
@@ -51,6 +53,8 @@ export const router = createBrowserRouter([
           { path: 'revenue', element: <OwnerRevenue /> },
           { path: 'crm/filters', element: <OwnerScreening /> },
           { path: 'finance', element: <OwnerFinance /> },
+          { path: 'market', element: <OwnerMarket /> },
+          { path: 'reviews', element: <ReviewsPage /> },
           { path: 'messages', element: <OwnerMessages /> },
         ],
       },
@@ -63,6 +67,7 @@ export const router = createBrowserRouter([
           { path: 'tickets', element: <TenantTickets /> },
           { path: 'renewal', element: <TenantRenewal /> },
           { path: 'documents', element: <TenantDocuments /> },
+          { path: 'reviews', element: <ReviewsPage /> },
         ],
       },
       {

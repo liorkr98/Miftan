@@ -39,4 +39,7 @@ export * from './api/seasonal';
 export * from './api/protocols';
 export * from './api/threads';
 export * from './api/contracts';
+export * from './api/rent-payments';
+export * from './api/renter-profile';
+export * from './api/properties-write';
 export * from './api/client';

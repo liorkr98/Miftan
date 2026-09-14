@@ -3,18 +3,29 @@ import { t, formatAge, type Role } from '@miftan/shared';
 import {
   useMarkThreadRead,
   usePostThreadMessage,
+  useStartThread,
   useThread,
   useThreads,
 } from '@/api/hooks';
+import { useStore } from '@/data/store';
 import { Num, PageHeader } from '@/components/shared/typography';
 import { EmptyState } from '@/components/shared/empty-state';
 import { ErrorState } from '@/components/shared/error-state';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Textarea } from '@/components/ui/field';
+import { Field, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Textarea } from '@/components/ui/field';
+import {
+  Dialog,
+  DialogBody,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { ListSkeleton } from '@/components/shared/skeleton';
 import { cn } from '@/lib/utils';
-import { Inbox, MessageSquare, Send } from 'lucide-react';
+import { Inbox, MessageSquare, Plus, Send } from 'lucide-react';
 
 type Filter = 'all' | 'tenant' | 'lead' | 'vendor';
 
@@ -37,6 +48,7 @@ export function OwnerMessages() {
   const [filter, setFilter] = React.useState<Filter>('all');
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
   const [draft, setDraft] = React.useState('');
+  const [composeOpen, setComposeOpen] = React.useState(false);
 
   const markRead = useMarkThreadRead();
   const postMessage = usePostThreadMessage();
@@ -76,11 +88,17 @@ export function OwnerMessages() {
         title={t.messages.title}
         subtitle={t.messages.subtitle}
         actions={
-          totalUnread ? (
-            <Badge tone="alertSoft">
-              <Num board>{totalUnread}</Num> {t.messages.unread}
-            </Badge>
-          ) : null
+          <div className="flex items-center gap-2">
+            {totalUnread ? (
+              <Badge tone="alertSoft">
+                <Num board>{totalUnread}</Num> {t.messages.unread}
+              </Badge>
+            ) : null}
+            <Button size="sm" onClick={() => setComposeOpen(true)}>
+              <Plus className="h-3.5 w-3.5" />
+              {t.messages.newThread}
+            </Button>
+          </div>
         }
       />
 
@@ -222,6 +240,85 @@ export function OwnerMessages() {
           )}
         </div>
       )}
+
+      <StartThreadDialog open={composeOpen} onOpenChange={setComposeOpen} onStarted={setSelectedId} />
     </div>
+  );
+}
+
+function StartThreadDialog({
+  open,
+  onOpenChange,
+  onStarted,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onStarted: (id: string) => void;
+}) {
+  const start = useStartThread();
+  const pushToast = useStore((s) => s.pushToast);
+  const [role, setRole] = React.useState<Exclude<Role, 'owner'>>('tenant');
+  const [name, setName] = React.useState('');
+  const [subject, setSubject] = React.useState('');
+  const [body, setBody] = React.useState('');
+
+  const submit = () => {
+    start.mutate(
+      {
+        subject: subject.trim(),
+        body: body.trim(),
+        counterpartyRole: role,
+        counterpartyName: name.trim(),
+      },
+      {
+        onSuccess: (thread) => {
+          pushToast(t.messages.threadStarted, 'success');
+          onOpenChange(false);
+          setName('');
+          setSubject('');
+          setBody('');
+          onStarted(thread.id);
+        },
+      },
+    );
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{t.messages.newThread}</DialogTitle>
+          <DialogDescription>{t.messages.newThreadHint}</DialogDescription>
+        </DialogHeader>
+        <DialogBody className="space-y-4">
+          <Field label={t.messages.counterpartyRole}>
+            <Select value={role} onValueChange={(v) => setRole(v as Exclude<Role, 'owner'>)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="tenant">{t.messages.tenants}</SelectItem>
+                <SelectItem value="lead">{t.messages.leads}</SelectItem>
+                <SelectItem value="vendor">{t.messages.vendorsTab}</SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field label={t.messages.counterpartyName} htmlFor="th-name">
+            <Input id="th-name" value={name} onChange={(e) => setName(e.target.value)} />
+          </Field>
+          <Field label={t.messages.subject} htmlFor="th-subject">
+            <Input id="th-subject" value={subject} onChange={(e) => setSubject(e.target.value)} />
+          </Field>
+          <Field label={t.messages.write} htmlFor="th-body">
+            <Textarea id="th-body" value={body} onChange={(e) => setBody(e.target.value)} />
+          </Field>
+        </DialogBody>
+        <DialogFooter>
+          <Button onClick={submit} loading={start.isPending} disabled={!name.trim() || !subject.trim() || !body.trim()}>
+            {t.messages.startThread}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
