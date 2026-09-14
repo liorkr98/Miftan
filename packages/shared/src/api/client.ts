@@ -143,13 +143,26 @@ export class MiftanClient {
 }
 
 async function toApiError(res: Response): Promise<ApiError> {
+  /* Checked before parsing, not after a failed parse: a 404 from a static
+     host, a proxy's own error page, or a CORS-blocked response are all
+     non-JSON, and every one of them means "not talking to the API", never
+     "the API had a problem". Collapsing that into a generic internal error is
+     exactly how this bug shipped — a real deploy served a plain 404 for an
+     unmatched POST route, and the error the user saw was indistinguishable
+     from a genuine server fault. */
+  const contentType = res.headers.get('content-type') ?? '';
+  if (!contentType.includes('json')) {
+    return new ApiError('api_unreachable', `expected JSON, got ${res.status} ${contentType || 'no content type'}`);
+  }
+
   try {
     const body = (await res.json()) as ApiErrorBody;
     if (body?.error?.code) {
       return new ApiError(body.error.code, body.error.message, body.error.details);
     }
   } catch {
-    /* fall through to a generic error below */
+    /* JSON content-type but an unparsable body — genuinely unexpected from
+       our own API, so this is the one case left for the generic fallback. */
   }
   const code: ErrorCode = res.status === 401 ? 'not_authenticated' : 'internal';
   return new ApiError(code, `${res.status} ${res.statusText}`);
