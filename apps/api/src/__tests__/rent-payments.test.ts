@@ -115,6 +115,30 @@ describe('GET /rent-payments', () => {
     expect(payments[0]).not.toHaveProperty('tenant');
   });
 
+  it("does not show a tenant the previous tenant's months on the same flat", async () => {
+    const previous = await makeUser('דייר קודם', `prev-${Date.now()}@example.com`);
+    const previousLease = newId('lease');
+    await db.insert(s.leases).values({
+      id: previousLease, propertyId, tenantId: previous.id,
+      startDate: '2024-01-01', endDate: '2024-12-31',
+      monthlyRentAgorot: 980_000, paymentMethod: 'post_dated_checks',
+    });
+    await db.insert(s.rentPayments).values({
+      id: newId('rentPayment'), propertyId, leaseId: previousLease, month: '2024-12',
+      dueAgorot: 980_000, paidAgorot: 490_000, paidAt: '2024-12-03', method: 'post_dated_checks',
+    });
+
+    const res = await req('GET', '/rent-payments', tenant.token);
+    const { payments } = res.json();
+    expect(payments).toHaveLength(2);
+    expect(payments.every((p: { leaseId: string }) => p.leaseId === leaseId)).toBe(true);
+    expect(res.body).not.toContain(previousLease);
+
+    /* The owner still sees the whole history of the unit. */
+    const owned = (await req('GET', `/rent-payments?propertyId=${propertyId}`, owner.token)).json().payments;
+    expect(owned.map((p: { leaseId: string }) => p.leaseId)).toContain(previousLease);
+  });
+
   it('filters by property and month range', async () => {
     const res = await req('GET', `/rent-payments?propertyId=${propertyId}&from=2026-09&to=2026-09`, owner.token);
     const { payments } = res.json();

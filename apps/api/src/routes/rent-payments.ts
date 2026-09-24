@@ -71,7 +71,10 @@ export async function rentPaymentRoutes(app: FastifyInstance) {
             scope: 'owner',
             tenant: { id: row.tenant.id, name: row.tenant.name, phone: row.tenant.phone },
           });
-        } else {
+        } else if (row.tenant.id === viewer.userId) {
+          /* By lease, not by property: the flat a tenant rents also carries
+             the payment history of whoever lived there before them, and that
+             is not theirs to read — not the amounts, not the months. */
           payments.push({ ...base, scope: 'tenant' });
         }
       }

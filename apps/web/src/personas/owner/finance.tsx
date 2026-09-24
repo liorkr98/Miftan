@@ -138,10 +138,18 @@ export function OwnerFinance() {
 
   const exportCsv = () => {
     const header = ['date', 'unit', 'category', 'kind', 'vendor', 'document', 'amount_shekels'];
+    /* Addresses and vendor names can contain commas and quotes; unescaped,
+       they shift every column after them. */
+    const cell = (v: string) => (/[",\r\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
     const lines = scopedExpenses.map((e) =>
-      [e.date, e.propertyLabel, e.category, e.kind, e.vendorName ?? '', e.documentType, String(toShekels(e.amountAgorot))].join(','),
+      [e.date, e.propertyLabel, e.category, e.kind, e.vendorName ?? '', e.documentType, String(toShekels(e.amountAgorot))]
+        .map(cell)
+        .join(','),
     );
-    const blob = new Blob([[header.join(','), ...lines].join('\n')], { type: 'text/csv;charset=utf-8' });
+    /* The BOM is what makes Excel read the Hebrew as UTF-8 rather than mojibake. */
+    const blob = new Blob(['﻿', [header.join(','), ...lines].join('\r\n')], {
+      type: 'text/csv;charset=utf-8',
+    });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -257,7 +265,7 @@ export function OwnerFinance() {
                       <th className="p-3 text-start font-bold">{t.properties.tenant}</th>
                       <th className="p-3 text-start font-bold">{t.finance.expected}</th>
                       <th className="p-3 text-start font-bold">{t.finance.collected}</th>
-                      <th className="p-3 text-start font-bold">{t.paymentMethod.standing_order}</th>
+                      <th className="p-3 text-start font-bold">{t.finance.method}</th>
                       <th className="p-3 text-start font-bold">{t.properties.statusCol}</th>
                     </tr>
                   </thead>
