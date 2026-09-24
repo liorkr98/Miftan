@@ -1,0 +1,77 @@
+# Deploy the API to Fly, against the Neon database. Run by hand from the
+# Actions tab — never on push, because this is production.
+#
+# Needs three repository secrets (Settings → Secrets and variables → Actions):
+#   NEON_DATABASE_URL  pooled connection string (host contains -pooler)
+#   NEON_DIRECT_URL    the same string without pooling, for migrations and seed
+#   FLY_API_TOKEN      fly.io → Account → Access Tokens
+#
+# JWT_SECRET and the five R2 secrets are already staged on the Fly app.
+
+name: deploy-api
+
+on:
+  workflow_dispatch:
+    inputs:
+      web_origin:
+        description: 'The web app address, for CORS (e.g. https://miftan-web.example.workers.dev)'
+        required: true
+      seed:
+        description: 'Load the demo data. First run only — the seed is not idempotent.'
+        type: boolean
+        default: false
+
+concurrency:
+  group: deploy-api
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      # Direct connection: migrations and the seed need a session, not a
+      # transaction-mode pooler.
+      - name: Migrate
+        run: npm run db:migrate -w @miftan/api
+        env:
+          DATABASE_URL: ${{ secrets.NEON_DIRECT_URL }}
+
+      - name: Seed demo data
+        if: ${{ inputs.seed }}
+        run: npm run db:seed -w @miftan/api
+        env:
+          DATABASE_URL: ${{ secrets.NEON_DIRECT_URL }}
+          # Only needed so the auth module loads; the seed hashes passwords
+          # with argon2 and never signs a token.
+          JWT_SECRET: seed-only-placeholder-that-is-long-enough-to-validate
+
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Set runtime secrets
+        run: |
+          flyctl secrets set --stage -a miftan \
+            DATABASE_URL="$DATABASE_URL" \
+            WEB_ORIGIN="$WEB_ORIGIN"
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+          WEB_ORIGIN: ${{ inputs.web_origin }}
+
+      - name: Deploy
+        run: flyctl deploy --remote-only -a miftan
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      - name: Health check
+        run: curl -fsS --retry 10 --retry-delay 6 --retry-all-errors https://miftan.fly.dev/health
