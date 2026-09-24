@@ -58,8 +58,14 @@ jobs:
 
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
+      # CORS compares the whole origin, scheme included. A bare hostname is
+      # accepted by the API and rejected by every browser, so add https:// if
+      # it was left off and drop any trailing slash.
       - name: Set runtime secrets
         run: |
+          case "$WEB_ORIGIN" in http://*|https://*) ;; *) WEB_ORIGIN="https://$WEB_ORIGIN" ;; esac
+          WEB_ORIGIN="${WEB_ORIGIN%/}"
+          echo "WEB_ORIGIN=$WEB_ORIGIN"
           flyctl secrets set --stage -a miftan \
             DATABASE_URL="$DATABASE_URL" \
             WEB_ORIGIN="$WEB_ORIGIN"

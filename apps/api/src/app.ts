@@ -67,6 +67,11 @@ export async function buildApp(): Promise<FastifyInstance> {
     /* Credentials mode means the origin cannot be '*'. */
     origin: env.WEB_ORIGIN,
     credentials: true,
+    /* @fastify/cors allows only GET, HEAD and POST unless told otherwise. The
+       dev proxy is same-origin and never sends a preflight, so every PATCH,
+       PUT and DELETE worked locally and failed the moment the web app and the
+       API sat on different hosts. */
+    methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE'],
   });
   await app.register(cookie, { secret: env.JWT_SECRET });
   await app.register(authenticatePlugin);
