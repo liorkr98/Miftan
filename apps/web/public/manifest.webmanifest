@@ -1,0 +1,26 @@
+{
+  "name": "מפתן",
+  "short_name": "מפתן",
+  "description": "ניהול השכרה, מהמפתן ועד סוף החוזה",
+  "lang": "he",
+  "dir": "rtl",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#281E19",
+  "theme_color": "#281E19",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/apple-touch-icon.svg",
+      "sizes": "180x180",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

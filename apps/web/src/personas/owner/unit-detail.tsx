@@ -27,6 +27,7 @@ import {
   useProperty,
   usePublishSlots,
   useTickets,
+  useUpdateProperty,
   useViewingAction,
   useViewings,
 } from '@/api/hooks';
@@ -47,7 +48,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Field, Input } from '@/components/ui/field';
+import { Field, Input, Switch } from '@/components/ui/field';
 import { Meter } from '@/components/shared/meter';
 import { cn } from '@/lib/utils';
 import { parseISO, subDays } from 'date-fns';
@@ -72,6 +73,7 @@ export function OwnerUnitDetail() {
   const { data: tickets = [] } = useTickets({ propertyId: id });
   const { data: leads = [] } = useLeads(id);
   const { data: expenseData } = useExpenses(id);
+  const updateProperty = useUpdateProperty();
 
   const owned = property?.scope === 'owner' ? property : undefined;
   const unitTickets = tickets.filter((tk): tk is TicketView & { scope: 'owner' } => tk.scope === 'owner');
@@ -128,14 +130,15 @@ export function OwnerUnitDetail() {
           subtitle={`${owned.address.neighborhood} · ${owned.address.city}`}
           actions={
             <>
-              <span
-                className="flex items-center gap-2 rounded-[var(--radius-control)] border border-line px-3 py-2 text-xs font-semibold text-ink-soft"
-                title={t.unit.listedReadOnly}
-              >
-                <Badge tone={owned.listed ? 'openSoft' : 'neutral'} size="sm">
-                  {owned.listed ? t.properties.listed : t.properties.notListed}
-                </Badge>
-              </span>
+              <label className="flex items-center gap-2 rounded-[var(--radius-control)] border border-line px-3 py-2 text-xs font-semibold text-ink-soft">
+                <Switch
+                  checked={owned.listed}
+                  onCheckedChange={(listed) => updateProperty.mutate({ id: owned.id, listed })}
+                  aria-label={t.unit.listedToggle}
+                  disabled={updateProperty.isPending}
+                />
+                {owned.listed ? t.unit.listedOn : t.unit.listedOff}
+              </label>
               <Button variant="secondary" onClick={() => navigate(`/search/${owned.id}`)}>
                 {t.unit.openInSearch}
               </Button>
