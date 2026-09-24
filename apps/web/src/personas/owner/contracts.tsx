@@ -180,10 +180,12 @@ export function OwnerContracts() {
               </section>
             </div>
           )}
+          <OfferRail placement="contract_review" audience="owner" title={t.offers.sectionLegal} />
         </TabsContent>
 
         <TabsContent value="generate" className="space-y-5">
           <ContractGenerator owned={owned} />
+          <OfferRail placement="contract_review" audience="owner" title={t.offers.sectionLegal} />
           <OfferRail placement="lease" audience="owner" />
         </TabsContent>
 

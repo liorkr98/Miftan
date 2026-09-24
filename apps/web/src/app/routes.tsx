@@ -1,5 +1,5 @@
 import { createBrowserRouter } from 'react-router-dom';
-import { RequireAuth, RoleHome } from './guard';
+import { Entry, RequireAuth } from './guard';
 import { SignIn } from './sign-in';
 import { SignUp } from './sign-up';
 import { OwnerShell, SeekerShell, TenantShell } from './shell';
@@ -30,13 +30,13 @@ import { SeekerQueue } from '@/personas/seeker/queue';
 import { SeekerProfile } from '@/personas/seeker/profile';
 
 export const router = createBrowserRouter([
+  { path: '/', element: <Entry /> },
   { path: '/sign-in', element: <SignIn /> },
   { path: '/sign-up', element: <SignUp /> },
   {
     /* Everything below here needs a session. */
     element: <RequireAuth />,
     children: [
-      { path: '/', element: <RoleHome /> },
       {
         path: '/owner',
         element: <OwnerShell />,

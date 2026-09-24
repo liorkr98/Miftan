@@ -142,6 +142,35 @@ export const revenueStreams: RevenueStream[] = [
     active: true,
   },
 
+  /* Lawyers. A flat monthly listing fee from each office, expressed per
+     contract only so it fits the per-unit projection. Not a commission:
+     under the Israel Bar ethics rules a lawyer may not share a fee with a
+     non-lawyer, and a percentage per referral would be exactly that. */
+  {
+    id: 'rs-legal',
+    kind: 'professional_listing',
+    name: 'עורכי דין שותפים — בדיקת חוזה וליווי',
+    surface: 'יצירת חוזה וסריקת חוזה',
+    route: '/owner/contracts',
+    basis: 'דמי רישום חודשיים קבועים ממשרד עורכי הדין (₪450 לחודש). מחושב כאן כ־₪60 לחוזה לצורך התחזית. לא אחוז משכר הטרחה.',
+    unit_revenue: 60,
+    events_per_unit_year: 0.45,
+    audience: 'owner',
+    active: true,
+  },
+  {
+    id: 'rs-legal-renter',
+    kind: 'professional_listing',
+    name: 'בדיקת חוזה לשוכר לפני חתימה',
+    surface: 'התור, בשלב ההצעה',
+    route: '/search/queue',
+    basis: 'אותם דמי רישום קבועים. המשרד מופיע גם לשוכרים, בלי עמלה לפי תיק.',
+    unit_revenue: 25,
+    events_per_unit_year: 0.3,
+    audience: 'seeker',
+    active: true,
+  },
+
   /* Modelled and rejected. Shown in the demo because "what did you decide
      not to monetise" is the question a serious partner asks second. */
   {
@@ -304,5 +333,47 @@ export const affiliateOffers: AffiliateOffer[] = [
     placement: 'protocol_move_in',
     cta: 'שלח לדייר',
     disclosure: 'מפתן מקבלת עמלה מהמבטח. הדייר רשאי להביא פוליסה מכל מבטח אחר.',
+  },
+  {
+    id: 'of-legal-review',
+    stream_id: 'rs-legal',
+    audience: 'owner',
+    title: 'בדיקת החוזה על ידי עורך דין',
+    provider: 'כהן ושות׳, נדל״ן ושכירות (שם לדוגמה)',
+    pitch: 'עורך דין שמתמחה בשכירות עובר על החוזה שיצרת או סרקת, מסמן סעיפים חריגים ומחזיר הערות בכתב תוך שני ימי עסקים. מחיר קבוע.',
+    price_from: 650,
+    price_unit: 'לחוזה',
+    platform_revenue: 0,
+    placement: 'contract_review',
+    cta: 'שלח לבדיקה',
+    disclosure: 'המשרד משלם למפתן דמי רישום חודשיים קבועים כדי להופיע כאן. מפתן לא מקבלת אחוז משכר הטרחה, והתשלום לא תלוי בכך שתזמין. אפשר תמיד לבחור עורך דין אחר.',
+  },
+  {
+    id: 'of-legal-dispute',
+    stream_id: 'rs-legal',
+    audience: 'owner',
+    title: 'ליווי בסכסוך או בפינוי',
+    provider: 'לוי־מזרחי, עורכי דין (שם לדוגמה)',
+    pitch: 'פיקדון שלא הוחזר, שכירות שלא שולמה או דייר שלא מתפנה בסוף החוזה. פגישת ייעוץ ראשונה במחיר קבוע, והמשך רק אם תבחר.',
+    price_from: 450,
+    price_unit: 'לפגישת ייעוץ',
+    platform_revenue: 0,
+    placement: 'contract_review',
+    cta: 'קבע פגישה',
+    disclosure: 'המשרד משלם למפתן דמי רישום חודשיים קבועים כדי להופיע כאן. מפתן לא מקבלת אחוז משכר הטרחה, והתשלום לא תלוי בכך שתזמין. אפשר תמיד לבחור עורך דין אחר.',
+  },
+  {
+    id: 'of-legal-renter',
+    stream_id: 'rs-legal-renter',
+    audience: 'seeker',
+    title: 'בדיקת חוזה לפני שאתה חותם',
+    provider: 'כהן ושות׳, נדל״ן ושכירות (שם לדוגמה)',
+    pitch: 'עורך דין קורא את החוזה שקיבלת מבעל הדירה ומסביר בשפה פשוטה מה חריג, מה חסר ועל מה כדאי להתמקח.',
+    price_from: 390,
+    price_unit: 'לחוזה',
+    platform_revenue: 0,
+    placement: 'queue',
+    cta: 'שלח לבדיקה',
+    disclosure: 'המשרד משלם למפתן דמי רישום חודשיים קבועים כדי להופיע כאן. מפתן לא מקבלת אחוז משכר הטרחה, והתשלום לא תלוי בכך שתזמין. אפשר תמיד לבחור עורך דין אחר. בעל הדירה לא יודע אם הזמנת בדיקה.',
   },
 ];

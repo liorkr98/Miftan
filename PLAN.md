@@ -189,6 +189,7 @@ Ordered by lead time. The store items are no longer on the critical path.
 - [ ] **Lawyer, two questions:**
   1. **Insurance affiliate** — commission on insurance placement in Israel generally needs a licence from רשות שוק ההון. May require a licensed partner between you and the insurer. Ask before it goes in a deck
   2. **Privacy** — חוק הגנת הפרטיות was amended (תיקון 13); get current advice. You'll hold income declarations, lease documents and tenant identities
+  3. **Partner lawyers** — the contracts page lists law offices for a flat monthly listing fee, never a share of their fee (the Bar ethics rules forbid fee-sharing with a non-lawyer). Confirm the listing-fee model and the advertising rules (כללי לשכת עורכי הדין — פרסומת) before a real office goes live
 
 ### Before Phase 5
 - [ ] **Hosting accounts** — I'll name the exact three when we get there (API host, Postgres, R2). Roughly $20–40/month at this stage
