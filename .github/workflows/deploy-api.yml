@@ -73,5 +73,19 @@ jobs:
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
+      # An app created with `fly apps create` has no public IPs, so
+      # miftan.fly.dev does not resolve at all. `fly launch` would have
+      # allocated them; this does it once. Shared IPv4 is free.
+      - name: Public address
+        run: |
+          if ! flyctl ips list -a miftan --json | grep -q '"Address"'; then
+            flyctl ips allocate-v6 -a miftan
+            flyctl ips allocate-v4 --shared -a miftan
+          fi
+          flyctl ips list -a miftan
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      # A new address takes a minute or two to appear in DNS.
       - name: Health check
-        run: curl -fsS --retry 10 --retry-delay 6 --retry-all-errors https://miftan.fly.dev/health
+        run: curl -fsS --retry 30 --retry-delay 10 --retry-all-errors https://miftan.fly.dev/health
