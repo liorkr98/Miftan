@@ -33,6 +33,7 @@ import { EmptyState } from '@/components/shared/empty-state';
 import { ErrorState } from '@/components/shared/error-state';
 import { ListSkeleton } from '@/components/shared/skeleton';
 import { SeverityBadge } from '@/components/shared/status';
+import { Meter } from '@/components/shared/meter';
 import { Button } from '@/components/ui/button';
 import { CalendarClock, CheckCircle2, ChevronLeft, MessageCircleQuestion } from 'lucide-react';
 
@@ -216,62 +217,77 @@ export function OwnerDashboard() {
         </span>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      {/*
+        One grouped panel, not three identical stat cards. Collection is the
+        thing worth checking first, so it gets the width and the actual
+        Meter bar — that component's own comment says "one honest bar beats
+        four identical stat cards," and this grid never actually used it.
+        The other two numbers are a different shape on purpose: secondary
+        checks, not headline metrics, reading as one compact list beside the
+        bar rather than two more boxes matching the first.
+      */}
+      <div className="grid gap-4 lg:grid-cols-[1.7fr_1fr]">
         <section className="rounded-[var(--radius-card)] border border-line p-4">
-          <h2 className="mb-1 text-sm font-bold text-ink">{t.dashboard.collectionRate}</h2>
-          <Num board className="text-2xl font-semibold text-ink">
-            {collectionRate}%
-          </Num>
-          <p className="mt-1.5 text-2xs leading-4 text-muted">
-            <Money agorot={paidThisMonth} board className="font-bold text-ink" /> {t.dashboard.ofExpected}{' '}
-            <Money agorot={dueThisMonth} board />
-          </p>
-          <Button variant="quiet" size="sm" className="mt-3" onClick={() => navigate('/owner/finance')}>
-            {t.ownerNav.finance}
-            <ChevronLeft className="h-3.5 w-3.5" />
-          </Button>
-        </section>
-
-        <section className="rounded-[var(--radius-card)] border border-line p-4">
-          <h2 className="mb-1 text-sm font-bold text-ink">{t.seasonal.potentialSaving}</h2>
-          <Money value={outstandingExpectedSaving} board className="text-2xl font-semibold text-ink" />
-          <p className="mt-1.5 text-2xs leading-4 text-muted">{t.seasonal.potentialSavingHint}</p>
-          <Button
-            variant="quiet"
-            size="sm"
-            className="mt-3"
-            onClick={() => navigate('/owner/maintenance')}
-          >
-            {t.seasonal.title}
-            <ChevronLeft className="h-3.5 w-3.5" />
-          </Button>
-        </section>
-
-        <section className="rounded-[var(--radius-card)] border border-line p-4">
-          <div className="mb-3 flex items-baseline justify-between gap-3">
-            <h2 className="text-sm font-bold text-ink">{t.dashboard.openTickets}</h2>
-            <Button variant="quiet" size="sm" onClick={() => navigate('/owner/tickets')}>
-              {t.dashboard.viewAll}
+          <div className="flex flex-wrap items-baseline justify-between gap-3">
+            <h2 className="text-sm font-bold text-ink">{t.dashboard.collectionRate}</h2>
+            <Button variant="quiet" size="sm" onClick={() => navigate('/owner/finance')}>
+              {t.ownerNav.finance}
               <ChevronLeft className="h-3.5 w-3.5" />
             </Button>
           </div>
-          <div className="flex items-baseline gap-4">
-            <Num board className="text-2xl font-semibold text-ink">
-              {stats.openTickets}
+          <p className="mt-3 flex items-baseline gap-2">
+            <Num board className="text-3xl font-semibold text-ink">
+              {collectionRate}%
             </Num>
-            {stats.urgentTickets > 0 ? (
-              <span className="flex items-center gap-1.5 text-xs">
-                <SeverityBadge severity="urgent" size="sm" />
-                <Num board className="font-bold text-ink">
-                  {stats.urgentTickets}
-                </Num>
-              </span>
-            ) : null}
-          </div>
-          <p className="mt-3 text-xs text-muted">
-            {t.dashboard.maintenanceYtd}:{' '}
-            <Money agorot={stats.maintenanceYtdAgorot} board className="font-bold text-ink" />
+            <span className="text-xs text-muted">
+              <Money agorot={paidThisMonth} board className="font-bold text-ink-soft" />{' '}
+              {t.dashboard.ofExpected} <Money agorot={dueThisMonth} board />
+            </span>
           </p>
+          <Meter
+            value={paidThisMonth}
+            max={dueThisMonth || 1}
+            tone={collectionRate >= 100 ? 'open' : collectionRate >= 70 ? 'ink' : 'alert'}
+            label={t.dashboard.collectionRate}
+            className="mt-4"
+          />
+        </section>
+
+        <section className="divide-y divide-line rounded-[var(--radius-card)] border border-line">
+          <button
+            type="button"
+            onClick={() => navigate('/owner/maintenance')}
+            className="press-sm block w-full p-4 text-start transition-colors duration-150 hover:bg-surface"
+          >
+            <h2 className="text-xs font-bold text-ink-soft">{t.seasonal.potentialSaving}</h2>
+            <Money value={outstandingExpectedSaving} board className="mt-1 block text-xl font-semibold text-ink" />
+            <p className="mt-1 text-2xs leading-4 text-muted">{t.seasonal.potentialSavingHint}</p>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => navigate('/owner/tickets')}
+            className="press-sm block w-full p-4 text-start transition-colors duration-150 hover:bg-surface"
+          >
+            <h2 className="text-xs font-bold text-ink-soft">{t.dashboard.openTickets}</h2>
+            <span className="mt-1 flex items-baseline gap-3">
+              <Num board className="text-xl font-semibold text-ink">
+                {stats.openTickets}
+              </Num>
+              {stats.urgentTickets > 0 ? (
+                <span className="flex items-center gap-1.5 text-xs">
+                  <SeverityBadge severity="urgent" size="sm" />
+                  <Num board className="font-bold text-ink">
+                    {stats.urgentTickets}
+                  </Num>
+                </span>
+              ) : null}
+            </span>
+            <p className="mt-1 text-2xs text-muted">
+              {t.dashboard.maintenanceYtd}:{' '}
+              <Money agorot={stats.maintenanceYtdAgorot} board className="font-bold text-ink-soft" />
+            </p>
+          </button>
         </section>
       </div>
 

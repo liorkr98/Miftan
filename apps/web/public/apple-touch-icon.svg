@@ -1,5 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" role="img" aria-label="מפתן">
+  <!-- Threshold mark: a doorway on ink, sill in amber — same tokens as favicon.svg. -->
   <rect width="180" height="180" rx="40" fill="#281E19"/>
-  <path fill="none" stroke="#F4EBE3" stroke-width="10" stroke-linejoin="round" d="M58 48h64v76H58z"/>
-  <rect x="50" y="126" width="80" height="14" rx="4" fill="#E8B84A"/>
+  <path fill="none" stroke="#F6F3EF" stroke-width="10" stroke-linejoin="round" d="M58 48h64v76H58z"/>
+  <rect x="50" y="126" width="80" height="14" rx="4" fill="#EBAC39"/>
 </svg>
