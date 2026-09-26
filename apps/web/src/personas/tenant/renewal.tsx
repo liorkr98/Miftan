@@ -151,7 +151,7 @@ export function TenantRenewal() {
         </p>
 
         {answered ? (
-          <div className="mt-4 flex flex-wrap items-center gap-3">
+          <div className="mt-4 flex flex-wrap items-center gap-3 motion-safe:animate-[fade-up_220ms_var(--ease-out)]">
             <Badge
               tone={
                 lease.renewalIntent === 'extend'

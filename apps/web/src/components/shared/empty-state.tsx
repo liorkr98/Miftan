@@ -27,6 +27,7 @@ export function EmptyState({
     <div
       className={cn(
         'flex flex-col items-center justify-center rounded-[var(--radius-card)] border border-dashed border-line text-center',
+        'motion-safe:animate-[fade-up_220ms_var(--ease-out)]',
         compact ? 'gap-1.5 px-4 py-6' : 'gap-2 px-6 py-12',
         className,
       )}
