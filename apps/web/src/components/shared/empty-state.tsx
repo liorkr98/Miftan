@@ -14,6 +14,7 @@ export function EmptyState({
   onAction,
   className,
   compact,
+  titleAs = 'p',
 }: {
   icon?: React.ComponentType<{ className?: string }>;
   title: string;
@@ -22,7 +23,11 @@ export function EmptyState({
   onAction?: () => void;
   className?: string;
   compact?: boolean;
+  /** When the empty state *is* the page — 404, no-roles — its title is the
+   *  page heading, not a paragraph. */
+  titleAs?: 'p' | 'h1';
 }) {
+  const Title = titleAs;
   return (
     <div
       className={cn(
@@ -35,7 +40,7 @@ export function EmptyState({
       {Icon ? (
         <Icon className={cn('text-line-strong', compact ? 'mb-0.5 h-5 w-5' : 'mb-1 h-7 w-7')} />
       ) : null}
-      <p className={cn('font-bold text-ink', compact ? 'text-xs' : 'text-sm')}>{title}</p>
+      <Title className={cn('font-bold text-ink', compact ? 'text-xs' : 'text-sm')}>{title}</Title>
       {hint ? (
         <p className={cn('max-w-sm text-muted', compact ? 'text-2xs leading-4' : 'text-xs leading-5')}>
           {hint}

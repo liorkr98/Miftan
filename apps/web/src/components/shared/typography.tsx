@@ -59,7 +59,7 @@ export function Phone({ value, className }: { value: string; className?: string 
     <a
       dir="ltr"
       href={telHref(value)}
-      className={cn('num underline-offset-2 hover:underline', className)}
+      className={cn('hit-44 num underline-offset-2 hover:underline', className)}
     >
       {formatPhone(value)}
     </a>

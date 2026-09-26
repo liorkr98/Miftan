@@ -303,7 +303,7 @@ function LeadCard({ lead, onClick }: { lead: OwnerLead; onClick: () => void }) {
           <span className="block truncate text-2xs text-muted">{lead.propertyLabel}</span>
         </span>
         <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-surface-sunk">
-          <Num board className="text-[10px] font-bold text-ink-soft">
+          <Num board className="text-2xs font-bold text-ink-soft">
             {lead.queuePosition}
           </Num>
         </span>
@@ -327,7 +327,7 @@ function LeadCard({ lead, onClick }: { lead: OwnerLead; onClick: () => void }) {
             <Num board>{failed}</Num> {t.crm.flagsFailed}
           </span>
         ) : (
-          <span className="font-semibold text-open">{t.crm.flagsPassed}</span>
+          <span className="font-semibold text-open-deep">{t.crm.flagsPassed}</span>
         )}
       </span>
     </button>

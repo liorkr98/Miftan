@@ -49,8 +49,11 @@ export function Field({
 
 /* ── Text input ────────────────────────────────────────── */
 
+/* `touch-field` is a coarse-pointer min-height. It sits on the base rather
+   than each control because callers override the height (h-8 on a compact
+   filter row), and a min-height still wins over a shorter fixed one. */
 const inputBase =
-  'w-full rounded-[var(--radius-control)] border border-line bg-bg px-3 text-sm text-ink transition-colors duration-150 placeholder:text-muted hover:border-line-strong focus:border-ink focus:outline-none disabled:bg-surface disabled:text-muted';
+  'touch-field w-full rounded-[var(--radius-control)] border border-line bg-bg px-3 text-sm text-ink transition-colors duration-150 placeholder:text-muted hover:border-line-strong focus:border-ink focus:outline-none disabled:bg-surface disabled:text-muted';
 
 export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(
   ({ className, ...props }, ref) => (
@@ -101,7 +104,7 @@ export const Checkbox = React.forwardRef<
   <CheckboxPrimitive.Root
     ref={ref}
     className={cn(
-      'grid h-[18px] w-[18px] shrink-0 place-items-center rounded-[5px] border border-line-strong bg-bg transition-colors duration-150',
+      'hit-44 grid h-[18px] w-[18px] shrink-0 place-items-center rounded-[5px] border border-line-strong bg-bg transition-colors duration-150',
       'hover:border-ink data-[state=checked]:border-ink data-[state=checked]:bg-ink data-[state=indeterminate]:border-ink data-[state=indeterminate]:bg-ink',
       className,
     )}
@@ -129,7 +132,7 @@ export const RadioItem = React.forwardRef<
   <RadioPrimitive.Item
     ref={ref}
     className={cn(
-      'grid h-[18px] w-[18px] shrink-0 place-items-center rounded-full border border-line-strong bg-bg transition-colors duration-150',
+      'hit-44 grid h-[18px] w-[18px] shrink-0 place-items-center rounded-full border border-line-strong bg-bg transition-colors duration-150',
       'hover:border-ink data-[state=checked]:border-ink data-[state=checked]:border-[6px]',
       className,
     )}

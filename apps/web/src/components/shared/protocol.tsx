@@ -273,6 +273,8 @@ function ProtocolEditor({ run, canComplete }: { run: ProtocolRun; canComplete: b
         accept="image/*"
         capture="environment"
         className="sr-only"
+        tabIndex={-1}
+        aria-hidden="true"
         onChange={(e) => {
           const file = e.target.files?.[0];
           if (file && photoItem) void addPhoto(photoItem, file);

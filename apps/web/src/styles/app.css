@@ -259,6 +259,36 @@
     }
   }
 
+  /* For controls whose visual size must not change — an 18px checkbox is
+     18px by design — the target grows instead of the box: a centred overlay
+     that takes the taps. Only under a coarse pointer, and only up to 44px,
+     so spaced controls never start stealing each other's taps. */
+  @media (pointer: coarse) {
+    .hit-44 {
+      position: relative;
+    }
+    .hit-44::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      inset-inline-start: 50%;
+      translate: 50% -50%;
+      width: max(100%, 44px);
+      height: max(100%, 44px);
+    }
+
+    /* Chips sit a few px apart, so the overlay trick would have them stealing
+       each other's taps. They grow for real instead — 40px, not 44: ten of
+       them in a wrap row is a filter panel, and the row still has to fit. */
+    .touch-chip {
+      min-height: 40px;
+    }
+
+    .touch-field {
+      min-height: 44px;
+    }
+  }
+
   /* 640ms rather than the usual second: perceived speed is most of what a
      spinner is for. */
   @keyframes spin-quick {

@@ -137,12 +137,17 @@ export function SignUp() {
           </div>
 
           <label className="mt-4 flex items-start gap-2.5 text-xs leading-relaxed text-ink-soft">
+            {/* Radix renders a <button role="checkbox">, and a wrapping
+                <label> does not name one — without this a screen reader
+                announces the consent box with no idea what is being
+                consented to. */}
             <Checkbox
               checked={acceptedTerms}
               onCheckedChange={(v) => setAcceptedTerms(Boolean(v))}
               className="mt-0.5"
+              aria-labelledby="accept-terms-label"
             />
-            <span>
+            <span id="accept-terms-label">
               {t.auth.termsPrefix}
               <Link
                 to="/legal/terms"

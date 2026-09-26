@@ -110,7 +110,7 @@ function TenantTicketCard({ ticket }: { ticket: TicketView }) {
           <span className="ms-auto text-2xs text-muted">{formatAge(ticket.createdAt)}</span>
         </div>
 
-        <h3 className="text-sm font-bold text-ink">{ticket.title}</h3>
+        <h2 className="text-sm font-bold text-ink">{ticket.title}</h2>
         <p className="text-2xs text-muted">{ticket.propertyLabel}</p>
         {ticket.description ? (
           <p className="mt-1 text-xs leading-5 text-muted">{ticket.description}</p>

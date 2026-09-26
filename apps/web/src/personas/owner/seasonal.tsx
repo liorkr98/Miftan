@@ -280,7 +280,7 @@ function TaskGroupList({
                     </Num>
                   </span>
                   {ratio && ratio > 1 ? (
-                    <span className="flex items-center gap-1 font-bold text-open">
+                    <span className="flex items-center gap-1 font-bold text-open-deep">
                       <ShieldCheck className="h-3 w-3" />
                       <Num board>×{ratio}</Num> {t.seasonal.savingRatio}
                     </span>

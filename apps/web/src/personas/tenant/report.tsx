@@ -302,6 +302,8 @@ export function TenantReport() {
                  a leak actually gets photographed. */
               capture="environment"
               className="sr-only"
+              tabIndex={-1}
+              aria-hidden="true"
               onChange={(e) => {
                 const file = e.target.files?.[0];
                 if (file) void addPhoto(file);
@@ -342,7 +344,7 @@ export function TenantReport() {
                 }
                 aria-pressed={active}
                 className={cn(
-                  'rounded-full border px-3 py-2 text-2xs font-semibold transition-colors duration-150',
+                  'touch-chip inline-flex items-center rounded-full border px-3 py-2 text-2xs font-semibold transition-colors duration-150',
                   active
                     ? 'border-ink bg-ink text-on-ink'
                     : 'border-line text-ink-soft hover:border-line-strong',

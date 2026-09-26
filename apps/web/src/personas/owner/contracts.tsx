@@ -132,11 +132,16 @@ export function OwnerContracts() {
                   </Select>
                 </Field>
 
+                {/* The visible button below is the control. sr-only keeps
+                    this focusable, so without these it is a nameless tab
+                    stop that announces nothing. */}
                 <input
                   ref={fileInput}
                   type="file"
                   accept=".txt,.pdf,.png,.jpg,.jpeg"
                   className="sr-only"
+                  tabIndex={-1}
+                  aria-hidden="true"
                   onChange={(e) => {
                     const file = e.target.files?.[0];
                     if (file) void upload(file);

@@ -13,8 +13,11 @@ export function NotFound() {
         title={t.ui.notFound}
         hint={t.ui.notFoundHint}
         className="max-w-md border-solid"
+        titleAs="h1"
       />
-      <Button className="-mt-8" onClick={() => navigate('/owner')}>
+      {/* "/" not "/owner": Entry sends each account to the home it actually
+          holds, and a signed-out visitor to the landing page. */}
+      <Button className="-mt-8" onClick={() => navigate('/')}>
         {t.ui.goHome}
       </Button>
     </div>

@@ -81,7 +81,7 @@ function TopBar() {
         <span className="hidden text-base font-extrabold tracking-[-0.01em] text-on-ink sm:inline">
           {APP_NAME}
         </span>
-        <span className="hidden rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-bold text-on-ink-muted lg:inline">
+        <span className="hidden rounded-full bg-white/10 px-2 py-0.5 text-2xs font-bold text-on-ink-muted lg:inline">
           {t.shell.demoBadge}
         </span>
       </div>
@@ -185,7 +185,7 @@ function BottomTabs({ items }: { items: NavItem[] }) {
           end={item.end}
           className={({ isActive }) =>
             cn(
-              'relative flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] font-bold transition-colors duration-150',
+              'relative flex flex-1 flex-col items-center gap-0.5 py-2 text-2xs font-bold transition-colors duration-150',
               isActive ? 'text-ink' : 'text-muted',
             )
           }
@@ -195,7 +195,7 @@ function BottomTabs({ items }: { items: NavItem[] }) {
               <span className="relative">
                 <item.Icon className="h-5 w-5" />
                 {item.count ? (
-                  <span className="absolute -top-1 -end-1.5 grid h-3.5 min-w-3.5 place-items-center rounded-full bg-alert px-1 text-[9px] font-bold text-white">
+                  <span className="absolute -top-1 -end-1.5 grid h-4 min-w-4 place-items-center rounded-full bg-alert px-1 text-2xs leading-none font-bold text-white">
                     <Num>{item.count}</Num>
                   </span>
                 ) : null}

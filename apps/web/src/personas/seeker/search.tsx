@@ -261,6 +261,7 @@ export function SeekerSearch() {
             className="num"
             value={form.minSqm}
             onChange={(e) => setForm((f) => ({ ...f, minSqm: e.target.value }))}
+            aria-label={`${t.seeker.search.sqmRange} — ${t.ui.less}`}
           />
           <span className="text-muted">–</span>
           <Input
@@ -269,6 +270,7 @@ export function SeekerSearch() {
             className="num"
             value={form.maxSqm}
             onChange={(e) => setForm((f) => ({ ...f, maxSqm: e.target.value }))}
+            aria-label={`${t.seeker.search.sqmRange} — ${t.ui.more}`}
           />
         </div>
       </Field>
@@ -282,6 +284,7 @@ export function SeekerSearch() {
             placeholder="0"
             value={form.minPrice}
             onChange={(e) => setForm((f) => ({ ...f, minPrice: e.target.value }))}
+            aria-label={`${t.seeker.search.priceRange} — ${t.ui.less}`}
           />
           <span className="text-muted">–</span>
           <Input
@@ -291,6 +294,7 @@ export function SeekerSearch() {
             placeholder="∞"
             value={form.maxPrice}
             onChange={(e) => setForm((f) => ({ ...f, maxPrice: e.target.value }))}
+            aria-label={`${t.seeker.search.priceRange} — ${t.ui.more}`}
           />
         </div>
       </Field>
@@ -303,6 +307,7 @@ export function SeekerSearch() {
             className="num"
             value={form.minFloor}
             onChange={(e) => setForm((f) => ({ ...f, minFloor: e.target.value }))}
+            aria-label={`${t.seeker.search.floor} — ${t.ui.less}`}
           />
           <span className="text-muted">–</span>
           <Input
@@ -311,6 +316,7 @@ export function SeekerSearch() {
             className="num"
             value={form.maxFloor}
             onChange={(e) => setForm((f) => ({ ...f, maxFloor: e.target.value }))}
+            aria-label={`${t.seeker.search.floor} — ${t.ui.more}`}
           />
         </div>
       </Field>
@@ -388,6 +394,7 @@ export function SeekerSearch() {
               <Checkbox
                 checked={form.includeOccupied}
                 onCheckedChange={(v) => setForm((f) => ({ ...f, includeOccupied: Boolean(v) }))}
+                aria-label={t.seeker.search.showOccupied}
               />
               {t.seeker.search.showOccupied}
             </label>
@@ -395,6 +402,7 @@ export function SeekerSearch() {
               <Checkbox
                 checked={form.confirmedOnly}
                 onCheckedChange={(v) => setForm((f) => ({ ...f, confirmedOnly: Boolean(v) }))}
+                aria-label={t.seeker.search.confirmedOnly}
               />
               {t.seeker.search.confirmedOnly}
             </label>
@@ -429,7 +437,7 @@ export function SeekerSearch() {
                   }
                   aria-pressed={active}
                   className={cn(
-                    'rounded-full border px-2.5 py-1 text-2xs font-semibold transition-colors duration-150',
+                    'touch-chip inline-flex items-center rounded-full border px-2.5 py-1 text-2xs font-semibold transition-colors duration-150',
                     active
                       ? 'border-ink bg-ink text-on-ink'
                       : 'border-line text-ink-soft hover:border-line-strong',
@@ -517,7 +525,7 @@ export function SeekerSearch() {
                 </li>
               ))}
             </ul>
-            <p className="mt-1.5 max-w-44 border-t border-line pt-1.5 text-[10px] leading-3 text-muted">
+            <p className="mt-1.5 max-w-44 border-t border-line pt-1.5 text-2xs leading-4 text-muted">
               {t.availability.askableHint}
             </p>
           </div>
@@ -538,7 +546,7 @@ export function SeekerSearch() {
               onClick={() => setMobileView(id)}
               aria-pressed={mobileView === id}
               className={cn(
-                'flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-bold transition-colors duration-150',
+                'touch-chip flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-bold transition-colors duration-150',
                 mobileView === id ? 'bg-ink text-on-ink' : 'text-muted',
               )}
             >

@@ -310,7 +310,7 @@ export function OwnerScreening() {
                               ))}
                             </ul>
                           ) : entry.flags.length ? (
-                            <p className="mt-1 flex items-center gap-1 text-2xs text-open">
+                            <p className="mt-1 flex items-center gap-1 text-2xs text-open-deep">
                               <Check className="h-2.5 w-2.5" strokeWidth={3} />
                               {t.crm.flagsPassed}
                             </p>

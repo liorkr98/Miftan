@@ -109,7 +109,7 @@ export function DepartureTrack({
                 >
                   <span
                     className={cn(
-                      'translate-x-1/2 whitespace-nowrap px-1 text-[10px] leading-none',
+                      'translate-x-1/2 whitespace-nowrap px-1 text-2xs leading-none',
                       tick.isYearStart
                         ? 'num-board font-semibold text-ink'
                         : 'font-medium text-muted',
@@ -185,7 +185,7 @@ function TrackBar({
       <div className="flex w-[9.5rem] shrink-0 flex-col justify-center overflow-hidden pe-2 ps-3">
         <span className="truncate text-xs font-bold text-ink">{row.label}</span>
         {row.sublabel ? (
-          <span className="truncate text-[10px] leading-3 text-muted">{row.sublabel}</span>
+          <span className="truncate text-2xs leading-3 text-muted">{row.sublabel}</span>
         ) : null}
       </div>
 
@@ -205,7 +205,7 @@ function TrackBar({
           {freeNow ? (
             <div className="absolute top-1/2 start-0 flex -translate-y-1/2 items-center gap-1.5">
               <span className="h-2.5 w-2.5 rounded-full bg-open" />
-              <span className="text-[10px] font-semibold text-open">{t.availability.now}</span>
+              <span className="text-2xs font-semibold text-open-deep">{t.availability.now}</span>
             </div>
           ) : (
             <div
@@ -256,7 +256,7 @@ function TrackBar({
 
       {showRent && row.meta ? (
         <div className="w-20 shrink-0 pe-3 text-end">
-          <Money value={Number(row.meta)} board className="text-[11px] text-ink-soft" />
+          <Money value={Number(row.meta)} board className="text-2xs text-ink-soft" />
         </div>
       ) : null}
     </>

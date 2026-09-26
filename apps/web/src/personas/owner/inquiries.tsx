@@ -180,7 +180,7 @@ function StepRail({ step, declined }: { step: number; declined?: boolean }) {
             ) : null}
             <span
               className={cn(
-                'flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-bold transition-colors duration-200',
+                'flex items-center gap-1 rounded-full px-1.5 py-0.5 text-2xs font-bold transition-colors duration-200',
                 done
                   ? 'bg-ink text-on-ink'
                   : current

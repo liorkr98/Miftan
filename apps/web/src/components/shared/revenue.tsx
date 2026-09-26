@@ -166,7 +166,7 @@ export function OfferCard({
       <button
         type="button"
         onClick={() => setShowWhy((v) => !v)}
-        className="mt-2 flex items-center gap-1 text-2xs text-muted underline-offset-2 hover:text-ink hover:underline"
+        className="hit-44 mt-2 flex items-center gap-1 text-2xs text-muted underline-offset-2 hover:text-ink hover:underline"
       >
         <Info className="h-3 w-3" />
         {t.offers.whyHere}
