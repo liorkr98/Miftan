@@ -30,6 +30,9 @@ export const keys = {
   ticket: (id: string) => ['tickets', id] as const,
   vendors: ['vendors'] as const,
   expenses: (propertyId?: string) => ['expenses', propertyId ?? 'all'] as const,
+  rentPayments: (filters?: { propertyId?: string; from?: string; to?: string }) =>
+    ['rent-payments', filters ?? {}] as const,
+  renterProfile: ['me', 'renter-profile'] as const,
 
   leads: ['leads'] as const,
   lead: (id: string) => ['leads', id] as const,

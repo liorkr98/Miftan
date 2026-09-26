@@ -5,6 +5,7 @@ import type {
   BudgetPolicyView,
   ComparisonView,
   ContractScanView,
+  CreatePropertyInput,
   CreateTicketInput,
   ExpenseView,
   InquiryView,
@@ -12,6 +13,8 @@ import type {
   MarketRow,
   ProtocolRunView,
   PropertyView,
+  RenterProfileView,
+  RentPaymentView,
   ScreeningCriterion,
   ScreeningPresetView,
   SearchFilters,
@@ -25,6 +28,7 @@ import type {
   VendorView,
   TemplateView,
   RenderedContract,
+  UpdatePropertyInput,
 } from '@miftan/shared';
 
 /* Shapes the client assembles from an endpoint rather than importing whole. */
@@ -128,6 +132,60 @@ export function useExpenses(propertyId?: string) {
   return useQuery({
     queryKey: keys.expenses(propertyId),
     queryFn: () => api.request<{ expenses: ExpenseView[]; totalAgorot: number }>(`/expenses${query}`),
+  });
+}
+
+export function useRentPayments(filters?: { propertyId?: string; from?: string; to?: string }) {
+  const params = new URLSearchParams();
+  if (filters?.propertyId) params.set('propertyId', filters.propertyId);
+  if (filters?.from) params.set('from', filters.from);
+  if (filters?.to) params.set('to', filters.to);
+  const query = params.toString() ? `?${params}` : '';
+  return useQuery({
+    queryKey: keys.rentPayments(filters),
+    queryFn: () => api.request<{ payments: RentPaymentView[] }>(`/rent-payments${query}`),
+    select: (data) => data.payments,
+  });
+}
+
+export function useRenterProfile() {
+  return useQuery({
+    queryKey: keys.renterProfile,
+    queryFn: () => api.request<RenterProfileView>('/me/renter-profile'),
+  });
+}
+
+export function useUpdateRenterProfile() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: Record<string, unknown>) =>
+      api.request<RenterProfileView>('/me/renter-profile', { method: 'PATCH', body: JSON.stringify(body) }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: keys.renterProfile });
+      void qc.invalidateQueries({ queryKey: keys.me });
+      void qc.invalidateQueries({ queryKey: keys.leads });
+    },
+  });
+}
+
+export function useCreateProperty() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: CreatePropertyInput) =>
+      api.request<PropertyView>('/properties', { method: 'POST', body: JSON.stringify(body) }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: keys.properties }),
+  });
+}
+
+export function useUpdateProperty() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...body }: { id: string } & UpdatePropertyInput) =>
+      api.request<PropertyView>(`/properties/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+    onSuccess: (property) => {
+      qc.setQueryData(keys.property(property.id), property);
+      void qc.invalidateQueries({ queryKey: keys.properties });
+    },
   });
 }
 

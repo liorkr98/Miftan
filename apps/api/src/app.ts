@@ -12,6 +12,7 @@ import { authenticatePlugin } from './plugins/authenticate.ts';
 import { authRoutes } from './routes/auth.ts';
 import { meRoutes } from './routes/me.ts';
 import { propertyRoutes } from './routes/properties.ts';
+import { rentPaymentRoutes } from './routes/rent-payments.ts';
 import { ticketRoutes } from './routes/tickets.ts';
 import { directoryRoutes } from './routes/directory.ts';
 import { uploadRoutes } from './routes/uploads.ts';
@@ -66,6 +67,11 @@ export async function buildApp(): Promise<FastifyInstance> {
     /* Credentials mode means the origin cannot be '*'. */
     origin: env.WEB_ORIGIN,
     credentials: true,
+    /* @fastify/cors allows only GET, HEAD and POST unless told otherwise. The
+       dev proxy is same-origin and never sends a preflight, so every PATCH,
+       PUT and DELETE worked locally and failed the moment the web app and the
+       API sat on different hosts. */
+    methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE'],
   });
   await app.register(cookie, { secret: env.JWT_SECRET });
   await app.register(authenticatePlugin);
@@ -119,6 +125,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(authRoutes);
   await app.register(meRoutes);
   await app.register(propertyRoutes);
+  await app.register(rentPaymentRoutes);
   await app.register(ticketRoutes);
   await app.register(directoryRoutes);
   await app.register(uploadRoutes);

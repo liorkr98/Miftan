@@ -514,7 +514,11 @@ export type RevenueKind =
   | 'service_affiliate'
   | 'subscription'
   | 'per_document'
-  | 'verification_fee';
+  | 'verification_fee'
+  /* A flat fee for being listed, never a share of the professional's fee.
+     Lawyers in Israel may not split fees with a non-lawyer, so a
+     per-referral commission is not an option for them. */
+  | 'professional_listing';
 
 /** Who is looking at the offer when it appears */
 export type OfferAudience = 'owner' | 'tenant' | 'seeker';
@@ -551,7 +555,15 @@ export interface AffiliateOffer {
   /** What the platform earns on a conversion */
   platform_revenue: number;
   /** Where this offer surfaces */
-  placement: 'vendors' | 'protocol_move_in' | 'protocol_move_out' | 'tenant_home' | 'seasonal' | 'lease' | 'queue';
+  placement:
+    | 'vendors'
+    | 'protocol_move_in'
+    | 'protocol_move_out'
+    | 'tenant_home'
+    | 'seasonal'
+    | 'lease'
+    | 'queue'
+    | 'contract_review';
   cta: string;
   disclosure: string;
 }

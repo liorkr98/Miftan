@@ -13,15 +13,18 @@ import {
 import {
   t,
   daysUntil,
+  DISTRICTS,
   expenseCategoryLabel,
   formatAge,
+  formatDateTime,
   formatMoneyShort,
+  formatRooms,
   toShekels,
   type OwnerProperty,
   type TicketView,
   type TrackRow,
 } from '@miftan/shared';
-import { useExpenses, useInquiries, useLeads, useProperties, useSeasonal, useTickets } from '@/api/hooks';
+import { useBriefings, useExpenses, useInquiries, useLeads, useMarket, useProperties, useRentPayments, useSeasonal, useTickets } from '@/api/hooks';
 import { AVAILABILITY_TONE } from '@/data/selectors';
 import { DepartureTrack } from '@/components/shared/departure-track';
 import { Money, Num, PageHeader } from '@/components/shared/typography';
@@ -50,11 +53,18 @@ export function OwnerDashboard() {
     isError: propertiesError,
     refetch: refetchProperties,
   } = useProperties();
-  const { data: tickets = [] } = useTickets();
+  const {
+    data: tickets = [],
+    isError: ticketsError,
+    refetch: refetchTickets,
+  } = useTickets();
   const { data: inquiries = [] } = useInquiries();
   const { data: leads = [] } = useLeads();
   const { data: seasonal } = useSeasonal();
   const { data: expenseData } = useExpenses();
+  const { data: payments = [] } = useRentPayments();
+  const { data: briefings = [] } = useBriefings();
+  const { data: market } = useMarket();
 
   const owned = React.useMemo(
     () => (properties ?? []).filter((p): p is OwnerProperty => p.scope === 'owner'),
@@ -148,7 +158,26 @@ export function OwnerDashboard() {
   ).length;
   const outstandingExpectedSaving = seasonal?.outstandingExpectedSaving ?? 0;
 
-  if (propertiesError) return <ErrorState onRetry={() => void refetchProperties()} />;
+  const thisMonth = new Date().toISOString().slice(0, 7);
+  const monthPayments = payments.filter((p) => p.scope === 'owner' && p.month === thisMonth);
+  const dueThisMonth = monthPayments.reduce((sum, p) => sum + p.dueAgorot, 0);
+  const paidThisMonth = monthPayments.reduce((sum, p) => sum + p.paidAgorot, 0);
+  const collectionRate = dueThisMonth ? Math.round((paidThisMonth / dueThisMonth) * 100) : 100;
+
+  const marketPreview = (market?.rows ?? [])
+    .filter((row) => row.sampleSize >= (market?.minimumSample ?? 5))
+    .slice(0, 4);
+
+  if (propertiesError || ticketsError) {
+    return (
+      <ErrorState
+        onRetry={() => {
+          void refetchProperties();
+          void refetchTickets();
+        }}
+      />
+    );
+  }
   if (propertiesLoading) return <ListSkeleton rows={8} />;
 
   return (
@@ -187,10 +216,22 @@ export function OwnerDashboard() {
         </span>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
-        {/* Collection rate needs rent payments, which do not exist yet.
-            A live dashboard must not mix in a fixture figure. The seasonal
-            expected saving is the number we actually have. */}
+      <div className="grid gap-4 lg:grid-cols-3">
+        <section className="rounded-[var(--radius-card)] border border-line p-4">
+          <h2 className="mb-1 text-sm font-bold text-ink">{t.dashboard.collectionRate}</h2>
+          <Num board className="text-2xl font-semibold text-ink">
+            {collectionRate}%
+          </Num>
+          <p className="mt-1.5 text-2xs leading-4 text-muted">
+            <Money agorot={paidThisMonth} board className="font-bold text-ink" /> {t.dashboard.ofExpected}{' '}
+            <Money agorot={dueThisMonth} board />
+          </p>
+          <Button variant="quiet" size="sm" className="mt-3" onClick={() => navigate('/owner/finance')}>
+            {t.ownerNav.finance}
+            <ChevronLeft className="h-3.5 w-3.5" />
+          </Button>
+        </section>
+
         <section className="rounded-[var(--radius-card)] border border-line p-4">
           <h2 className="mb-1 text-sm font-bold text-ink">{t.seasonal.potentialSaving}</h2>
           <Money value={outstandingExpectedSaving} board className="text-2xl font-semibold text-ink" />
@@ -233,6 +274,55 @@ export function OwnerDashboard() {
           </p>
         </section>
       </div>
+
+      {briefings.length > 0 ? (
+        <section className="rounded-[var(--radius-card)] border border-line p-4">
+          <div className="mb-3 flex items-baseline justify-between gap-3">
+            <h2 className="text-sm font-bold text-ink">{t.dashboard.briefingsToday}</h2>
+          </div>
+          <ul className="space-y-2.5">
+            {briefings.map((b) => (
+              <li key={b.slotId} className="flex items-start justify-between gap-3 text-sm">
+                <span>
+                  <span className="block font-bold text-ink">{b.applicant.name}</span>
+                  <span className="block text-2xs text-muted">
+                    {b.propertyLabel} · {formatDateTime(b.startsAt)}
+                  </span>
+                </span>
+                <span className="shrink-0 text-2xs text-muted">
+                  {t.dashboard.briefingScore}{' '}
+                  <Num board className="font-bold text-ink">
+                    {b.score}
+                  </Num>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {marketPreview.length > 0 ? (
+        <section className="rounded-[var(--radius-card)] border border-line p-4">
+          <div className="mb-3 flex items-baseline justify-between gap-3">
+            <h2 className="text-sm font-bold text-ink">{t.dashboard.marketGlance}</h2>
+            <Button variant="quiet" size="sm" onClick={() => navigate('/owner/market')}>
+              {t.dashboard.viewAll}
+              <ChevronLeft className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+          <p className="mb-3 text-2xs text-muted">{t.dashboard.marketGlanceHint}</p>
+          <ul className="space-y-2">
+            {marketPreview.map((row) => (
+              <li key={`${row.city}-${row.rooms}`} className="flex items-center justify-between gap-3 text-sm">
+                <span className="min-w-0 truncate text-ink-soft">
+                  {row.city} · {formatRooms(row.rooms)} · {DISTRICTS[row.district]}
+                </span>
+                <Money agorot={row.medianRentAgorot} board className="shrink-0 font-bold text-ink" />
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       {(waitingInquiries > 0 || dueSoon > 0) && (
         <div className="grid gap-3 sm:grid-cols-2">

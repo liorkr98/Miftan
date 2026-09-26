@@ -1,6 +1,5 @@
 import { createBrowserRouter } from 'react-router-dom';
-import { RequireAuth } from './guard';
-import { Landing } from './landing';
+import { Entry, RequireAuth } from './guard';
 import { LegalPage } from './legal-page';
 import { SignIn } from './sign-in';
 import { SignUp } from './sign-up';
@@ -12,6 +11,7 @@ import { OwnerUnitDetail } from '@/personas/owner/unit-detail';
 import { OwnerTickets } from '@/personas/owner/tickets';
 import { OwnerScreening } from '@/personas/owner/screening';
 import { OwnerFinance } from '@/personas/owner/finance';
+import { OwnerMarket } from '@/personas/owner/market';
 import { OwnerContracts } from '@/personas/owner/contracts';
 import { OwnerLeadsHub } from '@/personas/owner/leads-hub';
 import { OwnerMaintenanceHub } from '@/personas/owner/maintenance-hub';
@@ -23,13 +23,14 @@ import { TenantReport } from '@/personas/tenant/report';
 import { TenantTickets } from '@/personas/tenant/tickets';
 import { TenantRenewal } from '@/personas/tenant/renewal';
 import { TenantDocuments } from '@/personas/tenant/documents';
+import { ReviewsPage } from '@/personas/shared/reviews';
 import { SeekerSearch } from '@/personas/seeker/search';
 import { SeekerListing } from '@/personas/seeker/listing';
 import { SeekerQueue } from '@/personas/seeker/queue';
 import { SeekerProfile } from '@/personas/seeker/profile';
 
 export const router = createBrowserRouter([
-  { path: '/', element: <Landing /> },
+  { path: '/', element: <Entry /> },
   { path: '/sign-in', element: <SignIn /> },
   { path: '/sign-up', element: <SignUp /> },
   { path: '/legal/:id', element: <LegalPage /> },
@@ -65,6 +66,9 @@ export const router = createBrowserRouter([
           { path: 'leads/filters', element: <OwnerScreening /> },
           { path: 'crm/filters', element: <OwnerScreening /> },
           { path: 'finance', element: <OwnerFinance /> },
+          /* Not on the nav (see shell.tsx), reachable directly. */
+          { path: 'market', element: <OwnerMarket /> },
+          { path: 'reviews', element: <ReviewsPage /> },
         ],
       },
       {
@@ -76,6 +80,7 @@ export const router = createBrowserRouter([
           { path: 'tickets', element: <TenantTickets /> },
           { path: 'renewal', element: <TenantRenewal /> },
           { path: 'documents', element: <TenantDocuments /> },
+          { path: 'reviews', element: <ReviewsPage /> },
         ],
       },
       {

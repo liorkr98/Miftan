@@ -1,7 +1,7 @@
 @import 'tailwindcss';
 
 /* ─────────────────────────────────────────────────────────────
-   מפתח · design tokens
+   מפתן · design tokens
    Composed in OKLCH. Every ink/text pair verified for WCAG:
    ink/bg 16.3:1 · muted/bg 5.3:1 · ink/signal 8.1:1
    white/live 4.9:1 · white/open 4.7:1 · white/alert 5.4:1
@@ -306,5 +306,68 @@
   }
   to {
     transform: translateY(560%);
+  }
+}
+
+/* ── Landing ────────────────────────────────────────────
+   Two slow movements and nothing else. The grid breathes behind the hero;
+   a hairline sweeps the board from today into the future — right to left,
+   because that is the direction time runs here. Neutral ink only: the
+   board's own date chips are the one place amber is allowed. The global
+   reduced-motion rule stops both after one frame. */
+
+.landing-grid {
+  background-image:
+    linear-gradient(to right, var(--color-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--color-line) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(ellipse 70% 60% at 70% 30%, black 20%, transparent 75%);
+  animation: landing-breathe 9s var(--ease-in-out) infinite;
+}
+
+@keyframes landing-breathe {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
+.landing-pulse {
+  animation: landing-pulse 2.4s var(--ease-in-out) infinite;
+}
+
+@keyframes landing-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.35;
+    transform: scale(0.8);
+  }
+}
+
+.landing-sweep {
+  animation: landing-sweep 11s linear infinite;
+}
+
+@keyframes landing-sweep {
+  0% {
+    inset-inline-start: 0%;
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  92% {
+    opacity: 1;
+  }
+  100% {
+    inset-inline-start: 100%;
+    opacity: 0;
   }
 }

@@ -4,6 +4,7 @@ import { useAuth } from '@/api/auth';
 import { EmptyState } from '@/components/shared/empty-state';
 import { rolesFor, roleFromPath, type Role } from './role-switcher';
 import { DoorOpen } from 'lucide-react';
+import { Landing } from './landing';
 
 /**
  * Nothing renders until the session question is settled.
@@ -17,16 +18,7 @@ export function RequireAuth() {
   const { user, capabilities, restoring } = useAuth();
   const location = useLocation();
 
-  if (restoring) {
-    return (
-      <div className="grid min-h-dvh place-items-center bg-surface">
-        <div className="flex items-center gap-2.5 text-muted">
-          <DoorOpen className="h-5 w-5 animate-pulse" />
-          <span className="text-sm font-semibold">{APP_NAME}</span>
-        </div>
-      </div>
-    );
-  }
+  if (restoring) return <Splash />;
 
   if (!user) return <Navigate to="/sign-in" replace state={{ from: location.pathname }} />;
 
@@ -39,6 +31,29 @@ export function RequireAuth() {
   }
 
   return <Outlet />;
+}
+
+function Splash() {
+  return (
+    <div className="grid min-h-dvh place-items-center bg-surface">
+      <div className="flex items-center gap-2.5 text-muted">
+        <DoorOpen className="h-5 w-5 animate-pulse" />
+        <span className="text-sm font-semibold">{APP_NAME}</span>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * "/" is the front door. A visitor gets the landing page; someone already
+ * signed in goes straight to the view they hold. It waits for the session
+ * check first, so a returning user never sees the landing page flash past.
+ */
+export function Entry() {
+  const { user, capabilities, restoring } = useAuth();
+  if (restoring) return <Splash />;
+  if (user) return <Navigate to={homeFor(rolesFor(capabilities))} replace />;
+  return <Landing />;
 }
 
 export function homeFor(roles: Role[]): string {

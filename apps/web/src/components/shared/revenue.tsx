@@ -154,7 +154,11 @@ export function OfferCard({
         <div className="mt-2.5 border-t border-signal/40 pt-2.5">
           <RevenueMarker
             streamId={offer.stream_id}
-            note={`${t.offers.platformEarns} · ${formatMoney(offer.platform_revenue)}`}
+            note={
+              offer.platform_revenue > 0
+                ? `${t.offers.platformEarns} · ${formatMoney(offer.platform_revenue)}`
+                : t.offers.flatListing
+            }
           />
         </div>
       ) : null}

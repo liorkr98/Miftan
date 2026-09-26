@@ -1,5 +1,5 @@
-import { t, formatDate, type TenantProperty } from '@miftan/shared';
-import { useProperties, useTickets } from '@/api/hooks';
+import { t, formatDate, formatMonthYear, type TenantProperty, type TenantRentPayment } from '@miftan/shared';
+import { useProperties, useRentPayments, useTickets } from '@/api/hooks';
 import { useStore } from '@/data/store';
 import { Money, Num, PageHeader } from '@/components/shared/typography';
 import { EmptyState } from '@/components/shared/empty-state';
@@ -22,19 +22,26 @@ export function TenantDocuments() {
     isError: ticketsError,
     refetch: refetchTickets,
   } = useTickets();
+  const {
+    data: payments = [],
+    isLoading: paymentsLoading,
+    isError: paymentsError,
+    refetch: refetchPayments,
+  } = useRentPayments();
   const pushToast = useStore((s) => s.pushToast);
 
-  if (propertiesError || ticketsError) {
+  if (propertiesError || ticketsError || paymentsError) {
     return (
       <ErrorState
         onRetry={() => {
           void refetchProperties();
           void refetchTickets();
+          void refetchPayments();
         }}
       />
     );
   }
-  if (propertiesLoading || ticketsLoading) return <ListSkeleton rows={4} />;
+  if (propertiesLoading || ticketsLoading || paymentsLoading) return <ListSkeleton rows={4} />;
 
   /**
    * `/properties` mixes every relationship this account holds. The lease
@@ -49,6 +56,7 @@ export function TenantDocuments() {
   /* Receipts live on tickets, not on a documents table. Owner-scope tickets
      on a mixed-role account are someone else's receipts. */
   const receipts = tickets.filter((tk) => tk.scope === 'tenant' && tk.receipt?.file);
+  const myPayments = payments.filter((p): p is TenantRentPayment => p.scope === 'tenant');
 
   return (
     <div className="space-y-5">
@@ -115,13 +123,33 @@ export function TenantDocuments() {
         </TabsContent>
 
         <TabsContent value="payments">
-          {/* Rent payments have no endpoint yet. An empty state that admits the
-              gap is better than a fixture table that looks like live figures. */}
-          <EmptyState
-            icon={Wallet}
-            title={t.tenant.documents.paymentsEmpty}
-            hint={t.tenant.documents.paymentsEmptyHint}
-          />
+          {myPayments.length === 0 ? (
+            <EmptyState icon={Wallet} title={t.tenant.documents.paymentsEmpty} hint={t.tenant.documents.paymentsEmptyHint} />
+          ) : (
+            <ul className="divide-y divide-line overflow-hidden rounded-[var(--radius-card)] border border-line">
+              {myPayments.map((row) => {
+                const state = row.paidAgorot >= row.dueAgorot ? 'paid' : row.paidAgorot > 0 ? 'partial' : 'unpaid';
+                return (
+                  <li key={row.id} className="flex items-center justify-between gap-3 p-3.5">
+                    <span>
+                      <span className="block text-sm font-bold text-ink">{formatMonthYear(`${row.month}-01`)}</span>
+                      <span className="block text-2xs text-muted">{t.paymentMethod[row.method]}</span>
+                    </span>
+                    <span className="text-end">
+                      <Money agorot={row.paidAgorot} board className="block font-bold text-ink" />
+                      <span className="text-2xs text-muted">
+                        {state === 'paid'
+                          ? t.finance.paid
+                          : state === 'partial'
+                            ? t.finance.partial
+                            : t.finance.unpaid}
+                      </span>
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </TabsContent>
       </Tabs>
     </div>

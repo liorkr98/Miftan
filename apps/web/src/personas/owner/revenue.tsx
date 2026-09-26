@@ -17,6 +17,7 @@ const KIND_TONE: Record<RevenueKind, string> = {
   subscription: 'var(--color-open)',
   per_document: 'var(--color-ink-soft)',
   verification_fee: 'var(--color-line-strong)',
+  professional_listing: 'var(--color-live-soft)',
 };
 
 export function OwnerRevenue() {
