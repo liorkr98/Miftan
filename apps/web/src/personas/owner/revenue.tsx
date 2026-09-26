@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '@/data/store';
-import { t, formatMoney, type RevenueKind } from '@miftan/shared';
+import { t, formatMoney } from '@miftan/shared';
 import { useRevenueModel } from '@/components/shared/revenue';
 import { Money, Num, PageHeader, SectionTitle } from '@/components/shared/typography';
 import { Button } from '@/components/ui/button';
@@ -10,18 +10,12 @@ import { Input } from '@/components/ui/field';
 import { cn } from '@/lib/utils';
 import { ArrowLeft, Banknote, Eye, ShieldOff } from 'lucide-react';
 
-/* Chart colors, not status colors — see DESIGN.md's categorical palette.
-   Revenue kind has nothing to do with "there is a date" or "urgent," so it
-   must not borrow --color-signal/--color-live/etc. */
-const KIND_TONE: Record<RevenueKind, string> = {
-  vendor_commission: 'var(--color-chart-1)',
-  service_affiliate: 'var(--color-chart-2)',
-  insurance_affiliate: 'var(--color-chart-3)',
-  subscription: 'var(--color-chart-4)',
-  per_document: 'var(--color-chart-5)',
-  verification_fee: 'var(--color-chart-6)',
-  professional_listing: 'var(--color-chart-7)',
-};
+/* No categorical palette here on purpose. Seven revenue kinds cannot be given
+   seven hues that a colourblind reader — or anyone — can actually tell apart
+   inside the hue space this brand leaves free, which the dataviz validator
+   confirms. Every bar and every row is already labelled in text, so colour was
+   never carrying the identity: the rank is. Same emphasis pattern as
+   finance.tsx's category chart — the leader in ink, the rest recessive. */
 
 export function OwnerRevenue() {
   const navigate = useNavigate();
@@ -37,7 +31,6 @@ export function OwnerRevenue() {
   const chartData = rows.slice(0, 8).map((r) => ({
     key: r.stream.id,
     name: r.stream.name,
-    kind: r.stream.kind,
     value: Math.round(r.perUnitYear * scenarioUnits),
   }));
 
@@ -105,18 +98,18 @@ export function OwnerRevenue() {
         </div>
 
         <ul className="space-y-2">
-          {chartData.map((row) => {
+          {chartData.map((row, i) => {
             const max = chartData[0]?.value || 1;
             return (
               <li key={row.key} className="flex items-center gap-2.5 text-2xs">
                 <span className="w-44 shrink-0 truncate text-ink-soft">{row.name}</span>
                 <span className="h-2.5 flex-1 overflow-hidden rounded-full bg-surface-sunk">
                   <span
-                    className="block h-full rounded-full transition-[width] duration-500 ease-[var(--ease-out)]"
-                    style={{
-                      width: `${(row.value / max) * 100}%`,
-                      background: KIND_TONE[row.kind as RevenueKind],
-                    }}
+                    className={cn(
+                      'block h-full rounded-full transition-[width] duration-500 ease-[var(--ease-out)]',
+                      i === 0 ? 'bg-ink' : 'bg-line-strong',
+                    )}
+                    style={{ width: `${(row.value / max) * 100}%` }}
                   />
                 </span>
                 <Money value={row.value} board className="w-20 shrink-0 text-end font-bold text-ink" />
@@ -146,17 +139,8 @@ export function OwnerRevenue() {
               {rows.map(({ stream, perUnitYear: per }) => (
                 <tr key={stream.id} className="align-top text-sm">
                   <td className="p-3">
-                    <span className="flex items-center gap-2">
-                      <span
-                        className="h-2.5 w-2.5 shrink-0 rounded-full"
-                        style={{ background: KIND_TONE[stream.kind] }}
-                        aria-hidden
-                      />
-                      <span>
-                        <span className="block font-bold text-ink">{stream.name}</span>
-                        <span className="block text-2xs text-muted">{t.revenue.kind[stream.kind]}</span>
-                      </span>
-                    </span>
+                    <span className="block font-bold text-ink">{stream.name}</span>
+                    <span className="block text-2xs text-muted">{t.revenue.kind[stream.kind]}</span>
                   </td>
                   <td className="p-3">
                     <span className="block text-xs text-ink-soft">{stream.surface}</span>

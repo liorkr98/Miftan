@@ -31,6 +31,9 @@ is measured.
 | `--color-alert` | אזעקה | `0.545 0.185 30` | `#C53324` | urgent · overdue — **5.4:1** |
 | `--color-muted` | — | `0.528 0.015 60` | `#726963` | secondary text — **5.3:1**, deliberately not a light gray |
 | `--color-signal-deep` | — | `0.47 0.115 68` | `#844C00` | amber as text — **7.0:1** |
+| `--color-live-deep` | — | `0.46 0.095 250` | `#295B8B` | blue as text on `-soft` — **6.2:1** |
+| `--color-open-deep` | — | `0.46 0.11 158` | `#006A3F` | green as text on `-soft` — **6.0:1** |
+| `--color-alert-deep` | — | `0.48 0.19 30` | `#B01003` | red as text on `-soft` — **6.2:1** |
 | `--color-ink-soft` | — | `0.4 0.015 52` | — | a lighter step of ink for secondary headings and labels below full-weight text |
 | `--color-on-ink` | — | `0.965 0.006 66` | — | body text on the dark chrome (top bar, the CTA panel on the landing page) |
 | `--color-on-ink-muted` | — | `0.75 0.012 60` | — | secondary text on dark chrome |
@@ -40,16 +43,26 @@ is measured.
 
 Each status colour has a `-soft` tint for fills — e.g. `--color-signal-soft:
 oklch(0.955 0.035 82)`, `--color-live-soft: oklch(0.955 0.018 250)` — a very
-light version of the same hue, used as a chip/badge background under the
-full-strength color as its text or icon. Warm neutrals carry +0.005–0.015
-chroma toward hue 66 — the brand's own hue, never warm-by-default.
+light version of the same hue, used as a chip/badge background. Warm neutrals
+carry +0.005–0.015 chroma toward hue 66 — the brand's own hue, never
+warm-by-default.
 
-**Categorical palette** — `--color-chart-1` … `--color-chart-7`, all
-`oklch(0.58 0.10 <hue>)`. Fixed lightness and chroma, hue-only variation, each
-hue kept at least ~50° from every semantic hue above. For chart series and
-other "N unrelated categories" contexts only — e.g. the revenue-mix bar list —
-never for status. Reusing a status hue as a chart color would make a category
-look like it means "there is a date" or "urgent."
+**On a `-soft` fill, text is always the `-deep` step, never the full-strength
+colour.** The measured ratios above are against the white canvas; put the same
+colour on its own tint and blue drops to 4.3:1 and green to 4.2:1, under the
+4.5 minimum. Amber always had `--color-signal-deep` for this; the other three
+hues now have theirs, and every soft pair measures 6.0–6.2:1.
+
+**There is no categorical chart palette, deliberately.** Charts here encode
+magnitude and rank, never identity-by-hue: the leading bar takes `--color-ink`,
+the rest `--color-line-strong`, and every bar carries its own text label
+(`finance.tsx`'s category and month charts, `revenue.tsx`'s mix list). This
+started as a constraint and became the rule — a set of hues far enough from
+amber/blue/green/red to not read as status, yet still distinguishable from
+each other under colourblindness, does not exist in the space this brand
+leaves free. A validator run on the seven-hue attempt failed on three of six
+checks. Since a labelled bar already states its identity, colour was only ever
+decorating rank, and rank is what the length already says.
 
 ### Two rules that make it a system
 

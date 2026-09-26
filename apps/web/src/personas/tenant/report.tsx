@@ -365,7 +365,7 @@ export function TenantReport() {
         {error ? (
           <p
             role="alert"
-            className="rounded-[var(--radius-control)] border border-alert/30 bg-alert-soft px-3.5 py-2 text-xs font-semibold text-alert"
+            className="rounded-[var(--radius-control)] border border-alert/30 bg-alert-soft px-3.5 py-2 text-xs font-semibold text-alert-deep"
           >
             {error}
           </p>

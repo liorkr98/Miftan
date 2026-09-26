@@ -64,7 +64,7 @@ export function Landing() {
     <div className="min-h-dvh bg-bg text-ink">
       {/* ── Top bar ─────────────────────────────────────── */}
       <header className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-5 sm:px-8">
-        <Link to="/" className="flex items-center gap-2.5">
+        <Link to="/" className="flex min-h-11 items-center gap-2.5">
           <span className="grid h-9 w-9 place-items-center rounded-[10px] bg-ink text-on-ink">
             <DoorOpen className="h-[18px] w-[18px]" strokeWidth={2.5} />
           </span>
@@ -220,9 +220,16 @@ export function Landing() {
       </main>
 
       <footer className="mx-auto max-w-6xl px-4 pb-10 sm:px-8">
-        <nav className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-muted">
+        {/* min-h-11 is hit area, not spacing: at 19px tall these were the
+            smallest tap targets on the page — the accessibility statement
+            among them. */}
+        <nav className="flex flex-wrap items-center justify-center gap-x-5 text-xs text-muted">
           {LEGAL_PAGES.map((page) => (
-            <Link key={page.id} to={`/legal/${page.id}`} className="hover:text-ink hover:underline">
+            <Link
+              key={page.id}
+              to={`/legal/${page.id}`}
+              className="inline-flex min-h-11 items-center hover:text-ink hover:underline"
+            >
               {page.title}
             </Link>
           ))}

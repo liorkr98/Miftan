@@ -12,13 +12,15 @@ const badgeVariants = cva(
         ink: 'bg-ink text-on-ink',
         /* ink text on amber — 8.1:1. White on amber would fail. */
         signal: 'bg-signal text-ink',
+        /* Every soft tone pairs with its `-deep` step, never the full-strength
+           colour: on its own tint that only measures ~4.2–4.3:1. */
         signalSoft: 'bg-signal-soft text-signal-deep',
         live: 'bg-live text-white',
-        liveSoft: 'bg-live-soft text-live',
+        liveSoft: 'bg-live-soft text-live-deep',
         open: 'bg-open text-white',
-        openSoft: 'bg-open-soft text-open',
+        openSoft: 'bg-open-soft text-open-deep',
         alert: 'bg-alert text-white',
-        alertSoft: 'bg-alert-soft text-alert',
+        alertSoft: 'bg-alert-soft text-alert-deep',
         outline: 'border border-line text-muted',
       },
       size: {
