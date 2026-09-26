@@ -7,7 +7,9 @@ import {
   formatTime,
   formatWeekdayDate,
   t,
+  ticketWhatsAppMessage,
   toAgorot,
+  whatsAppLink,
   type TicketStatus,
   type TicketView,
   type VendorView,
@@ -42,6 +44,7 @@ import {
   CheckCircle2,
   ClipboardCheck,
   Image as ImageIcon,
+  MessageCircle,
   Receipt,
   Send,
   ServerCrash,
@@ -67,7 +70,11 @@ const COLUMNS: TicketStatus[] = [
  */
 const ACTION_UI: Record<
   string,
-  { label: string; icon?: React.ComponentType<{ className?: string }>; variant?: 'primary' | 'secondary' }
+  {
+    label: string;
+    icon?: React.ComponentType<{ className?: string }>;
+    variant?: 'primary' | 'secondary';
+  }
 > = {
   approve: { label: t.tickets.actions.approve, icon: ClipboardCheck },
   reject: { label: t.tickets.actions.reject, variant: 'secondary' },
@@ -268,6 +275,24 @@ function TicketDrawer({ ticket, onClose }: { ticket: TicketView; onClose: () => 
                       {t.trade[ticket.vendor.trade as keyof typeof t.trade]}
                     </p>
                     <Phone value={ticket.vendor.phone} className="mt-1 block text-2xs text-muted" />
+                    <Button variant="secondary" size="sm" className="mt-2" asChild>
+                      <a
+                        href={whatsAppLink(
+                          ticket.vendor.phone,
+                          ticketWhatsAppMessage({
+                            propertyLabel: ticket.propertyLabel,
+                            title: ticket.title,
+                            description: ticket.description,
+                            severity: ticket.severity,
+                          }),
+                        )}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        <MessageCircle className="h-3.5 w-3.5" />
+                        {t.vendors.whatsapp}
+                      </a>
+                    </Button>
                     {ticket.scheduledAt ? (
                       <p className="mt-1.5 text-2xs text-ink-soft">
                         {t.tickets.scheduled}:{' '}
@@ -345,7 +370,9 @@ function TicketDrawer({ ticket, onClose }: { ticket: TicketView; onClose: () => 
             ) : null}
 
             <div>
-              <p className="mb-2 text-2xs font-bold text-ink-soft">{t.tickets.detail.conversation}</p>
+              <p className="mb-2 text-2xs font-bold text-ink-soft">
+                {t.tickets.detail.conversation}
+              </p>
               <ul className="space-y-2.5">
                 {ticket.messages.map((message) => (
                   <li

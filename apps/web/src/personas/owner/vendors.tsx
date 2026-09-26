@@ -1,14 +1,15 @@
 import * as React from 'react';
 import { useStore } from '@/data/store';
-import { t, type Trade, type VendorView } from '@miftan/shared';
-import { useProperties, useVendors } from '@/api/hooks';
-import { Money, Num, PageHeader, Phone } from '@/components/shared/typography';
+import { t, whatsAppLink, type Trade, type VendorView } from '@miftan/shared';
+import { useCreateVendor, useDeleteVendor, useProperties, useVendors } from '@/api/hooks';
+import { Money, Num, Phone } from '@/components/shared/typography';
 import { EmptyState } from '@/components/shared/empty-state';
 import { ErrorState } from '@/components/shared/error-state';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
   Field,
+  Input,
   Select,
   SelectContent,
   SelectItem,
@@ -28,7 +29,17 @@ import {
 import { ListSkeleton } from '@/components/shared/skeleton';
 import { RevenueMarker } from '@/components/shared/revenue';
 import { cn } from '@/lib/utils';
-import { Info, Phone as PhoneIcon, Star, Users } from 'lucide-react';
+import { Info, MessageCircle, Phone as PhoneIcon, Plus, Star, Trash2, Users } from 'lucide-react';
+
+const TRADES = [
+  'plumber',
+  'electrician',
+  'ac_tech',
+  'locksmith',
+  'painter',
+  'pest',
+  'handyman',
+] as const;
 
 type Sort = 'rating' | 'response' | 'fee';
 
@@ -36,6 +47,8 @@ export function OwnerVendors() {
   const { data: vendors = [], isLoading, isError, refetch } = useVendors();
   const { data: properties = [] } = useProperties();
   const pushToast = useStore((s) => s.pushToast);
+  const createVendor = useCreateVendor();
+  const deleteVendor = useDeleteVendor();
 
   const owned = properties.filter((p) => p.scope === 'owner');
 
@@ -44,6 +57,45 @@ export function OwnerVendors() {
   const [sort, setSort] = React.useState<Sort>('rating');
   const [booking, setBooking] = React.useState<VendorView | null>(null);
   const [disclosureOpen, setDisclosureOpen] = React.useState(false);
+  const [addOpen, setAddOpen] = React.useState(false);
+  const [removing, setRemoving] = React.useState<VendorView | null>(null);
+  const [form, setForm] = React.useState({
+    name: '',
+    trade: 'handyman' as Trade,
+    phone: '',
+    areas: '',
+    calloutFeeShekels: '',
+    note: '',
+  });
+
+  function resetForm() {
+    setForm({ name: '', trade: 'handyman', phone: '', areas: '', calloutFeeShekels: '', note: '' });
+  }
+
+  function submitAdd(event: React.FormEvent) {
+    event.preventDefault();
+    createVendor.mutate(
+      {
+        name: form.name.trim(),
+        trade: form.trade,
+        phone: form.phone.trim(),
+        areas: form.areas
+          .split(',')
+          .map((a) => a.trim())
+          .filter(Boolean),
+        calloutFeeAgorot: Math.round((Number(form.calloutFeeShekels) || 0) * 100),
+        note: form.note.trim() || null,
+      },
+      {
+        onSuccess: () => {
+          pushToast(t.vendors.addSuccess, 'success');
+          setAddOpen(false);
+          resetForm();
+        },
+        onError: () => pushToast(t.auth.error.internal, 'alert'),
+      },
+    );
+  }
 
   const areas = React.useMemo(() => [...new Set(vendors.flatMap((v) => v.areas))], [vendors]);
 
@@ -66,7 +118,12 @@ export function OwnerVendors() {
 
   return (
     <div className="space-y-5">
-      <PageHeader title={t.vendors.title} subtitle={t.vendors.subtitle} />
+      <div className="flex justify-end">
+        <Button size="sm" onClick={() => setAddOpen(true)}>
+          <Plus className="h-3.5 w-3.5" />
+          {t.vendors.addVendor}
+        </Button>
+      </div>
 
       <div className="flex flex-wrap items-center gap-2 rounded-[var(--radius-card)] border border-line bg-signal-soft px-3.5 py-2.5">
         <Badge tone="signal" size="sm">
@@ -139,7 +196,7 @@ export function OwnerVendors() {
                   setTrade('all');
                   setArea('all');
                 }
-              : () => pushToast(t.vendors.addVendor)
+              : () => setAddOpen(true)
           }
         />
       ) : (
@@ -196,7 +253,7 @@ export function OwnerVendors() {
                 <p className="mt-1.5 text-2xs leading-4 text-ink-soft">{vendor.note}</p>
               ) : null}
 
-              <div className="mt-3 flex items-center gap-2 border-t border-line pt-3">
+              <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-line pt-3">
                 <Button size="sm" onClick={() => setBooking(vendor)}>
                   {t.vendors.book}
                 </Button>
@@ -206,6 +263,29 @@ export function OwnerVendors() {
                     {t.vendors.call}
                   </a>
                 </Button>
+                <Button size="sm" variant="secondary" asChild>
+                  <a
+                    href={whatsAppLink(
+                      vendor.phone,
+                      `שלום ${vendor.name.split(' ')[0]}, מדובר על עבודה עבור הדירה שלי.`,
+                    )}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <MessageCircle className="h-3.5 w-3.5" />
+                    {t.vendors.whatsapp}
+                  </a>
+                </Button>
+                {!vendor.isNetworkPartner ? (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-alert hover:bg-alert-soft"
+                    onClick={() => setRemoving(vendor)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                ) : null}
                 <Phone value={vendor.phone} className="ms-auto text-2xs text-muted" />
               </div>
             </li>
@@ -254,6 +334,130 @@ export function OwnerVendors() {
               }}
             >
               {t.vendors.book}
+            </Button>
+            <DialogClose asChild>
+              <Button variant="secondary">{t.ui.cancel}</Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={addOpen}
+        onOpenChange={(v) => {
+          setAddOpen(v);
+          if (!v) resetForm();
+        }}
+      >
+        <DialogContent>
+          <form onSubmit={submitAdd}>
+            <DialogHeader>
+              <DialogTitle>{t.vendors.addTitle}</DialogTitle>
+            </DialogHeader>
+            <DialogBody className="space-y-4">
+              <p className="text-2xs text-muted">{t.vendors.addHint}</p>
+              <Field label={t.vendors.name}>
+                <Input
+                  value={form.name}
+                  onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                  placeholder={t.vendors.namePlaceholder}
+                  required
+                />
+              </Field>
+              <Field label={t.vendors.filterTrade}>
+                <Select
+                  value={form.trade}
+                  onValueChange={(v) => setForm((f) => ({ ...f, trade: v as Trade }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TRADES.map((tr) => (
+                      <SelectItem key={tr} value={tr}>
+                        {t.trade[tr]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field label={t.auth.phone}>
+                <Input
+                  dir="ltr"
+                  type="tel"
+                  value={form.phone}
+                  onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+                  placeholder={t.vendors.phonePlaceholder}
+                  required
+                />
+              </Field>
+              <Field label={t.vendors.areasLabel}>
+                <Input
+                  value={form.areas}
+                  onChange={(e) => setForm((f) => ({ ...f, areas: e.target.value }))}
+                  placeholder={t.vendors.areasPlaceholder}
+                />
+              </Field>
+              <Field label={t.vendors.calloutFee}>
+                <Input
+                  dir="ltr"
+                  type="number"
+                  min={0}
+                  value={form.calloutFeeShekels}
+                  onChange={(e) => setForm((f) => ({ ...f, calloutFeeShekels: e.target.value }))}
+                  placeholder="0"
+                />
+              </Field>
+              <Field label={t.vendors.notePlaceholder}>
+                <Textarea
+                  value={form.note}
+                  onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))}
+                  placeholder={t.vendors.notePlaceholder}
+                />
+              </Field>
+            </DialogBody>
+            <DialogFooter>
+              <Button
+                type="submit"
+                loading={createVendor.isPending}
+                disabled={!form.name.trim() || !form.phone.trim()}
+              >
+                {t.ui.save}
+              </Button>
+              <DialogClose asChild>
+                <Button type="button" variant="secondary">
+                  {t.ui.cancel}
+                </Button>
+              </DialogClose>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(removing)} onOpenChange={(v) => !v && setRemoving(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t.vendors.removeConfirmTitle}</DialogTitle>
+          </DialogHeader>
+          <DialogBody>
+            <p className="text-sm text-ink-soft">{removing?.name}</p>
+            <p className="mt-1.5 text-2xs text-muted">{t.vendors.removeConfirmHint}</p>
+          </DialogBody>
+          <DialogFooter>
+            <Button
+              variant="danger"
+              loading={deleteVendor.isPending}
+              onClick={() => {
+                if (!removing) return;
+                deleteVendor.mutate(removing.id, {
+                  onSuccess: () => {
+                    pushToast(t.vendors.removed);
+                    setRemoving(null);
+                  },
+                });
+              }}
+            >
+              {t.ui.delete}
             </Button>
             <DialogClose asChild>
               <Button variant="secondary">{t.ui.cancel}</Button>

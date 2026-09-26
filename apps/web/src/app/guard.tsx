@@ -55,9 +55,3 @@ export function NoRoles() {
     </div>
   );
 }
-
-/** Sends a signed-in visitor at "/" to whichever view they actually have. */
-export function RoleHome() {
-  const { capabilities } = useAuth();
-  return <Navigate to={homeFor(rolesFor(capabilities))} replace />;
-}

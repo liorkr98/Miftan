@@ -45,6 +45,8 @@ export async function authRoutes(app: FastifyInstance) {
     { schema: { body: registerSchema, response: { 201: authResultSchema } } },
     async (request, reply) => {
       const { name, email, phone, password } = request.body;
+      /* Validated by the schema already (acceptedTerms must be literal true);
+         read here only to timestamp it. */
 
       const [taken] = await db.select({ id: s.users.id }).from(s.users).where(eq(s.users.email, email));
       if (taken) throw new ApiError('email_taken', 'that email is already registered');
@@ -57,6 +59,7 @@ export async function authRoutes(app: FastifyInstance) {
           email,
           phone: phone ?? null,
           passwordHash: await hashPassword(password),
+          termsAcceptedAt: new Date(),
         })
         .returning();
 

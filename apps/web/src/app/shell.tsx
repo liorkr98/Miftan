@@ -31,12 +31,10 @@ import {
   Banknote,
   CalendarClock,
   FileSignature,
-  MessageCircleQuestion,
   CalendarCheck2,
   FileText,
   Gauge,
   Home,
-  Inbox,
   LogOut,
   DoorOpen,
   ListChecks,
@@ -46,6 +44,7 @@ import {
   Users,
   Wrench,
   Coins,
+  Lock,
 } from 'lucide-react';
 
 interface NavItem {
@@ -54,6 +53,10 @@ interface NavItem {
   Icon: React.ComponentType<{ className?: string }>;
   end?: boolean;
   count?: number;
+  /** Reserved for a paid plan. Shown, not hidden — a locked feature people
+      can see is a reason to ask about the plan; a feature they never knew
+      existed is not. */
+  premium?: boolean;
 }
 
 /* ── Top bar — the one dark band, present in every persona ─── */
@@ -151,7 +154,12 @@ function RailLink({ item }: { item: NavItem }) {
     >
       <item.Icon className="h-4 w-4 shrink-0" />
       <span className="flex-1 truncate">{item.label}</span>
-      {item.count ? (
+      {item.premium ? (
+        <span className="flex items-center gap-0.5 rounded-full bg-signal-soft px-1.5 py-0.5 text-2xs font-bold text-signal-deep">
+          <Lock className="h-2.5 w-2.5" />
+          {t.premium.badge}
+        </span>
+      ) : item.count ? (
         <Num className="rounded-full bg-current/10 px-1.5 text-2xs font-bold tabular-nums">
           {item.count}
         </Num>
@@ -223,7 +231,9 @@ function TopNav({ items }: { items: NavItem[] }) {
           <item.Icon className="h-4 w-4" />
           {item.label}
           {item.count ? (
-            <Num className="rounded-full bg-surface-sunk px-1.5 text-2xs font-bold">{item.count}</Num>
+            <Num className="rounded-full bg-surface-sunk px-1.5 text-2xs font-bold">
+              {item.count}
+            </Num>
           ) : null}
         </NavLink>
       ))}
@@ -285,24 +295,36 @@ export function OwnerShell() {
     (x) => x.status === 'due' && daysUntil(x.dueDate) <= 45,
   ).length;
 
+  /* Leads, inquiries and messages merged into one screen (tabs), so one
+     badge has to speak for all three — nothing that used to be counted
+     separately should quietly stop being counted. */
+  const leadsHubCount = ownedLeads + waitingInquiries + unread;
+
   const items: NavItem[] = [
     { to: '/owner', label: t.ownerNav.dashboard, Icon: Gauge, end: true },
     { to: '/owner/properties', label: t.ownerNav.properties, Icon: Home, count: owned },
     { to: '/owner/tickets', label: t.ownerNav.tickets, Icon: Wrench, count: openTickets },
-    { to: '/owner/maintenance', label: t.ownerNav.maintenance, Icon: CalendarClock, count: dueSoon },
-    { to: '/owner/crm', label: t.ownerNav.crm, Icon: Users, count: ownedLeads },
-    { to: '/owner/inquiries', label: t.ownerNav.inquiries, Icon: MessageCircleQuestion, count: waitingInquiries },
-    { to: '/owner/vendors', label: t.ownerNav.vendors, Icon: ListChecks },
+    { to: '/owner/leads', label: t.ownerNav.leads, Icon: Users, count: leadsHubCount },
+    {
+      to: '/owner/maintenance',
+      label: t.ownerNav.maintenance,
+      Icon: CalendarClock,
+      count: dueSoon,
+    },
     { to: '/owner/contracts', label: t.ownerNav.contracts, Icon: FileSignature },
     { to: '/owner/finance', label: t.ownerNav.finance, Icon: Banknote },
-    { to: '/owner/revenue', label: t.ownerNav.revenue, Icon: Coins },
-    { to: '/owner/messages', label: t.ownerNav.messages, Icon: Inbox, count: unread },
+    { to: '/owner/revenue', label: t.ownerNav.revenue, Icon: Coins, premium: true },
   ];
 
-  /* Bottom nav caps at five: dashboard, portfolio, tickets, leads, inquiries.
-     Everything else stays reachable from the dashboard and the rail. */
+  /* Bottom nav caps at five: dashboard, portfolio, tickets, leads, maintenance. */
   const mobileItems = items.filter((i) =>
-    ['/owner', '/owner/properties', '/owner/tickets', '/owner/crm', '/owner/inquiries'].includes(i.to),
+    [
+      '/owner',
+      '/owner/properties',
+      '/owner/tickets',
+      '/owner/leads',
+      '/owner/maintenance',
+    ].includes(i.to),
   );
 
   return (

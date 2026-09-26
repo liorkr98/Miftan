@@ -114,7 +114,7 @@ export function OwnerScreening() {
   return (
     <div className="space-y-5">
       <div>
-        <Button variant="quiet" size="sm" className="-ms-2 mb-1" onClick={() => navigate('/owner/crm')}>
+        <Button variant="quiet" size="sm" className="-ms-2 mb-1" onClick={() => navigate('/owner/leads')}>
           <ArrowRight className="h-3.5 w-3.5" />
           {t.crm.title}
         </Button>

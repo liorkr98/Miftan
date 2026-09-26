@@ -73,8 +73,6 @@ export function OwnerMessages() {
   return (
     <div className="space-y-5">
       <PageHeader
-        title={t.messages.title}
-        subtitle={t.messages.subtitle}
         actions={
           totalUnread ? (
             <Badge tone="alertSoft">

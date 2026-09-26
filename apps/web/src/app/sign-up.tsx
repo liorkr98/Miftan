@@ -5,7 +5,7 @@ import { useAuth } from '@/api/auth';
 import { homeFor } from './guard';
 import { rolesFor } from './role-switcher';
 import { Button } from '@/components/ui/button';
-import { Field, Input } from '@/components/ui/field';
+import { Checkbox, Field, Input } from '@/components/ui/field';
 import { DoorOpen, UserPlus } from 'lucide-react';
 
 const MIN_PASSWORD = 10;
@@ -28,6 +28,7 @@ export function SignUp() {
   const [email, setEmail] = React.useState('');
   const [phone, setPhone] = React.useState('');
   const [password, setPassword] = React.useState('');
+  const [acceptedTerms, setAcceptedTerms] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
 
@@ -39,6 +40,13 @@ export function SignUp() {
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
+    /* The submit button is already disabled without this, but the API
+       enforces it too (a literal `true`, not a boolean) — a checkbox is a
+       client-side convenience, not the actual guard. */
+    if (!acceptedTerms) {
+      setError(t.auth.termsRequired);
+      return;
+    }
     setError(null);
     setBusy(true);
     try {
@@ -49,6 +57,7 @@ export function SignUp() {
            schema would reject "" as a malformed phone number. */
         phone: phone.trim() || undefined,
         password,
+        acceptedTerms: true,
       });
       navigate('/', { replace: true });
     } catch (err) {
@@ -127,13 +136,45 @@ export function SignUp() {
             </Field>
           </div>
 
+          <label className="mt-4 flex items-start gap-2.5 text-xs leading-relaxed text-ink-soft">
+            <Checkbox
+              checked={acceptedTerms}
+              onCheckedChange={(v) => setAcceptedTerms(Boolean(v))}
+              className="mt-0.5"
+            />
+            <span>
+              {t.auth.termsPrefix}
+              <Link
+                to="/legal/terms"
+                target="_blank"
+                className="font-bold text-ink underline-offset-2 hover:underline"
+              >
+                {t.auth.termsLink}
+              </Link>
+              {t.auth.and}
+              <Link
+                to="/legal/privacy"
+                target="_blank"
+                className="font-bold text-ink underline-offset-2 hover:underline"
+              >
+                {t.auth.privacyLink}
+              </Link>
+            </span>
+          </label>
+
           {error ? (
             <p role="alert" className="mt-3 text-xs font-semibold text-alert">
               {error}
             </p>
           ) : null}
 
-          <Button type="submit" size="lg" loading={busy} className="mt-4 w-full">
+          <Button
+            type="submit"
+            size="lg"
+            loading={busy}
+            disabled={!acceptedTerms}
+            className="mt-4 w-full"
+          >
             <UserPlus className="size-4" aria-hidden />
             {busy ? t.auth.signingUp : t.auth.signUp}
           </Button>

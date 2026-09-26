@@ -239,7 +239,7 @@ export function OwnerDashboard() {
           {waitingInquiries > 0 ? (
             <button
               type="button"
-              onClick={() => navigate('/owner/inquiries')}
+              onClick={() => navigate('/owner/leads?tab=inquiries')}
               className="press-sm flex items-center gap-3 rounded-[var(--radius-card)] border border-signal/50 bg-signal-soft/40 p-3.5 text-start transition-[border-color,transform] duration-150 ease-[var(--ease-out)] hover:border-signal"
             >
               <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[var(--radius-control)] bg-signal text-ink">

@@ -4,7 +4,7 @@ import { useStore } from '@/data/store';
 import { useScheduleSeasonal, useSeasonal, useSeasonalStatus } from '@/api/hooks';
 import { ErrorState } from '@/components/shared/error-state';
 import { t, daysUntil, formatMonthYear, formatUntil, type Season, type SeasonalTaskView } from '@miftan/shared';
-import { Money, Num, PageHeader } from '@/components/shared/typography';
+import { Money, Num } from '@/components/shared/typography';
 import { EmptyState } from '@/components/shared/empty-state';
 import { Meter } from '@/components/shared/meter';
 import { OfferRail, RevenueMarker } from '@/components/shared/revenue';
@@ -93,8 +93,7 @@ export function OwnerSeasonal() {
 
   return (
     <div className="space-y-5">
-      <PageHeader title={t.seasonal.title} subtitle={t.seasonal.subtitle} />
-
+      
       {/* The argument, up front: what preventing costs vs what failing costs */}
       <div className="grid gap-4 sm:grid-cols-[1.3fr_1fr]">
         <section className="rounded-[var(--radius-card)] border border-line p-4">

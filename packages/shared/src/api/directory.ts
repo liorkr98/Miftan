@@ -41,3 +41,14 @@ export const expenseListSchema = z.object({
 
 export type VendorView = z.infer<typeof vendorSchema>;
 export type ExpenseView = z.infer<typeof expenseSchema>;
+
+/** An owner adding their own tradesperson. Never a network partner — that
+    label is earned by a commercial agreement, not by a form field. */
+export const createVendorSchema = z.object({
+  name: z.string().trim().min(2).max(120),
+  trade: z.enum(['plumber', 'electrician', 'ac_tech', 'locksmith', 'painter', 'pest', 'handyman']),
+  phone: z.string().trim().min(9).max(20),
+  areas: z.array(z.string().trim().min(1)).max(10).default([]),
+  calloutFeeAgorot: z.number().int().min(0).max(10_000_00).default(0),
+  note: z.string().trim().max(400).nullish(),
+});

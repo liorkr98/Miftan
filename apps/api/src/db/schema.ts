@@ -74,6 +74,10 @@ export const users = pgTable(
     /** argon2. Null while an account is invite-pending and has no password yet. */
     passwordHash: text('password_hash'),
     emailVerifiedAt: timestamp('email_verified_at', { withTimezone: true }),
+    /** Set at registration. Required — the register route refuses to create
+        an account without it, so this is never null for a real user; it stays
+        nullable only because a handful of seeded rows predate the column. */
+    termsAcceptedAt: timestamp('terms_accepted_at', { withTimezone: true }),
     createdAt,
     updatedAt,
     deletedAt,

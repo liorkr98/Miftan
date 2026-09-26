@@ -18,7 +18,7 @@ import { DoorOpen, LogIn } from 'lucide-react';
  * signing out twice and losing the thread each time.
  */
 const DEMO_ACCOUNTS = [
-  { role: t.roles.owner, email: 'ran@almog-nadlan.co.il', name: 'רן אלמוג', hint: null },
+  { role: t.roles.owner, email: 'ran@almog-nadlan.co.il', name: 'רן אלמוג', hint: t.roles.ownerHint },
   { role: t.roles.tenant, email: 'michal.stern@gmail.com', name: 'מיכל שטרן', hint: null },
   { role: t.roles.seeker, email: 'tal.aviram@gmail.com', name: 'טל אבירם', hint: null },
   { role: t.roles.all, email: 'dana@miftan-demo.co.il', name: 'דנה לוי', hint: t.roles.allHint },

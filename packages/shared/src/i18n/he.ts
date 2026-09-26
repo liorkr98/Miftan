@@ -46,6 +46,8 @@ export const t = {
     vendors: 'בעלי מקצוע',
     crm: 'לידים',
     inquiries: 'בירורי זמינות',
+    /** The single rail entry for the combined leads/inquiries/messages hub */
+    leads: 'לידים ובירורים',
     contracts: 'חוזים',
     finance: 'כספים',
     revenue: 'מודל הכנסות',
@@ -407,6 +409,21 @@ export const t = {
     sortRating: 'דירוג',
     sortResponse: 'זמן תגובה',
     sortFee: 'דמי קריאה',
+    whatsapp: 'וואטסאפ',
+    addTitle: 'הוספת בעל מקצוע',
+    addHint: 'בעל מקצוע שתוסיף כאן מופיע רק ברשימה שלך, ואינו שותף רשת.',
+    name: 'שם',
+    namePlaceholder: 'לדוגמה: אבי כהן — אינסטלציה',
+    phonePlaceholder: '050-0000000',
+    areasLabel: 'אזורי שירות',
+    areasPlaceholder: 'הפרד בפסיקים, לדוגמה: תל אביב-יפו, גבעתיים',
+    notePlaceholder: 'הערה פנימית (לא חובה)',
+    addSuccess: 'בעל המקצוע נוסף',
+    remove: 'הסר מהרשימה שלי',
+    removeConfirmTitle: 'להסיר את בעל המקצוע?',
+    removeConfirmHint: 'ההסרה משפיעה רק על הרשימה שלך ולא על עבודות קודמות שתועדו.',
+    removed: 'הוסר',
+    mine: 'שלי',
   },
 
   /* ── Owner: CRM ────────────────────────────────────── */
@@ -1253,7 +1270,12 @@ export const t = {
     signUp: 'פתח חשבון',
     signingUp: 'פותח חשבון…',
     /* Explains why the form asks for nothing else. */
-    roleNote: 'לא צריך לבחור תפקיד. החשבון נפתח ריק, והתצוגה נפתחת לפי מה שיש בו — דירה שהוספת, חוזה שבעל דירה שייך אליך, או חיפוש שהתחלת.',
+    roleNote: 'לא צריך לבחור תפקיד. החשבון נפתח ריק, והתצוגה נפתחת לפי מה שיש בו — דירה שהוספת (גם אם אתם מתווכים המנהלים אותה עבור בעלים אחר), חוזה שבעל דירה שייך אליך, או חיפוש שהתחלת.',
+    termsPrefix: 'קראתי ואני מסכים/ה ל',
+    termsLink: 'תנאי השימוש',
+    and: 'ו',
+    privacyLink: 'מדיניות הפרטיות',
+    termsRequired: 'יש לאשר את תנאי השימוש ומדיניות הפרטיות כדי להמשיך',
     /* Server codes → Hebrew. The API never ships a sentence. */
     error: {
       invalid_credentials: 'אימייל או סיסמה שגויים',
@@ -1276,6 +1298,7 @@ export const t = {
     owner: 'בעל דירות',
     tenant: 'דייר',
     seeker: 'מחפש דירה',
+    ownerHint: 'גם למתווכים שמנהלים דירות עבור בעלים אחרים',
     all: 'כל התפקידים',
     allHint: 'משכירה שלוש, שוכרת אחת, ובתור לשתיים — כל הצדדים בחשבון אחד',
     none: 'אין עדיין דירות בחשבון',
@@ -1283,6 +1306,65 @@ export const t = {
   },
 
   /* ── Generic UI ────────────────────────────────────── */
+  /* ── Legal pages ──────────────────────────────────── */
+  legal: {
+    navTitle: 'מסמכים משפטיים',
+    lastUpdated: 'עודכן',
+    backToApp: 'חזרה למפתן',
+    footerRights: '© מפתן. כל הזכויות שמורות.',
+  },
+
+  /* ── The public landing page ──────────────────────── */
+  landing: {
+    tagline: 'לוח יציאות לדירות שלך',
+    heroTitle: 'כל דירה יש לה תאריך. גם דירה תפוסה.',
+    heroBody:
+      'לוחות הדירות מראים רק מה שכבר התפנה. מפתן מראה גם מה עומד להתפנות — כדי שמחפש דירה יתכנן קדימה, ובעל דירות ידע בדיוק מה קורה בכל נכס שלו, בלי לשאול.',
+    ctaPrimary: 'התחילו עכשיו',
+    ctaSecondary: 'יש לי כבר חשבון',
+    howItWorksTitle: 'איך זה עובד',
+    step1Title: 'כל דירה מקבלת תאריך',
+    step1Body: 'גם דירה תפוסה. הדייר מתבקש לענות אם בכוונתו להאריך, לעזוב, או שעדיין מוקדם לדעת — והתשובה הופכת לתאריך זמינות, בלי לחשוף מי שאל ובלי לחשוף את מה שהדייר בדיוק אמר.',
+    step2Title: 'תקלות מטופלות עם תיעוד אחד',
+    step2Body: 'מהדיווח הראשוני ועד לקבלה — כולל תיאום מול בעל מקצוע ותקציב שאושר מראש לתקלות קטנות, כדי שדייר לא יחכה יומיים על החלטה שהייתה מאושרת ממילא.',
+    step3Title: 'סינון מועמדים לפי כללים שאתם קובעים',
+    step3Body: 'בדיקת שוכרים לפי קריטריונים אובייקטיביים בלבד — הכנסה, ותק מבוקש, ערבים — לעולם לא לפי מאפיינים מוגנים. מועמד שלא עומד בקריטריון לא נעלם מהרשימה; הוא מדורג בהתאם, עם הסבר.',
+    audiencesTitle: 'שלושה צדדים, אפליקציה אחת',
+    forOwners: 'בעלי דירות ומתווכים',
+    forOwnersBody: 'תזרים, תקלות, חוזים ולידים — במקום אחד.',
+    forTenants: 'דיירים',
+    forTenantsBody: 'דיווח תקלה, מסמכים, וחידוש חוזה בלי לחשוש לענות בכנות.',
+    forSeekers: 'מחפשי דירה',
+    forSeekersBody: 'תכננו קדימה — כולל דירות שעוד לא התפנו.',
+    finalCta: 'פתחו חשבון',
+  },
+
+  /* ── Features reserved for a paid plan ───────────────
+     No billing system exists yet — this only decides what to present as
+     locked versus what to build a screen for at all. */
+  premium: {
+    badge: 'פרימיום',
+    lockedTitle: 'זמין במסלול פרימיום',
+    revenueLockedHint: 'מודל ההכנסות המלא — כולל תרחישי היקף פורטפוליו — ייפתח במסלול הפרימיום.',
+  },
+
+  /* ── Owner: combined leads / inquiries / messages ──── */
+  leadsHub: {
+    title: 'לידים ובירורים',
+    subtitle: 'מועמדים, שאלות זמינות, והודעות — במקום אחד',
+    tabLeads: 'לידים',
+    tabInquiries: 'בירורי זמינות',
+    tabMessages: 'הודעות',
+  },
+
+  /* ── Owner: combined preventive maintenance / vendors ── */
+  maintenanceHub: {
+    title: 'אחזקה ואנשי מקצוע',
+    subtitle: 'תחזוקה מונעת, והספקים שמבצעים אותה',
+    tabPreventive: 'תחזוקה מונעת',
+    tabVendors: 'אנשי מקצוע',
+  },
+
   ui: {
     yes: 'כן',
     no: 'לא',

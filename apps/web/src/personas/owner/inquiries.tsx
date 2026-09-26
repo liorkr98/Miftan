@@ -88,8 +88,6 @@ export function OwnerInquiries() {
   return (
     <div className="space-y-5">
       <PageHeader
-        title={t.inquiries.title}
-        subtitle={t.inquiries.subtitle}
         actions={
           waiting ? (
             <Badge tone="signal" size="lg">

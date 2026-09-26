@@ -81,17 +81,24 @@ export function PageHeader({
   actions,
   className,
 }: {
-  title: string;
+  /** Falsy hides the title block entirely — a screen embedded under someone
+      else's title (a tab inside a combined hub) still needs `actions` to
+      render, just not a second heading. */
+  title?: string;
   subtitle?: string;
   actions?: React.ReactNode;
   className?: string;
 }) {
   return (
     <header className={cn('flex flex-wrap items-start justify-between gap-3', className)}>
-      <div className="min-w-0">
-        <h1 className="text-xl font-extrabold tracking-[-0.01em] text-ink">{title}</h1>
-        {subtitle ? <p className="mt-0.5 text-sm text-muted">{subtitle}</p> : null}
-      </div>
+      {title ? (
+        <div className="min-w-0">
+          <h1 className="text-xl font-extrabold tracking-[-0.01em] text-ink">{title}</h1>
+          {subtitle ? <p className="mt-0.5 text-sm text-muted">{subtitle}</p> : null}
+        </div>
+      ) : (
+        <div />
+      )}
       {actions ? <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div> : null}
     </header>
   );

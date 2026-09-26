@@ -99,6 +99,30 @@ export function useVendors() {
   });
 }
 
+/** An owner adding their own tradesperson to the directory. */
+export function useCreateVendor() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: {
+      name: string;
+      trade: string;
+      phone: string;
+      areas: string[];
+      calloutFeeAgorot: number;
+      note?: string | null;
+    }) => api.request<VendorView>('/vendors', { method: 'POST', body: JSON.stringify(body) }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: keys.vendors }),
+  });
+}
+
+export function useDeleteVendor() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.request<{ ok: true }>(`/vendors/${id}`, { method: 'DELETE' }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: keys.vendors }),
+  });
+}
+
 export function useExpenses(propertyId?: string) {
   const query = propertyId ? `?propertyId=${encodeURIComponent(propertyId)}` : '';
   return useQuery({

@@ -105,8 +105,6 @@ export function OwnerCrm() {
   return (
     <div className="space-y-5">
       <PageHeader
-        title={t.crm.title}
-        subtitle={t.crm.subtitle}
         actions={
           <>
             <div className="flex items-center gap-0.5 rounded-[var(--radius-control)] border border-line p-0.5">
@@ -130,7 +128,7 @@ export function OwnerCrm() {
                 </button>
               ))}
             </div>
-            <Button variant="secondary" onClick={() => navigate('/owner/crm/filters')}>
+            <Button variant="secondary" onClick={() => navigate('/owner/leads/filters')}>
               <SlidersHorizontal className="h-3.5 w-3.5" />
               {t.screening.title}
             </Button>

@@ -26,6 +26,11 @@ export const registerSchema = z.object({
   email: emailSchema,
   phone: israeliPhone.optional(),
   password: passwordSchema,
+  /** `z.literal(true)` rather than `z.boolean()`: an unchecked box must fail
+      validation, not pass through as `false`. Enforced here, not only by
+      disabling the client's submit button — a request built by hand skips a
+      disabled button but not a schema. */
+  acceptedTerms: z.literal(true, { message: 'you must accept the terms to register' }),
 });
 
 export const loginSchema = z.object({

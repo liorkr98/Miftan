@@ -15,7 +15,10 @@ afterAll(async () => {
   await app.close();
 });
 
-const CREDENTIALS = { name: 'רן אלמוג', email: 'ran@example.co.il', password: 'a-long-enough-password' };
+const CREDENTIALS = {
+  name: 'רן אלמוג', email: 'ran@example.co.il', password: 'a-long-enough-password',
+  acceptedTerms: true as const,
+};
 
 /** Fastify's inject needs no port, so the suite never binds one. */
 const post = (url: string, payload?: unknown, headers?: Record<string, string>) =>
@@ -58,6 +61,29 @@ describe('registration', () => {
     expect(res.statusCode).toBe(422);
     expect(res.json().error.details.password).toBeDefined();
     expect(await db.select().from(s.users)).toHaveLength(0);
+  });
+
+  it('refuses to create an account without accepting terms', async () => {
+    const { acceptedTerms: _drop, ...withoutTerms } = CREDENTIALS;
+    const res = await post('/auth/register', withoutTerms);
+    expect(res.statusCode).toBe(422);
+    expect(await db.select().from(s.users)).toHaveLength(0);
+  });
+
+  it('refuses acceptedTerms: false the same as leaving it out entirely', async () => {
+    /* z.literal(true), not z.boolean() — a caller who sends false explicitly
+       must fail exactly like one who sends nothing, not slip through as a
+       valid boolean. */
+    const res = await post('/auth/register', { ...CREDENTIALS, acceptedTerms: false });
+    expect(res.statusCode).toBe(422);
+  });
+
+  it('timestamps when terms were accepted', async () => {
+    const before = new Date();
+    const { body } = await register();
+    const [row] = await db.select().from(s.users).where(eq(s.users.id, body.user.id));
+    expect(row.termsAcceptedAt).not.toBeNull();
+    expect(row.termsAcceptedAt!.getTime()).toBeGreaterThanOrEqual(before.getTime());
   });
 });
 
@@ -156,6 +182,7 @@ describe('capabilities come from relationships, not a role column', () => {
       name: 'מיכל שטרן',
       email: 'michal@example.com',
       password: 'another-long-password',
+      acceptedTerms: true,
     });
     const tenant = tenantRes.json();
 
