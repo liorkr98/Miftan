@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useStore } from '@/data/store';
-import { t, whatsAppLink, type Trade, type VendorView } from '@miftan/shared';
+import { t, vendorWhatsAppGreeting, whatsAppLink, type Trade, type VendorView } from '@miftan/shared';
 import { useCreateVendor, useDeleteVendor, useProperties, useVendors } from '@/api/hooks';
 import { Money, Num, Phone } from '@/components/shared/typography';
 import { EmptyState } from '@/components/shared/empty-state';
@@ -265,10 +265,7 @@ export function OwnerVendors() {
                 </Button>
                 <Button size="sm" variant="secondary" asChild>
                   <a
-                    href={whatsAppLink(
-                      vendor.phone,
-                      `שלום ${vendor.name.split(' ')[0]}, מדובר על עבודה עבור הדירה שלי.`,
-                    )}
+                    href={whatsAppLink(vendor.phone, vendorWhatsAppGreeting(vendor.name.split(' ')[0]))}
                     target="_blank"
                     rel="noreferrer"
                   >

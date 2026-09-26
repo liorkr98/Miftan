@@ -225,7 +225,7 @@ function ScanningPanel() {
             {i > 0 ? <span className={cn('h-px flex-1', i <= 2 ? 'bg-ink' : 'bg-line')} aria-hidden /> : null}
             <li
               className={cn(
-                'rounded-full px-2 py-0.5 text-[10px] font-bold',
+                'rounded-full px-2 py-0.5 text-2xs font-bold',
                 i < 2 ? 'bg-ink text-on-ink' : i === 2 ? 'bg-signal text-ink' : 'bg-surface-sunk text-muted',
               )}
             >
@@ -294,7 +294,7 @@ function ScanPanel({ scan, onReset }: { scan: ContractScanView; onReset: () => v
             ) : null}
             <li
               className={cn(
-                'rounded-full px-2 py-0.5 text-[10px] font-bold',
+                'rounded-full px-2 py-0.5 text-2xs font-bold',
                 i < stage
                   ? 'bg-ink text-on-ink'
                   : i === stage

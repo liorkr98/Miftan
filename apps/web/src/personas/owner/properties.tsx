@@ -338,7 +338,7 @@ function AddPropertyDialog({
   const pushToast = useStore((s) => s.pushToast);
   const [street, setStreet] = React.useState('');
   const [houseNumber, setHouseNumber] = React.useState('');
-  const [city, setCity] = React.useState(CITIES[0]?.name ?? 'תל אביב-יפו');
+  const [city, setCity] = React.useState(CITIES[0]?.name ?? '');
   const [neighborhood, setNeighborhood] = React.useState('');
   const [rooms, setRooms] = React.useState('3');
   const [sqm, setSqm] = React.useState('70');

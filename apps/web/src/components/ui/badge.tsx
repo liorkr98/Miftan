@@ -8,6 +8,8 @@ const badgeVariants = cva(
     variants: {
       tone: {
         neutral: 'bg-surface-sunk text-ink-soft',
+        /* A filled marker — "today," a step already done — not a status. */
+        ink: 'bg-ink text-on-ink',
         /* ink text on amber — 8.1:1. White on amber would fail. */
         signal: 'bg-signal text-ink',
         signalSoft: 'bg-signal-soft text-signal-deep',

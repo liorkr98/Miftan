@@ -15,6 +15,7 @@ import { APP_NAME, t, daysUntil } from '@miftan/shared';
 import { cn } from '@/lib/utils';
 import { RoleSwitcher } from './role-switcher';
 import { Toaster } from '@/components/shared/toaster';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -157,10 +158,10 @@ function RailLink({ item }: { item: NavItem }) {
       <item.Icon className="h-4 w-4 shrink-0" />
       <span className="flex-1 truncate">{item.label}</span>
       {item.premium ? (
-        <span className="flex items-center gap-0.5 rounded-full bg-signal-soft px-1.5 py-0.5 text-2xs font-bold text-signal-deep">
+        <Badge tone="signalSoft" size="sm" className="gap-1">
           <Lock className="h-2.5 w-2.5" />
           {t.premium.badge}
-        </span>
+        </Badge>
       ) : item.count ? (
         <Num className="rounded-full bg-current/10 px-1.5 text-2xs font-bold tabular-nums">
           {item.count}

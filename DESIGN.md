@@ -31,9 +31,18 @@ is measured.
 | `--color-alert` | אזעקה | `0.545 0.185 30` | `#C53324` | urgent · overdue — **5.4:1** |
 | `--color-muted` | — | `0.528 0.015 60` | `#726963` | secondary text — **5.3:1**, deliberately not a light gray |
 | `--color-signal-deep` | — | `0.47 0.115 68` | `#844C00` | amber as text — **7.0:1** |
+| `--color-ink-soft` | — | `0.4 0.015 52` | — | a lighter step of ink for secondary headings and labels below full-weight text |
+| `--color-on-ink` | — | `0.965 0.006 66` | — | body text on the dark chrome (top bar, the CTA panel on the landing page) |
+| `--color-on-ink-muted` | — | `0.75 0.012 60` | — | secondary text on dark chrome |
+| `--color-surface-sunk` | — | `0.955 0.007 66` | — | a step below `--color-surface` — table zebra rows, pressed/sunk fills |
+| `--color-line` | — | `0.912 0.009 66` | `#E6E1DC` | the default hairline/border color |
+| `--color-line-strong` | — | `0.85 0.011 66` | — | a heavier border for emphasis (focus rings, hover states on outlined controls) |
 
-Each status colour has a `-soft` tint for fills. Warm neutrals carry
-+0.005–0.015 chroma toward hue 66 — the brand's own hue, never warm-by-default.
+Each status colour has a `-soft` tint for fills — e.g. `--color-signal-soft:
+oklch(0.955 0.035 82)`, `--color-live-soft: oklch(0.955 0.018 250)` — a very
+light version of the same hue, used as a chip/badge background under the
+full-strength color as its text or icon. Warm neutrals carry +0.005–0.015
+chroma toward hue 66 — the brand's own hue, never warm-by-default.
 
 ### Two rules that make it a system
 
@@ -109,8 +118,11 @@ exactly when the user is looking.
 |---|---|
 | `--ease-out` | `cubic-bezier(0.23, 1, 0.32, 1)` |
 | `--ease-out-quint` | `cubic-bezier(0.22, 1, 0.36, 1)` |
+| `--ease-out-quart` | `cubic-bezier(0.25, 1, 0.5, 1)` — a slightly softer out-curve, used where `--ease-out-quint`'s snap is too abrupt |
 | `--ease-drawer` | `cubic-bezier(0.32, 0.72, 0, 1)` |
+| `--ease-in-out` | `cubic-bezier(0.77, 0, 0.175, 1)` — the one place `ease-in` is legitimate: something moving *across* the screen (not entering/exiting), e.g. a sweeping scan-line |
 | `--dur-press` | 140ms |
+| `--dur-tooltip` | 150ms |
 | `--dur-menu` | 200ms |
 | `--dur-sheet` | 280ms |
 | `--dur-exit` | 180ms — exit is ~65% of enter |

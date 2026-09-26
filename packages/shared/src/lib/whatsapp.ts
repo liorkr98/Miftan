@@ -33,3 +33,8 @@ export function ticketWhatsAppMessage(input: {
   if (input.description) lines.push(`פרטים: ${input.description}`);
   return lines.join('\n');
 }
+
+/** A plain opening greeting, for contacting a vendor with no specific job in mind. */
+export function vendorWhatsAppGreeting(vendorFirstName: string): string {
+  return `שלום ${vendorFirstName}, מדובר על עבודה עבור הדירה שלי.`;
+}

@@ -34,7 +34,7 @@ below are measured, not estimated.
 | `--bg` | לובן | `1 0 0` | `#FFFFFF` | canvas, pure |
 | `--surface` | גיליון | `0.975 0.005 66` | `#F9F5F2` | panels, rail |
 | `--signal` | ענבר | `0.785 0.145 78` | `#EBAC39` | **"there is a date"** — ink-on-amber **8.1:1** |
-| `--live` | תכלת | `0.535 0.088 250` | `#4674A2` | occupied · in progress · settled — white-on **4.9:1** |
+| `--live` | תכלת | `0.545 0.088 250` | `#4674A2` | occupied · in progress · settled — white-on **4.9:1** |
 | `--alert` | אזעקה | `0.545 0.185 30` | `#C53324` | urgent · overdue — white-on **5.4:1** |
 
 Derived: `--open` `#2E8258` (פנוי עכשיו, 4.7:1), `--muted` `#726963` (5.3:1 —

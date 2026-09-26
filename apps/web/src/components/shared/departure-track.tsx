@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 import { t, formatDate, formatMonthTick, formatMonthYear, formatUntil, type TrackRow } from '@miftan/shared';
 import { dateRatio, trackOffset, trackSpan } from '@/lib/rtl';
 import { Num, Money } from './typography';
+import { Badge, type BadgeProps } from '@/components/ui/badge';
 import { EmptyState } from './empty-state';
 import { CalendarRange, MoveLeft } from 'lucide-react';
 
@@ -29,12 +30,12 @@ const TONE_BAR: Record<TrackRow['tone'], string> = {
   muted: 'bg-line-strong',
 };
 
-const TONE_CAP: Record<TrackRow['tone'], string> = {
-  signal: 'bg-signal text-ink',
-  live: 'bg-live text-white',
-  open: 'bg-open text-white',
-  alert: 'bg-alert text-white',
-  muted: 'bg-surface-sunk text-muted',
+const TONE_CAP: Record<TrackRow['tone'], BadgeProps['tone']> = {
+  signal: 'signal',
+  live: 'live',
+  open: 'open',
+  alert: 'alert',
+  muted: 'neutral',
 };
 
 export interface DepartureTrackProps {
@@ -121,9 +122,9 @@ export function DepartureTrack({
             </div>
             {/* "today" is the right edge of the track area, not of the header */}
             <div className="absolute inset-y-0 start-[9.5rem] flex items-center">
-              <span className="whitespace-nowrap rounded-full bg-ink px-1.5 py-0.5 text-[10px] font-bold text-on-ink">
+              <Badge tone="ink" size="sm" className="whitespace-nowrap">
                 {t.track.today}
-              </span>
+              </Badge>
             </div>
           </div>
 
@@ -239,19 +240,14 @@ function TrackBar({
               className="absolute top-1/2 flex -translate-y-1/2 items-center"
               style={trackOffset(ratio)}
             >
-              <span
-                className={cn(
-                  'num-board rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none',
-                  TONE_CAP[row.tone],
-                )}
-              >
+              <Badge tone={TONE_CAP[row.tone]} size="sm" className="num-board leading-none">
                 {formatDate(row.until!).slice(0, 5)}
-              </span>
+              </Badge>
             </div>
           ) : null}
 
           {!until && !freeNow ? (
-            <span className="absolute top-1/2 end-1 -translate-y-1/2 text-[10px] text-muted">
+            <span className="absolute top-1/2 end-1 -translate-y-1/2 text-2xs text-muted">
               {t.track.noDate}
             </span>
           ) : null}
@@ -379,18 +375,13 @@ function MonthListRow({
         ) : null}
       </span>
       {row.until ? (
-        <span
-          className={cn(
-            'num-board shrink-0 rounded-full px-2 py-0.5 text-2xs font-semibold',
-            TONE_CAP[row.tone],
-          )}
-        >
+        <Badge tone={TONE_CAP[row.tone]} size="sm" className="num-board shrink-0">
           {formatDate(row.until)}
-        </span>
+        </Badge>
       ) : row.tone === 'open' ? (
-        <span className="shrink-0 rounded-full bg-open-soft px-2 py-0.5 text-2xs font-semibold text-open">
+        <Badge tone="openSoft" size="sm" className="shrink-0">
           {t.availability.now}
-        </span>
+        </Badge>
       ) : null}
       {showRent && row.meta ? (
         <Money value={Number(row.meta)} board className="w-16 shrink-0 text-end text-2xs text-muted" />
