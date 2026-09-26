@@ -10,19 +10,22 @@ import { Input } from '@/components/ui/field';
 import { cn } from '@/lib/utils';
 import { ArrowLeft, Banknote, Eye, ShieldOff } from 'lucide-react';
 
+/* Chart colors, not status colors — see DESIGN.md's categorical palette.
+   Revenue kind has nothing to do with "there is a date" or "urgent," so it
+   must not borrow --color-signal/--color-live/etc. */
 const KIND_TONE: Record<RevenueKind, string> = {
-  vendor_commission: 'var(--color-ink)',
-  service_affiliate: 'var(--color-signal)',
-  insurance_affiliate: 'var(--color-live)',
-  subscription: 'var(--color-open)',
-  per_document: 'var(--color-ink-soft)',
-  verification_fee: 'var(--color-line-strong)',
-  professional_listing: 'var(--color-live-soft)',
+  vendor_commission: 'var(--color-chart-1)',
+  service_affiliate: 'var(--color-chart-2)',
+  insurance_affiliate: 'var(--color-chart-3)',
+  subscription: 'var(--color-chart-4)',
+  per_document: 'var(--color-chart-5)',
+  verification_fee: 'var(--color-chart-6)',
+  professional_listing: 'var(--color-chart-7)',
 };
 
 export function OwnerRevenue() {
   const navigate = useNavigate();
-  const { units, rows, excluded, perUnitYear, annual } = useRevenueModel();
+  const { units, rows, excluded, perUnitYear } = useRevenueModel();
   const lens = useStore((s) => s.revenueLens);
   const toggleLens = useStore((s) => s.toggleRevenueLens);
 
@@ -51,39 +54,42 @@ export function OwnerRevenue() {
         }
       />
 
-      {/* Headline numbers */}
-      <div className="grid gap-4 sm:grid-cols-3">
+      {/* Headline numbers. Not three tiles: the old middle tile (annual total
+          at the real portfolio size) was always the same number as this
+          scenario box shows at its default, just presented twice. One
+          supporting stat (the per-unit rate) plus one wide, editable hero
+          reads as a single story instead of a duplicate. */}
+      <div className="grid gap-4 sm:grid-cols-[1fr_1.6fr]">
         <Tile
           label={t.revenue.annualPerUnit}
           value={<Money value={Math.round(perUnitYear)} board />}
           hint={t.revenue.perUnitYear}
         />
-        <Tile
-          label={t.revenue.annualTotal}
-          value={<Money value={Math.round(annual)} board />}
-          hint={t.revenue.projectionHint.replace('{units}', String(units))}
-        />
         <div className="rounded-[var(--radius-card)] border border-line p-4">
-          <p className="text-2xs text-muted">{t.revenue.portfolioSize}</p>
-          <div className="mt-1.5 flex items-center gap-2">
-            <Input
-              type="number"
-              dir="ltr"
-              min={1}
-              className="num h-9 w-24"
-              value={scenario}
-              onChange={(e) => setScenario(e.target.value)}
-              aria-label={t.revenue.portfolioSize}
-            />
-            <span className="text-xs text-muted">{t.revenue.unitsLabel}</span>
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <p className="text-2xs text-muted">{t.revenue.annualTotal}</p>
+            <div className="flex items-center gap-2">
+              <Input
+                type="number"
+                dir="ltr"
+                min={1}
+                className="num h-8 w-20 text-xs"
+                value={scenario}
+                onChange={(e) => setScenario(e.target.value)}
+                aria-label={t.revenue.portfolioSize}
+              />
+              <span className="text-2xs text-muted">{t.revenue.unitsLabel}</span>
+            </div>
           </div>
-          <p className="mt-2 text-sm">
+          <p className="mt-1.5">
             <Money
               value={Math.round(perUnitYear * scenarioUnits)}
               board
-              className="text-lg font-bold text-ink"
+              className="text-2xl font-semibold text-ink"
             />
-            <span className="ms-1.5 text-2xs text-muted">{t.revenue.perYear}</span>
+          </p>
+          <p className="mt-1 text-2xs text-muted">
+            {t.revenue.projectionHint.replace('{units}', String(scenarioUnits))}
           </p>
         </div>
       </div>

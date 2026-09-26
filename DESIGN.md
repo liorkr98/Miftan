@@ -44,6 +44,13 @@ light version of the same hue, used as a chip/badge background under the
 full-strength color as its text or icon. Warm neutrals carry +0.005–0.015
 chroma toward hue 66 — the brand's own hue, never warm-by-default.
 
+**Categorical palette** — `--color-chart-1` … `--color-chart-7`, all
+`oklch(0.58 0.10 <hue>)`. Fixed lightness and chroma, hue-only variation, each
+hue kept at least ~50° from every semantic hue above. For chart series and
+other "N unrelated categories" contexts only — e.g. the revenue-mix bar list —
+never for status. Reusing a status hue as a chart color would make a category
+look like it means "there is a date" or "urgent."
+
 ### Two rules that make it a system
 
 1. **Amber never appears on a button.** Amber means *a date exists*: timeline

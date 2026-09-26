@@ -4,6 +4,7 @@ import { addMonths } from 'date-fns';
 import { APP_NAME, LEGAL_PAGES, t, type TrackRow } from '@miftan/shared';
 import { DepartureTrack } from '@/components/shared/departure-track';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { ArrowLeft, Building2, DoorOpen, KeyRound, Scale, Search, ShieldCheck, Sigma } from 'lucide-react';
 
 /**
@@ -163,19 +164,28 @@ export function Landing() {
           </div>
         </section>
 
-        {/* ── What we will not do ───────────────────────── */}
+        {/* ── Three tenets ──────────────────────────────── */}
+        {/* A row of dividers, not a second row of cards — the roles above
+            already used the bordered/hover-lift card shape, and repeating
+            it here for an unrelated 3-item list is the thing that makes a
+            page read as a template rather than something composed. */}
         <section className="border-y border-line bg-surface">
           <div className="mx-auto max-w-6xl px-4 py-16 sm:px-8 sm:py-20">
             <h2 className="text-sm font-bold text-muted">{t.landing.principlesTitle}</h2>
-            <div className="mt-8 grid gap-10 md:grid-cols-3">
-              {(['privacy', 'fair', 'honest'] as const).map((key) => {
+            <div className="mt-8 grid gap-8 sm:grid-cols-3">
+              {(['privacy', 'fair', 'honest'] as const).map((key, i) => {
                 const item = t.landing.principles[key];
                 const Icon = PRINCIPLE_ICONS[key];
                 return (
-                  <div key={key}>
-                    <Icon className="h-5 w-5 text-ink" />
-                    <h3 className="mt-4 text-base font-bold text-ink">{item.title}</h3>
-                    <p className="mt-2 text-sm leading-6 text-ink-soft">{item.body}</p>
+                  <div
+                    key={key}
+                    className={cn('flex gap-4', i > 0 && 'sm:border-s sm:border-line sm:ps-8')}
+                  >
+                    <Icon className="mt-0.5 h-5 w-5 shrink-0 text-ink" />
+                    <div>
+                      <h3 className="text-base font-bold text-ink">{item.title}</h3>
+                      <p className="mt-2 text-sm leading-6 text-ink-soft">{item.body}</p>
+                    </div>
                   </div>
                 );
               })}
