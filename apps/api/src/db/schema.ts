@@ -80,6 +80,10 @@ export const users = pgTable(
      * There is no billing yet; the demo accounts are seeded as 'pro'.
      */
     plan: text('plan', { enum: ['free', 'pro'] }).notNull().default('free'),
+    /** Everything in the notification feed newer than this is unread. */
+    notificationsSeenAt: timestamp('notifications_seen_at', { withTimezone: true }),
+    /** Roles whose onboarding checklist this account has closed. */
+    onboardingDismissed: text('onboarding_dismissed').array().notNull().default([]),
     /** Set at registration. Required — the register route refuses to create
         an account without it, so this is never null for a real user; it stays
         nullable only because a handful of seeded rows predate the column. */

@@ -1,8 +1,10 @@
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import {
+  dismissOnboardingSchema,
   meSchema,
+  okSchema,
   renterProfileSchema,
   updateRenterProfileSchema,
   type Employment,
@@ -11,7 +13,7 @@ import {
 import { db, schema as s } from '../db/client.ts';
 import { capabilitiesFor } from '../lib/capabilities.ts';
 import { requireUser } from '../plugins/authenticate.ts';
-import { isDemoAccount, planOf } from './auth.ts';
+import { dismissedRoles, isDemoAccount, planOf } from './auth.ts';
 
 type ProfileRow = typeof s.renterProfiles.$inferSelect;
 type UserRow = typeof s.users.$inferSelect;
@@ -85,9 +87,33 @@ export async function meRoutes(app: FastifyInstance) {
           createdAt: user.createdAt.toISOString(),
           plan: planOf(user),
           isDemo: isDemoAccount(user.id),
+          onboardingDismissed: dismissedRoles(user.onboardingDismissed),
         },
         capabilities: await capabilitiesFor(id),
       };
+    },
+  );
+
+  /**
+   * Closing a role's onboarding checklist. Stored on the account, not in the
+   * browser, so it stays closed on the next phone too. Idempotent.
+   */
+  r.post(
+    '/me/onboarding/dismiss',
+    {
+      onRequest: [app.authenticate],
+      schema: { body: dismissOnboardingSchema, response: { 200: okSchema } },
+    },
+    async (request) => {
+      const { id } = requireUser(request);
+      const role = request.body.role;
+      await db
+        .update(s.users)
+        .set({
+          onboardingDismissed: sql`array(select distinct unnest(array_append(${s.users.onboardingDismissed}, ${role}::text)))`,
+        })
+        .where(eq(s.users.id, id));
+      return { ok: true as const };
     },
   );
 

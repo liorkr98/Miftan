@@ -37,6 +37,7 @@ const publicUser = (u: typeof s.users.$inferSelect) => ({
   createdAt: u.createdAt.toISOString(),
   plan: planOf(u),
   isDemo: isDemoAccount(u.id),
+  onboardingDismissed: dismissedRoles(u.onboardingDismissed),
 });
 
 /**
@@ -46,6 +47,13 @@ const publicUser = (u: typeof s.users.$inferSelect) => ({
  */
 export function planOf(u: { plan: string | null }): 'free' | 'pro' {
   return u.plan === 'pro' ? 'pro' : 'free';
+}
+
+/** Only the three known role names survive the trip out. */
+export function dismissedRoles(raw: string[] | null): Array<'owner' | 'tenant' | 'seeker'> {
+  return (raw ?? []).filter((r): r is 'owner' | 'tenant' | 'seeker' =>
+    r === 'owner' || r === 'tenant' || r === 'seeker',
+  );
 }
 
 /** Seeded accounts, and only those, have ids from seedId(): usr_seed_… */

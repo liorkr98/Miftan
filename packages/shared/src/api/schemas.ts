@@ -48,7 +48,11 @@ export const userSchema = z.object({
   plan: z.enum(['free', 'pro']),
   /** A seeded demo login. Gates demo-only affordances like the revenue lens. */
   isDemo: z.boolean(),
+  /** Roles whose onboarding checklist this account has closed */
+  onboardingDismissed: z.array(z.enum(['owner', 'tenant', 'seeker'])),
 });
+
+export const dismissOnboardingSchema = z.object({ role: z.enum(['owner', 'tenant', 'seeker']) });
 
 /**
  * What a user *is* comes from what they hold, not a column.

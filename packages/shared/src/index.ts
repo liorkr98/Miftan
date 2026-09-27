@@ -46,4 +46,5 @@ export * from './api/rent-payments';
 export * from './api/renter-profile';
 export * from './api/properties-write';
 export * from './api/invites';
+export * from './api/notifications';
 export * from './api/client';

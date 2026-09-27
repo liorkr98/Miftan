@@ -71,6 +71,13 @@
       "when": 1790494223548,
       "tag": "0009_demo_accounts_pro",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1790494959429,
+      "tag": "0010_notifications_onboarding",
+      "breakpoints": true
     }
   ]
 }

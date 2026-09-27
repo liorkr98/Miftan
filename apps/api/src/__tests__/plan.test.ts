@@ -63,4 +63,18 @@ describe('plan', () => {
     const res = await app.inject({ method: 'POST', url: '/auth/login', payload: { email, password: PASSWORD } });
     expect(res.json().user.isDemo).toBe(true);
   });
+
+  it('remembers a closed onboarding checklist, once per role', async () => {
+    const u = await signedIn();
+    expect(u.login.user.onboardingDismissed).toEqual([]);
+    const dismiss = (role: string) =>
+      app.inject({
+        method: 'POST', url: '/me/onboarding/dismiss',
+        headers: { authorization: `Bearer ${u.token}` }, payload: { role },
+      });
+    expect((await dismiss('owner')).statusCode).toBe(200);
+    await dismiss('owner');
+    expect((await me(u.token)).user.onboardingDismissed).toEqual(['owner']);
+    expect((await dismiss('admin')).statusCode).toBe(422);
+  });
 });
