@@ -37,7 +37,7 @@ export const threads: MessageThread[] = [
     counterparty_role: 'lead', counterparty_id: 's01', counterparty_name: 'טל אבירם',
     property_id: 'p02', lead_id: 'ld03', updated_at: daysAgo(1),
     messages: [
-      { id: 'm1', author_role: 'lead', author_name: 'טל אבירם', body: 'שלום, שריינתי מקום בתור לדירה בלבנדה 14. אפשר לדעת אם המרפסת פונה לרחוב או לחצר?', at: daysAgo(2), read: true },
+      { id: 'm1', author_role: 'lead', author_name: 'טל אבירם', body: 'שלום, הגשתי מועמדות לדירה בלבנדה 14. אפשר לדעת אם המרפסת פונה לרחוב או לחצר?', at: daysAgo(2), read: true },
       { id: 'm2', author_role: 'owner', author_name: OWNER, body: 'שלום טל, לחצר פנימית — הרבה יותר שקט. יש צפייה ביום שני, מעוניין?', at: daysAgo(2), read: true },
       { id: 'm3', author_role: 'lead', author_name: 'טל אבירם', body: 'בהחלט. באיזו שעה נוח לך?', at: daysAgo(1), read: false },
     ],
@@ -87,11 +87,11 @@ export const threads: MessageThread[] = [
     ],
   },
   {
-    id: 'th10', subject: 'ממתין לתור — ז׳בוטינסקי 104',
+    id: 'th10', subject: 'מועמדות — ז׳בוטינסקי 104',
     counterparty_role: 'lead', counterparty_id: 's07', counterparty_name: 'גיא סבן',
     property_id: 'p18', lead_id: 'ld27', updated_at: daysAgo(6),
     messages: [
-      { id: 'm1', author_role: 'lead', author_name: 'גיא סבן', body: 'שלום, אני בתור לדירה בז׳בוטינסקי. יש כבר תאריך פינוי סופי?', at: daysAgo(7), read: true },
+      { id: 'm1', author_role: 'lead', author_name: 'גיא סבן', body: 'שלום, הגשתי מועמדות לדירה בז׳בוטינסקי. יש כבר תאריך פינוי סופי?', at: daysAgo(7), read: true },
       { id: 'm2', author_role: 'owner', author_name: OWNER, body: 'החוזה מסתיים בעוד ארבעה חודשים. הדיירים עדיין לא החליטו אם מאריכים — ברגע שיש תשובה תעודכן.', at: daysAgo(6), read: true },
     ],
   },

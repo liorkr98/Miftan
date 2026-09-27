@@ -80,7 +80,10 @@ export function OwnerUnitDetail() {
 
   const owned = property?.scope === 'owner' ? property : undefined;
   const unitTickets = tickets.filter((tk): tk is TicketView & { scope: 'owner' } => tk.scope === 'owner');
-  const unitLeads = leads.filter((l): l is OwnerLead => l.scope === 'owner');
+  /* Ranked by screening score — there is no queue order. */
+  const unitLeads = leads
+    .filter((l): l is OwnerLead => l.scope === 'owner')
+    .sort((a, b) => b.score - a.score);
   const unitExpenses = [...(expenseData?.expenses ?? [])].sort((a, b) => b.date.localeCompare(a.date));
 
   if (isError) return <ErrorState onRetry={() => void refetch()} />;
@@ -518,7 +521,7 @@ function LeadsTab({ property, leads }: { property: OwnerProperty; leads: OwnerLe
               >
                 <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-surface-sunk">
                   <Num board className="text-xs font-bold text-ink-soft">
-                    {lead.queuePosition}
+                    {lead.score}
                   </Num>
                 </span>
                 <span className="min-w-0 flex-1">

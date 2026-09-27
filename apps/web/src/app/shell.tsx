@@ -40,7 +40,7 @@ import {
   Home,
   LogOut,
   ListChecks,
-  MapPin,
+  Send,
   RotateCcw,
   Search,
   Users,
@@ -426,7 +426,7 @@ export function SeekerShell() {
 
   const items: NavItem[] = [
     { to: '/search', label: t.seekerNav.search, Icon: Search, end: true },
-    { to: '/search/queue', label: t.seekerNav.queue, Icon: MapPin, count: queued },
+    { to: '/search/queue', label: t.seekerNav.queue, Icon: Send, count: queued },
     { to: '/search/profile', label: t.seekerNav.profile, Icon: Users },
     ...(capabilities?.isTenant ? [{ to: '/tenant', label: t.tenantNav.home, Icon: Home }] : []),
   ];

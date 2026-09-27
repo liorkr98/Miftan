@@ -643,11 +643,6 @@ function ResultRow({
               size="sm"
               withCountdown
             />
-            {row.queueLength > 0 ? (
-              <Badge tone="outline" size="sm">
-                <Num board>{row.queueLength}</Num> {t.seeker.search.inQueue}
-              </Badge>
-            ) : null}
             {queued ? (
               <Badge tone="openSoft" size="sm">
                 {t.seeker.listing.reserved}

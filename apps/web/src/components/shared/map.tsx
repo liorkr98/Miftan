@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { MapContainer, Marker, TileLayer, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { formatDateShort, formatMoneyShort } from '@miftan/shared';
+import { formatDateShortYear, formatMoneyShort } from '@miftan/shared';
 import type { AvailabilityKind } from '@/data/selectors';
 import { AVAILABILITY_COLOR } from './status';
 
@@ -142,7 +142,7 @@ export function ResultsMap({
           icon={pinIcon(
             listing.availabilityKind,
             formatMoneyShort(listing.monthlyRentShekels),
-            listing.availableDate ? formatDateShort(listing.availableDate) : undefined,
+            listing.availableDate ? formatDateShortYear(listing.availableDate) : undefined,
             activeId === listing.id,
           )}
           eventHandlers={{ click: () => onSelect(listing.id) }}
