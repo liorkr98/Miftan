@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="בעל הבית">
-  <!-- Monogram of the wordmark: ב on ink, the amber full stop to its left (the end of a Hebrew line). -->
+  <!-- Monogram of the wordmark: ב on ink, closed by the small amber house to its left (the end of a Hebrew line). -->
   <rect width="32" height="32" rx="7" fill="#281E19"/>
-  <text x="18.5" y="23" text-anchor="middle" font-family="Assistant, 'Segoe UI', 'Arial Hebrew', Arial, sans-serif" font-weight="800" font-size="20" fill="#F6F3EF">ב</text>
-  <circle cx="8" cy="21.4" r="2.3" fill="#EBAC39"/>
+  <text x="19" y="23" text-anchor="middle" font-family="Assistant, 'Segoe UI', 'Arial Hebrew', Arial, sans-serif" font-weight="800" font-size="20" fill="#F6F3EF">ב</text>
+  <path d="M4.5 22.5 8 19.4l3.5 3.1V25h-7z" fill="#EBAC39"/>
 </svg>
