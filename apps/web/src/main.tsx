@@ -9,6 +9,11 @@ import { router } from './app/routes';
 import './styles/app.css';
 import 'leaflet/dist/leaflet.css';
 
+/* iOS Safari only applies :active on touch when the document has a touch
+   listener. Without this every press-scale in the app is invisible on an
+   iPhone — exactly where most tenants use it. Passive, so it costs nothing. */
+document.addEventListener('touchstart', () => {}, { passive: true });
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     {/* Radix reads direction from here — menus, selects and sliders all flip */}

@@ -97,6 +97,8 @@
 
   html {
     -webkit-text-size-adjust: 100%;
+    /* The grey tap flash competes with the press scale; the scale is the feedback. */
+    -webkit-tap-highlight-color: transparent;
   }
 
   body {
@@ -177,9 +179,13 @@
     transition-duration: 140ms !important;
   }
 
+  /* The scale goes; the confirmation that the press registered stays, as a
+     dim — reduced motion means gentler, not silent. */
   .press:active,
+  .press-sm:active,
   button:active {
     transform: none !important;
+    opacity: 0.82;
   }
 }
 
@@ -232,17 +238,28 @@
 @layer utilities {
   /* Press feedback. Every pressable surface gets this — it is the single
      cheapest thing that makes an interface feel like it is listening. */
-  .press {
-    transition: transform var(--dur-press) var(--ease-out);
+  /* Per emil-design-eng:
+     - the scale is the only movement, ease-out, inside 100–160ms;
+     - colour on hover is not movement, so it takes plain `ease`;
+     - timing is asymmetric: the press is the deliberate phase and takes the
+       full 160ms, the release is the system answering and snaps back in
+       110ms. Symmetric press-and-release reads as mechanical. */
+  .press,
+  .press-sm {
+    transition:
+      transform 110ms var(--ease-out),
+      background-color var(--dur-press) ease,
+      color var(--dur-press) ease,
+      border-color var(--dur-press) ease,
+      box-shadow var(--dur-press) ease,
+      opacity var(--dur-press) ease;
+  }
+  .press:active,
+  .press-sm:active {
+    transition-duration: 160ms, var(--dur-press), var(--dur-press), var(--dur-press), var(--dur-press), var(--dur-press);
   }
   .press:active {
     transform: scale(0.97);
-  }
-  /* Carries its own transition: it is used standalone far more often than
-     alongside `.press`, and without one the scale snaps in both directions —
-     which reads as a glitch rather than as the interface listening. */
-  .press-sm {
-    transition: transform var(--dur-press) var(--ease-out);
   }
   .press-sm:active {
     transform: scale(0.985);
