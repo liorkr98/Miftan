@@ -5,7 +5,8 @@ import { APP_NAME, LEGAL_PAGES, t, type TrackRow } from '@miftan/shared';
 import { DepartureTrack } from '@/components/shared/departure-track';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { ArrowLeft, Building2, DoorOpen, KeyRound, Scale, Search, ShieldCheck, Sigma } from 'lucide-react';
+import { ArrowLeft, Building2, KeyRound, Scale, Search, ShieldCheck, Sigma } from 'lucide-react';
+import { Wordmark } from '@/components/shared/wordmark';
 
 /**
  * The page before sign-in.
@@ -64,11 +65,8 @@ export function Landing() {
     <div className="min-h-dvh bg-bg text-ink">
       {/* ── Top bar ─────────────────────────────────────── */}
       <header className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-5 sm:px-8">
-        <Link to="/" className="flex min-h-11 items-center gap-2.5">
-          <span className="grid h-9 w-9 place-items-center rounded-[10px] bg-ink text-on-ink">
-            <DoorOpen className="h-[18px] w-[18px]" strokeWidth={2.5} />
-          </span>
-          <span className="text-lg font-extrabold text-ink">{APP_NAME}</span>
+        <Link to="/" aria-label={APP_NAME} className="flex min-h-11 items-center">
+          <Wordmark size="md" />
         </Link>
         <nav className="ms-auto flex items-center gap-1.5">
           <Button asChild variant="quiet" size="sm">

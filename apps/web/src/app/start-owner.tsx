@@ -4,7 +4,8 @@ import { APP_NAME, t } from '@miftan/shared';
 import { useAuth } from '@/api/auth';
 import { AddPropertyDialog } from '@/personas/owner/properties';
 import { Button } from '@/components/ui/button';
-import { Building2, DoorOpen } from 'lucide-react';
+import { Building2 } from 'lucide-react';
+import { Wordmark } from '@/components/shared/wordmark';
 
 /**
  * The way into the owner role.
@@ -23,11 +24,8 @@ export function StartOwner() {
   return (
     <div className="grid min-h-dvh place-items-center bg-surface px-4 py-10">
       <div className="w-full max-w-md text-center">
-        <Link to="/" className="mx-auto mb-6 flex w-fit items-center gap-2.5">
-          <span className="grid h-10 w-10 place-items-center rounded-[10px] bg-ink text-on-ink">
-            <DoorOpen className="h-5 w-5" strokeWidth={2.5} />
-          </span>
-          <span className="text-xl font-extrabold text-ink">{APP_NAME}</span>
+        <Link to="/" aria-label={APP_NAME} className="mx-auto mb-6 flex w-fit items-center">
+          <Wordmark size="lg" />
         </Link>
         <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-bg text-ink">
           <Building2 className="h-6 w-6" />

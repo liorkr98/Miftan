@@ -12,7 +12,7 @@ import {
 } from '@/api/hooks';
 import { useAuth } from '@/api/auth';
 import { queryClient } from '@/api/query';
-import { APP_NAME, t, daysUntil } from '@miftan/shared';
+import { t, daysUntil } from '@miftan/shared';
 import { cn } from '@/lib/utils';
 import { RoleSwitcher } from './role-switcher';
 import { Toaster } from '@/components/shared/toaster';
@@ -52,6 +52,7 @@ import {
   Star,
   Tag,
 } from 'lucide-react';
+import { Wordmark } from '@/components/shared/wordmark';
 
 interface NavItem {
   to: string;
@@ -82,12 +83,7 @@ function TopBar() {
       className="sticky top-0 flex h-14 shrink-0 items-center gap-3 bg-ink px-3 sm:px-4"
     >
       <div className="flex shrink-0 items-center gap-2">
-        <span className="grid h-7 w-7 place-items-center overflow-hidden rounded-[8px] bg-signal" title={APP_NAME}>
-          <img src="/favicon.svg" alt="" width={28} height={28} className="h-7 w-7" />
-        </span>
-        <span className="hidden text-base font-extrabold tracking-[-0.01em] text-on-ink sm:inline">
-          {APP_NAME}
-        </span>
+        <Wordmark size="sm" onInk />
         <span className="hidden rounded-full bg-white/10 px-2 py-0.5 text-2xs font-bold text-on-ink-muted lg:inline">
           {t.shell.demoBadge}
         </span>

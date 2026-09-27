@@ -234,7 +234,7 @@ export const affiliateOffers: AffiliateOffer[] = [
     platform_revenue: 315,
     placement: 'lease',
     cta: 'קבל הצעה',
-    disclosure: 'מפתן מקבלת עמלה מהמבטח על פוליסה שנסגרת. זה לא משפיע על המחיר שלך.',
+    disclosure: 'אנחנו מקבלים עמלה מהמבטח על פוליסה שנסגרת. זה לא משפיע על המחיר שלך.',
   },
   {
     id: 'of-ins-tenant',
@@ -248,7 +248,7 @@ export const affiliateOffers: AffiliateOffer[] = [
     platform_revenue: 90,
     placement: 'tenant_home',
     cta: 'קבל הצעה',
-    disclosure: 'מפתן מקבלת עמלה מהמבטח. בעל הדירה לא רואה אם רכשת ולא מקבל דיווח.',
+    disclosure: 'אנחנו מקבלים עמלה מהמבטח. בעל הדירה לא רואה אם רכשת ולא מקבל דיווח.',
   },
   {
     id: 'of-clean-out',
@@ -262,7 +262,7 @@ export const affiliateOffers: AffiliateOffer[] = [
     platform_revenue: 135,
     placement: 'protocol_move_out',
     cta: 'הזמן ניקיון',
-    disclosure: 'מפתן מקבלת עמלה על הזמנה שנסגרת דרך המערכת.',
+    disclosure: 'אנחנו מקבלים עמלה על הזמנה שנסגרת דרך המערכת.',
   },
   {
     id: 'of-paint',
@@ -276,7 +276,7 @@ export const affiliateOffers: AffiliateOffer[] = [
     platform_revenue: 450,
     placement: 'protocol_move_out',
     cta: 'קבל הצעת מחיר',
-    disclosure: 'מפתן מקבלת עמלה על עבודה שנסגרת דרך המערכת.',
+    disclosure: 'אנחנו מקבלים עמלה על עבודה שנסגרת דרך המערכת.',
   },
   {
     id: 'of-sofa',
@@ -290,7 +290,7 @@ export const affiliateOffers: AffiliateOffer[] = [
     platform_revenue: 60,
     placement: 'tenant_home',
     cta: 'הזמן',
-    disclosure: 'מפתן מקבלת עמלה על הזמנה שנסגרת דרך המערכת.',
+    disclosure: 'אנחנו מקבלים עמלה על הזמנה שנסגרת דרך המערכת.',
   },
   {
     id: 'of-moving',
@@ -305,21 +305,21 @@ export const affiliateOffers: AffiliateOffer[] = [
     platform_revenue: 180,
     placement: 'queue',
     cta: 'קבל הצעה',
-    disclosure: 'מפתן מקבלת דמי ליד מהמוביל. אין לזה שום השפעה על המועמדות שלך.',
+    disclosure: 'אנחנו מקבלים דמי ליד מהמוביל. אין לזה שום השפעה על המועמדות שלך.',
   },
   {
     id: 'of-inspect',
     stream_id: 'rs-seasonal',
     audience: 'owner',
     title: 'חבילת תחזוקה עונתית',
-    provider: 'רשת בעלי המקצוע של מפתן',
+    provider: 'רשת בעלי המקצוע שלנו',
     pitch: 'כל משימות העונה לכל הדירות בתיק, בתיאום אחד ובמחיר תיק במקום קריאה בודדת.',
     price_from: 290,
     price_unit: 'לדירה לעונה',
     platform_revenue: 85,
     placement: 'seasonal',
     cta: 'תזמן לכל התיק',
-    disclosure: 'מפתן מקבלת עמלה על טיפול שנסגר דרך הרשת. הספקים מדורגים לפי ביצועים בלבד.',
+    disclosure: 'אנחנו מקבלים עמלה על טיפול שנסגר דרך הרשת. הספקים מדורגים לפי ביצועים בלבד.',
   },
   {
     id: 'of-ins-movein',
@@ -333,7 +333,7 @@ export const affiliateOffers: AffiliateOffer[] = [
     platform_revenue: 90,
     placement: 'protocol_move_in',
     cta: 'שלח לדייר',
-    disclosure: 'מפתן מקבלת עמלה מהמבטח. הדייר רשאי להביא פוליסה מכל מבטח אחר.',
+    disclosure: 'אנחנו מקבלים עמלה מהמבטח. הדייר רשאי להביא פוליסה מכל מבטח אחר.',
   },
   {
     id: 'of-legal-review',
@@ -347,7 +347,7 @@ export const affiliateOffers: AffiliateOffer[] = [
     platform_revenue: 0,
     placement: 'contract_review',
     cta: 'שלח לבדיקה',
-    disclosure: 'המשרד משלם למפתן דמי רישום חודשיים קבועים כדי להופיע כאן. מפתן לא מקבלת אחוז משכר הטרחה, והתשלום לא תלוי בכך שתזמין. אפשר תמיד לבחור עורך דין אחר.',
+    disclosure: 'המשרד משלם לנו דמי רישום חודשיים קבועים כדי להופיע כאן. אנחנו לא מקבלים אחוז משכר הטרחה, והתשלום לא תלוי בכך שתזמין. אפשר תמיד לבחור עורך דין אחר.',
   },
   {
     id: 'of-legal-dispute',
@@ -361,7 +361,7 @@ export const affiliateOffers: AffiliateOffer[] = [
     platform_revenue: 0,
     placement: 'contract_review',
     cta: 'קבע פגישה',
-    disclosure: 'המשרד משלם למפתן דמי רישום חודשיים קבועים כדי להופיע כאן. מפתן לא מקבלת אחוז משכר הטרחה, והתשלום לא תלוי בכך שתזמין. אפשר תמיד לבחור עורך דין אחר.',
+    disclosure: 'המשרד משלם לנו דמי רישום חודשיים קבועים כדי להופיע כאן. אנחנו לא מקבלים אחוז משכר הטרחה, והתשלום לא תלוי בכך שתזמין. אפשר תמיד לבחור עורך דין אחר.',
   },
   {
     id: 'of-legal-renter',
@@ -375,6 +375,6 @@ export const affiliateOffers: AffiliateOffer[] = [
     platform_revenue: 0,
     placement: 'queue',
     cta: 'שלח לבדיקה',
-    disclosure: 'המשרד משלם למפתן דמי רישום חודשיים קבועים כדי להופיע כאן. מפתן לא מקבלת אחוז משכר הטרחה, והתשלום לא תלוי בכך שתזמין. אפשר תמיד לבחור עורך דין אחר. בעל הדירה לא יודע אם הזמנת בדיקה.',
+    disclosure: 'המשרד משלם לנו דמי רישום חודשיים קבועים כדי להופיע כאן. אנחנו לא מקבלים אחוז משכר הטרחה, והתשלום לא תלוי בכך שתזמין. אפשר תמיד לבחור עורך דין אחר. בעל הדירה לא יודע אם הזמנת בדיקה.',
   },
 ];

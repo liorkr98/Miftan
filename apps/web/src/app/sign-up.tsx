@@ -6,7 +6,8 @@ import { homeFor } from './guard';
 import { rolesFor } from './role-switcher';
 import { Button } from '@/components/ui/button';
 import { Checkbox, Field, Input } from '@/components/ui/field';
-import { DoorOpen, UserPlus } from 'lucide-react';
+import { UserPlus } from 'lucide-react';
+import { Wordmark } from '@/components/shared/wordmark';
 
 const MIN_PASSWORD = 10;
 
@@ -77,14 +78,13 @@ export function SignUp() {
   return (
     <div className="grid min-h-dvh place-items-center bg-surface px-4 py-10">
       <div className="w-full max-w-sm">
-        <header className="mb-6 flex items-center gap-3">
-          <span className="grid size-10 place-items-center rounded-[var(--radius-control)] bg-ink text-on-ink">
-            <DoorOpen className="size-5" aria-hidden />
-          </span>
-          <div>
-            <h1 className="text-xl font-extrabold text-ink">{APP_NAME}</h1>
-            <p className="text-xs text-muted">{t.auth.signUpSubtitle}</p>
-          </div>
+        <header className="mb-6">
+          <h1>
+            <Link to="/" aria-label={APP_NAME}>
+              <Wordmark size="lg" />
+            </Link>
+          </h1>
+          <p className="mt-1.5 text-xs text-muted">{t.auth.signUpSubtitle}</p>
         </header>
 
         <form

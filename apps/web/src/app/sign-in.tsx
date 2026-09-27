@@ -7,7 +7,8 @@ import { rolesFor } from './role-switcher';
 import { Button } from '@/components/ui/button';
 import { Field, Input } from '@/components/ui/field';
 import { cn } from '@/lib/utils';
-import { DoorOpen, LogIn } from 'lucide-react';
+import { LogIn } from 'lucide-react';
+import { Wordmark } from '@/components/shared/wordmark';
 
 /**
  * Seeded accounts, so the three sides of the product are one click apart.
@@ -58,14 +59,13 @@ export function SignIn() {
   return (
     <div className="grid min-h-dvh place-items-center bg-surface px-4 py-10">
       <div className="w-full max-w-sm">
-        <div className="mb-6 flex items-center gap-2.5">
-          <span className="grid h-10 w-10 place-items-center rounded-[10px] bg-ink text-on-ink">
-            <DoorOpen className="h-5 w-5" strokeWidth={2.5} />
-          </span>
-          <div>
-            <h1 className="text-xl font-extrabold tracking-[-0.01em] text-ink">{APP_NAME}</h1>
-            <p className="text-2xs text-muted">{t.auth.subtitle}</p>
-          </div>
+        <div className="mb-6">
+          <h1>
+            <Link to="/" aria-label={APP_NAME}>
+              <Wordmark size="lg" />
+            </Link>
+          </h1>
+          <p className="mt-1.5 text-2xs text-muted">{t.auth.subtitle}</p>
         </div>
 
         <form

@@ -1,7 +1,7 @@
 {
-  "name": "מפתן",
-  "short_name": "מפתן",
-  "description": "ניהול השכרה, מהמפתן ועד סוף החוזה",
+  "name": "בעל הבית",
+  "short_name": "בעל הבית",
+  "description": "ניהול השכרה, מהחתימה ועד סוף החוזה",
   "lang": "he",
   "dir": "rtl",
   "start_url": "/",

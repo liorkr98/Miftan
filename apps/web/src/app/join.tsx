@@ -8,7 +8,8 @@ import { Money, Num } from '@/components/shared/typography';
 import { EmptyState } from '@/components/shared/empty-state';
 import { ListSkeleton } from '@/components/shared/skeleton';
 import { Button } from '@/components/ui/button';
-import { DoorOpen, KeyRound, LinkIcon } from 'lucide-react';
+import { KeyRound, LinkIcon } from 'lucide-react';
+import { Wordmark } from '@/components/shared/wordmark';
 
 /**
  * Where an invite link lands.
@@ -31,11 +32,8 @@ export function Join() {
   const shell = (children: ReactNode) => (
     <div className="grid min-h-dvh place-items-center bg-surface px-4 py-10">
       <div className="w-full max-w-md">
-        <Link to="/" className="mb-6 flex items-center gap-2.5">
-          <span className="grid h-10 w-10 place-items-center rounded-[10px] bg-ink text-on-ink">
-            <DoorOpen className="h-5 w-5" strokeWidth={2.5} />
-          </span>
-          <span className="text-xl font-extrabold text-ink">{APP_NAME}</span>
+        <Link to="/" aria-label={APP_NAME} className="mb-6 flex w-fit items-center">
+          <Wordmark size="lg" />
         </Link>
         {children}
       </div>

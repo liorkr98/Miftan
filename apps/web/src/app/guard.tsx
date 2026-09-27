@@ -1,10 +1,10 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
-import { APP_NAME, t } from '@miftan/shared';
+import { t } from '@miftan/shared';
 import { useAuth } from '@/api/auth';
 import { EmptyState } from '@/components/shared/empty-state';
 import { rolesFor, roleFromPath, type Role } from './role-switcher';
-import { DoorOpen } from 'lucide-react';
 import { Landing } from './landing';
+import { Wordmark } from '@/components/shared/wordmark';
 
 /**
  * Nothing renders until the session question is settled.
@@ -36,10 +36,7 @@ export function RequireAuth() {
 function Splash() {
   return (
     <div className="grid min-h-dvh place-items-center bg-surface">
-      <div className="flex items-center gap-2.5 text-muted">
-        <DoorOpen className="h-5 w-5 animate-pulse" />
-        <span className="text-sm font-semibold">{APP_NAME}</span>
-      </div>
+      <Wordmark size="lg" className="animate-pulse" />
     </div>
   );
 }

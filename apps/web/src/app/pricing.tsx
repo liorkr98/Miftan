@@ -12,9 +12,10 @@ import { Money, Num } from '@/components/shared/typography';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { ArrowLeft, Check, DoorOpen, KeyRound, Search } from 'lucide-react';
+import { ArrowLeft, Check, KeyRound, Search } from 'lucide-react';
 import { homeFor } from './guard';
 import { rolesFor } from './role-switcher';
+import { Wordmark } from '@/components/shared/wordmark';
 
 /**
  * One price list for all three sides.
@@ -33,11 +34,8 @@ export function Pricing() {
   return (
     <div className="min-h-dvh bg-bg text-ink">
       <header className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-5 sm:px-8">
-        <Link to="/" className="flex min-h-11 items-center gap-2.5">
-          <span className="grid h-9 w-9 place-items-center rounded-[10px] bg-ink text-on-ink">
-            <DoorOpen className="h-[18px] w-[18px]" strokeWidth={2.5} />
-          </span>
-          <span className="text-lg font-extrabold text-ink">{APP_NAME}</span>
+        <Link to="/" aria-label={APP_NAME} className="flex min-h-11 items-center">
+          <Wordmark size="md" />
         </Link>
         <nav className="ms-auto flex items-center gap-1.5">
           {home ? (
