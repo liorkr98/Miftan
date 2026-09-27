@@ -20,6 +20,10 @@ on:
         description: 'Load the demo data. First run only — the seed is not idempotent.'
         type: boolean
         default: false
+      reset:
+        description: 'WIPE the database first (all data lost), then migrate and seed. Demo only.'
+        type: boolean
+        default: false
 
 concurrency:
   group: deploy-api
@@ -42,13 +46,22 @@ jobs:
 
       # Direct connection: migrations and the seed need a session, not a
       # transaction-mode pooler.
+      # Destructive, and only when ticked: drops every table so the demo can be
+      # re-seeded from scratch. The seed is not idempotent, so a changed seed
+      # needs this rather than a second seed run.
+      - name: Reset database
+        if: ${{ inputs.reset }}
+        run: npm run db:reset -w @miftan/api
+        env:
+          DATABASE_URL: ${{ secrets.NEON_DIRECT_URL }}
+
       - name: Migrate
         run: npm run db:migrate -w @miftan/api
         env:
           DATABASE_URL: ${{ secrets.NEON_DIRECT_URL }}
 
       - name: Seed demo data
-        if: ${{ inputs.seed }}
+        if: ${{ inputs.seed || inputs.reset }}
         run: npm run db:seed -w @miftan/api
         env:
           DATABASE_URL: ${{ secrets.NEON_DIRECT_URL }}

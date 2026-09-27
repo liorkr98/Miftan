@@ -58,3 +58,14 @@ jobs:
 
       - name: Test
         run: npm test
+
+      # The seed is not covered by the tests, and a broken seed is only found
+      # the day someone resets the demo. Run it against a clean database here.
+      - name: Seed smoke test
+        run: |
+          npm run db:reset -w @miftan/api
+          npm run db:migrate -w @miftan/api
+          npm run db:seed -w @miftan/api
+        env:
+          DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/miftan_test
+          JWT_SECRET: seed-only-placeholder-that-is-long-enough-to-validate
