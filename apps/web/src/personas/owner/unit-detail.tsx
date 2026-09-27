@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useStore } from '@/data/store';
 import {
   t,
@@ -34,6 +34,7 @@ import {
 import { DepartureTrack } from '@/components/shared/departure-track';
 import { ProtocolPanel } from '@/components/shared/protocol';
 import { OfferRail } from '@/components/shared/revenue';
+import { InviteCard } from './invite-card';
 import { Money, Num, PageHeader, Phone, SectionTitle } from '@/components/shared/typography';
 import { EmptyState } from '@/components/shared/empty-state';
 import { ErrorState } from '@/components/shared/error-state';
@@ -67,6 +68,8 @@ function amenityLabel(key: string): string {
 }
 
 export function OwnerUnitDetail() {
+  /* ?tab=lease lets the properties list link straight to the invite. */
+  const [searchParams] = useSearchParams();
   const { id = '' } = useParams();
   const navigate = useNavigate();
   const { data: property, isLoading, isError, refetch } = useProperty(id);
@@ -167,7 +170,7 @@ export function OwnerUnitDetail() {
         />
       ) : null}
 
-      <Tabs defaultValue="details">
+      <Tabs defaultValue={searchParams.get('tab') ?? 'details'}>
         <TabsList>
           <TabsTrigger value="details">{t.unit.tabs.details}</TabsTrigger>
           <TabsTrigger value="lease">{t.unit.tabs.lease}</TabsTrigger>
@@ -287,7 +290,15 @@ function LeaseTab({ property }: { property: OwnerProperty }) {
 
   if (!lease) {
     return (
-      <EmptyState icon={FileText} title={t.unit.lease.noLease} hint={t.unit.lease.noLeaseHint} />
+      <div className="grid gap-4 md:grid-cols-2">
+        <EmptyState
+          icon={FileText}
+          title={t.unit.lease.noLease}
+          hint={t.unit.lease.noLeaseHint}
+          className="md:col-span-2"
+        />
+        <InviteCard property={property} />
+      </div>
     );
   }
 
@@ -387,6 +398,7 @@ function LeaseTab({ property }: { property: OwnerProperty }) {
         </div>
       </section>
 
+      <InviteCard property={property} />
       <OfferRail placement="lease" audience="owner" className="md:col-span-2" />
     </div>
   );

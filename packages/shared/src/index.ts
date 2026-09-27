@@ -25,6 +25,7 @@ export * from './api/directory';
 export * from './api/leads';
 export * from './api/inquiries';
 export * from './catalog/regions';
+export * from './catalog/pricing';
 export * from './catalog/protocol-items';
 export * from './catalog/contract-templates';
 export * from './catalog/legal-content';

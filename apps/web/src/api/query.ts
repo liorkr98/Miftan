@@ -53,4 +53,6 @@ export const keys = {
   viewings: (propertyId: string) => ['viewings', propertyId] as const,
   briefings: ['viewings', 'briefings'] as const,
   reviews: (userId?: string) => ['reviews', userId ?? 'me'] as const,
+  invites: (propertyId: string) => ['invites', propertyId] as const,
+  invitePreview: (token: string) => ['invite-preview', token] as const,
 };

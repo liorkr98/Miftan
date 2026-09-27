@@ -48,6 +48,7 @@ import {
   Coins,
   Lock,
   Star,
+  Tag,
 } from 'lucide-react';
 
 interface NavItem {
@@ -60,6 +61,9 @@ interface NavItem {
       can see is a reason to ask about the plan; a feature they never knew
       existed is not. */
   premium?: boolean;
+  /** Top navigation only. A phone's bottom bar holds five tabs before the
+      labels stop fitting; the rest stay reachable from the page itself. */
+  secondary?: boolean;
 }
 
 /* ── Top bar — the one dark band, present in every persona ─── */
@@ -92,6 +96,13 @@ function TopBar() {
       </div>
 
       <div className="flex shrink-0 items-center gap-1">
+        <NavLink
+          to="/pricing"
+          className="press hidden items-center gap-1.5 rounded-[var(--radius-control)] px-2.5 py-1.5 text-xs font-semibold text-on-ink-muted hover:bg-white/10 hover:text-on-ink sm:flex"
+        >
+          <Tag className="h-3.5 w-3.5" />
+          <span className="hidden md:inline">{t.pricing.nav}</span>
+        </NavLink>
         <RevenueLensToggle />
         <button
           type="button"
@@ -173,7 +184,8 @@ function RailLink({ item }: { item: NavItem }) {
   );
 }
 
-function BottomTabs({ items }: { items: NavItem[] }) {
+function BottomTabs({ items: all }: { items: NavItem[] }) {
+  const items = all.filter((item) => !item.secondary);
   return (
     <nav
       aria-label={t.shell.mainNav}
@@ -379,9 +391,11 @@ export function TenantShell() {
     { to: '/tenant', label: t.tenantNav.home, Icon: Home, end: true },
     { to: '/tenant/report', label: t.tenantNav.report, Icon: Wrench },
     { to: '/tenant/tickets', label: t.tenantNav.tickets, Icon: ListChecks, count: open },
-    { to: '/tenant/renewal', label: t.tenantNav.renewal, Icon: CalendarCheck2 },
     { to: '/tenant/documents', label: t.tenantNav.documents, Icon: FileText },
-    { to: '/tenant/reviews', label: t.tenantNav.reviews, Icon: Star },
+    { to: '/tenant/renewal', label: t.tenantNav.renewal, Icon: CalendarCheck2, secondary: true },
+    { to: '/tenant/reviews', label: t.tenantNav.reviews, Icon: Star, secondary: true },
+    /* Renting a flat does not stop someone looking for the next one. */
+    { to: '/search', label: t.tenantNav.search, Icon: Search },
   ];
 
   return (
@@ -407,12 +421,14 @@ export function SeekerShell() {
   const main = React.useRef<HTMLElement>(null!);
   useScrollReset(main);
 
+  const { capabilities } = useAuth();
   const queued = leads.filter((l) => l.scope === 'seeker' && !l.watchOnly).length;
 
   const items: NavItem[] = [
     { to: '/search', label: t.seekerNav.search, Icon: Search, end: true },
     { to: '/search/queue', label: t.seekerNav.queue, Icon: MapPin, count: queued },
     { to: '/search/profile', label: t.seekerNav.profile, Icon: Users },
+    ...(capabilities?.isTenant ? [{ to: '/tenant', label: t.tenantNav.home, Icon: Home }] : []),
   ];
 
   return (

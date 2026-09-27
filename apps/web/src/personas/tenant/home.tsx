@@ -21,7 +21,7 @@ import { Badge } from '@/components/ui/badge';
 import { Meter } from '@/components/shared/meter';
 import { Skeleton } from '@/components/shared/skeleton';
 import { addMonths, parseISO, subDays } from 'date-fns';
-import { CalendarCheck2, FileText, KeyRound, ListChecks, Wrench } from 'lucide-react';
+import { CalendarCheck2, FileText, KeyRound, ListChecks, Star, Wrench } from 'lucide-react';
 
 /** Statuses that still want the tenant's attention. */
 const OPEN = ['new', 'approved', 'assigned', 'in_progress', 'awaiting_receipt'];
@@ -91,6 +91,7 @@ export function TenantHome() {
     { to: '/tenant/tickets', label: t.tenant.myTickets, Icon: ListChecks, count: openTickets.length },
     { to: '/tenant/renewal', label: t.tenant.renewal, Icon: CalendarCheck2 },
     { to: '/tenant/documents', label: t.tenant.documentsLink, Icon: FileText },
+    { to: '/tenant/reviews', label: t.tenantNav.reviews, Icon: Star },
   ];
 
   return (

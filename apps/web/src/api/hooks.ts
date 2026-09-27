@@ -29,6 +29,10 @@ import type {
   TemplateView,
   RenderedContract,
   UpdatePropertyInput,
+  CreateInviteInput,
+  CreatedInvite,
+  InvitePreview,
+  OwnerInvite,
 } from '@miftan/shared';
 
 /* Shapes the client assembles from an endpoint rather than importing whole. */
@@ -760,5 +764,57 @@ export function useWriteReview() {
     mutationFn: (body: Record<string, unknown>) =>
       api.request<ReviewView>('/reviews', { method: 'POST', body: JSON.stringify(body) }),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['reviews'] }),
+  });
+}
+
+/* ── Tenant invites ───────────────────────────────────── */
+
+export function useInvites(propertyId: string) {
+  return useQuery({
+    queryKey: keys.invites(propertyId),
+    queryFn: () => api.request<{ invites: OwnerInvite[] }>(`/properties/${propertyId}/invites`),
+    select: (data) => data.invites,
+    enabled: Boolean(propertyId),
+  });
+}
+
+export function useCreateInvite(propertyId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: CreateInviteInput) =>
+      api.request<CreatedInvite>(`/properties/${propertyId}/invites`, { method: 'POST', body: JSON.stringify(body) }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: keys.invites(propertyId) }),
+  });
+}
+
+export function useRevokeInvite(propertyId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.request<{ ok: true }>(`/invites/${id}`, { method: 'DELETE' }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: keys.invites(propertyId) }),
+  });
+}
+
+/** Public: works signed out, because the person holding the link may not have an account yet. */
+export function useInvitePreview(token: string) {
+  return useQuery({
+    queryKey: keys.invitePreview(token),
+    queryFn: () => api.request<InvitePreview>(`/join/${encodeURIComponent(token)}`),
+    enabled: Boolean(token),
+  });
+}
+
+export function useAcceptInvite() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (token: string) =>
+      api.request<{ propertyId: string; leaseId: string }>(`/join/${encodeURIComponent(token)}/accept`, {
+        method: 'POST',
+      }),
+    onSuccess: () => {
+      /* The account just became a tenant: its properties and its roles change. */
+      void qc.invalidateQueries({ queryKey: keys.properties });
+      void qc.invalidateQueries({ queryKey: keys.me });
+    },
   });
 }

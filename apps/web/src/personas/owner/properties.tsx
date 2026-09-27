@@ -40,7 +40,7 @@ import {
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import type { UnitStatus } from '@miftan/shared';
-import { Home, LayoutGrid, Plus, Rows3 } from 'lucide-react';
+import { Home, LayoutGrid, Plus, Rows3, UserPlus } from 'lucide-react';
 
 type View = 'table' | 'cards';
 
@@ -237,7 +237,27 @@ export function OwnerProperties() {
                         {formatAgorot(property.monthlyRentAgorot)}
                       </Num>
                     </td>
-                    <td className="p-3 text-sm text-ink-soft">{owned?.tenant?.name ?? '—'}</td>
+                    <td className="p-3 text-sm text-ink-soft">
+                      {owned?.tenant ? (
+                        owned.tenant.name
+                      ) : owned ? (
+                        /* The only way a tenant joins is a link from the owner, so
+                           an empty tenant cell is where that link starts. */
+                        <button
+                          type="button"
+                          className="press-sm inline-flex items-center gap-1 rounded-[var(--radius-control)] px-1.5 py-0.5 text-xs font-semibold text-ink underline-offset-2 hover:underline"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/owner/properties/${property.id}?tab=lease`);
+                          }}
+                        >
+                          <UserPlus className="h-3.5 w-3.5" />
+                          {t.invites.action}
+                        </button>
+                      ) : (
+                        '—'
+                      )}
+                    </td>
                     <td className="p-3 text-sm">
                       {owned?.lease ? (
                         <Num board className="text-ink-soft">

@@ -299,7 +299,8 @@ export const affiliateOffers: AffiliateOffer[] = [
     title: 'הובלה ליום המעבר',
     provider: 'העברה קלה הובלות (שם לדוגמה)',
     pitch: 'הצעת מחיר להובלה לפי התאריך שאתה ממתין לו בתור, כולל פירוק והרכבה.',
-    price_from: 1400,
+    /* Midrag: one-room move ₪907 average, three rooms ₪2,307. */
+    price_from: 900,
     price_unit: 'להובלה',
     platform_revenue: 180,
     placement: 'queue',

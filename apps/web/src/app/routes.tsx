@@ -3,6 +3,8 @@ import { Entry, RequireAuth } from './guard';
 import { LegalPage } from './legal-page';
 import { SignIn } from './sign-in';
 import { SignUp } from './sign-up';
+import { Join } from './join';
+import { Pricing } from './pricing';
 import { OwnerShell, SeekerShell, TenantShell } from './shell';
 import { NotFound } from './not-found';
 import { OwnerDashboard } from '@/personas/owner/dashboard';
@@ -33,6 +35,9 @@ export const router = createBrowserRouter([
   { path: '/', element: <Entry /> },
   { path: '/sign-in', element: <SignIn /> },
   { path: '/sign-up', element: <SignUp /> },
+  /* Public: the invite link and the price list work signed out. */
+  { path: '/join/:token', element: <Join /> },
+  { path: '/pricing', element: <Pricing /> },
   { path: '/legal/:id', element: <LegalPage /> },
   {
     /* Everything below here needs a session. */

@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Link, Navigate, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { ApiError, APP_NAME, t } from '@miftan/shared';
 import { useAuth } from '@/api/auth';
 import { homeFor } from './guard';
@@ -22,7 +22,10 @@ const MIN_PASSWORD = 10;
  */
 export function SignUp() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { signUp, user, capabilities, restoring } = useAuth();
+  /* An invite link sends people here with somewhere to come back to. */
+  const from = (location.state as { from?: string } | null)?.from;
 
   const [name, setName] = React.useState('');
   const [email, setEmail] = React.useState('');
@@ -33,7 +36,7 @@ export function SignUp() {
   const [busy, setBusy] = React.useState(false);
 
   if (user && !restoring) {
-    return <Navigate to={homeFor(rolesFor(capabilities))} replace />;
+    return <Navigate to={from ?? homeFor(rolesFor(capabilities))} replace />;
   }
 
   const tooShort = password.length > 0 && password.length < MIN_PASSWORD;
@@ -59,7 +62,7 @@ export function SignUp() {
         password,
         acceptedTerms: true,
       });
-      navigate('/', { replace: true });
+      navigate(from ?? '/', { replace: true });
     } catch (err) {
       setError(
         err instanceof ApiError

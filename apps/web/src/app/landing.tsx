@@ -72,6 +72,9 @@ export function Landing() {
         </Link>
         <nav className="ms-auto flex items-center gap-1.5">
           <Button asChild variant="quiet" size="sm">
+            <Link to="/pricing">{t.pricing.nav}</Link>
+          </Button>
+          <Button asChild variant="quiet" size="sm">
             <Link to="/sign-in">{t.landing.signIn}</Link>
           </Button>
           <Button asChild size="sm">
