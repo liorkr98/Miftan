@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" role="img" aria-label="בעל הבית">
   <!-- Same monogram as favicon.svg, full-bleed: iOS applies its own corner mask. -->
   <rect width="180" height="180" fill="#281E19"/>
-  <text x="107" y="129" text-anchor="middle" font-family="Assistant, 'Segoe UI', 'Arial Hebrew', Arial, sans-serif" font-weight="800" font-size="112" fill="#F6F3EF">ב</text>
-  <path d="M25.3 126.6 45 109.1l19.7 17.5v14H25.3z" fill="#EBAC39"/>
+  <path d="M64.7 46.1 90 23.6l25.3 22.5v19.2H64.7z" fill="#EBAC39"/>
+  <text x="90" y="152" text-anchor="middle" font-family="Assistant, 'Segoe UI', 'Arial Hebrew', Arial, sans-serif" font-weight="800" font-size="101" fill="#F6F3EF">ב</text>
 </svg>

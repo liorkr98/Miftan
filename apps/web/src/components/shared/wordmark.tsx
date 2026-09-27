@@ -2,19 +2,21 @@ import { APP_NAME } from '@miftan/shared';
 import { cn } from '@/lib/utils';
 
 const SIZES = {
-  sm: { text: 'text-base', house: 'size-3' },
-  md: { text: 'text-xl', house: 'size-3.5' },
-  lg: { text: 'text-2xl', house: 'size-4' },
+  sm: 'text-base',
+  md: 'text-xl',
+  lg: 'text-2xl',
 } as const;
 
 /**
- * The brand: the name, heavy, closed by a small amber house.
+ * The brand: the name, heavy, with a small amber house over its first
+ * letter — the ב of בית sits under its own roof.
  *
- * The house sits where a full stop would — at the end of the line, on the
- * baseline — so the mark reads as a sentence that ends at home. It is the one
- * place amber appears outside a date. No icon beside the name: the name
- * carries itself. On the dark top bar the letters flip to light ink; the
- * house stays amber on both.
+ * Everything is sized in em, so the house scales with the type at every
+ * size, and it is centred with logical insets (start-0 end-0 mx-auto), so it
+ * stays over the first letter in RTL without a physical side anywhere. The
+ * top padding reserves the house's height, so the mark never overlaps what
+ * sits above it. Amber here is the brand's one exception to "amber means a
+ * date"; the letters flip to light ink on the dark top bar, the house stays.
  */
 export function Wordmark({
   size = 'md',
@@ -25,20 +27,27 @@ export function Wordmark({
   onInk?: boolean;
   className?: string;
 }) {
-  const s = SIZES[size];
+  const [first, ...rest] = Array.from(APP_NAME);
   return (
     <span
       className={cn(
-        'inline-flex items-end gap-1 font-extrabold leading-none whitespace-nowrap',
-        s.text,
+        'inline-block pt-[0.42em] font-extrabold leading-none whitespace-nowrap',
+        SIZES[size],
         onInk ? 'text-on-ink' : 'text-ink',
         className,
       )}
     >
-      {APP_NAME}
-      <svg aria-hidden viewBox="0 0 16 16" className={cn('shrink-0 fill-signal', s.house)}>
-        <path d="M2 8.5 8 3l6 5.5V14H2z" />
-      </svg>
+      <span className="relative inline-block">
+        {first}
+        <svg
+          aria-hidden
+          viewBox="0 0 16 14"
+          className="absolute start-0 end-0 -top-[0.46em] mx-auto h-[0.4em] w-[0.46em] fill-signal"
+        >
+          <path d="M2 8.5 8 3l6 5.5V14H2z" />
+        </svg>
+      </span>
+      {rest.join('')}
     </span>
   );
 }
