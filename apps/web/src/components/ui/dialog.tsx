@@ -15,9 +15,11 @@ export const DialogContent = React.forwardRef<
   <DialogPrimitive.Portal>
     <DialogPrimitive.Overlay
       className={cn(
-        'fixed inset-0 bg-ink/45 backdrop-blur-[2px] transition-opacity ease-[var(--ease-out)]',
-        'data-[state=open]:opacity-100 data-[state=open]:duration-[var(--dur-sheet)]',
-        'data-[state=closed]:opacity-0 data-[state=closed]:duration-[var(--dur-exit)]',
+        'fixed inset-0 bg-ink/45 backdrop-blur-[2px]',
+        /* Animations, not transitions: Radix only waits for an animation
+           before unmounting, so a transition exit never played. */
+        'data-[state=open]:animate-[backdrop-in_var(--dur-sheet)_var(--ease-out)]',
+        'data-[state=closed]:animate-[backdrop-out_var(--dur-exit)_var(--ease-out)_forwards]',
       )}
       style={{ zIndex: 'var(--z-backdrop)' }}
     />
@@ -29,9 +31,8 @@ export const DialogContent = React.forwardRef<
         'sm:inset-x-auto sm:bottom-auto sm:top-1/2 sm:start-1/2 sm:max-h-[86dvh] sm:-translate-y-1/2 sm:translate-x-1/2 sm:rounded-[var(--radius-panel)]',
         /* Sheet from the bottom on phones, centred modal on desktop.
            Modals keep centre origin — they are not anchored to a trigger. */
-        'transition-[opacity,transform] ease-[var(--ease-drawer)]',
-        'data-[state=open]:duration-[var(--dur-sheet)] data-[state=closed]:duration-[var(--dur-exit)]',
-        'data-[state=closed]:opacity-0 data-[state=closed]:translate-y-3 sm:data-[state=closed]:translate-y-[calc(-50%+6px)] sm:data-[state=closed]:scale-[0.985]',
+        'data-[state=open]:animate-[sheet-in_var(--dur-sheet)_var(--ease-drawer)]',
+        'data-[state=closed]:animate-[sheet-out_var(--dur-exit)_var(--ease-out)_forwards]',
         wide ? 'sm:w-[min(46rem,calc(100vw-3rem))]' : 'sm:w-[min(32rem,calc(100vw-3rem))]',
         className,
       )}

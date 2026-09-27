@@ -4,6 +4,7 @@ import { LegalPage } from './legal-page';
 import { SignIn } from './sign-in';
 import { SignUp } from './sign-up';
 import { Join } from './join';
+import { StartOwner } from './start-owner';
 import { Pricing } from './pricing';
 import { OwnerShell, SeekerShell, TenantShell } from './shell';
 import { NotFound } from './not-found';
@@ -43,6 +44,8 @@ export const router = createBrowserRouter([
     /* Everything below here needs a session. */
     element: <RequireAuth />,
     children: [
+      /* Any signed-in account: the door into the owner role. */
+      { path: '/start/owner', element: <StartOwner /> },
       {
         path: '/owner',
         element: <OwnerShell />,

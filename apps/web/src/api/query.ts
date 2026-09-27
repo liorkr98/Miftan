@@ -55,4 +55,5 @@ export const keys = {
   reviews: (userId?: string) => ['reviews', userId ?? 'me'] as const,
   invites: (propertyId: string) => ['invites', propertyId] as const,
   invitePreview: (token: string) => ['invite-preview', token] as const,
+  notifications: ['notifications'] as const,
 };

@@ -33,6 +33,7 @@ import type {
   CreatedInvite,
   InvitePreview,
   OwnerInvite,
+  NotificationFeed,
 } from '@miftan/shared';
 
 /* Shapes the client assembles from an endpoint rather than importing whole. */
@@ -816,5 +817,33 @@ export function useAcceptInvite() {
       void qc.invalidateQueries({ queryKey: keys.properties });
       void qc.invalidateQueries({ queryKey: keys.me });
     },
+  });
+}
+
+/* ── Notifications ────────────────────────────────────── */
+
+/** Polled once a minute while the app is open; there is no push yet. */
+export function useNotifications() {
+  return useQuery({
+    queryKey: keys.notifications,
+    queryFn: () => api.request<NotificationFeed>('/notifications'),
+    refetchInterval: 60_000,
+  });
+}
+
+export function useMarkNotificationsSeen() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.request<{ ok: true }>('/notifications/seen', { method: 'POST' }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: keys.notifications }),
+  });
+}
+
+/* ── Onboarding ───────────────────────────────────────── */
+
+export function useDismissOnboarding() {
+  return useMutation({
+    mutationFn: (role: 'owner' | 'tenant' | 'seeker') =>
+      api.request<{ ok: true }>('/me/onboarding/dismiss', { method: 'POST', body: JSON.stringify({ role }) }),
   });
 }

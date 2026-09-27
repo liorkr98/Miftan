@@ -11,6 +11,7 @@ import {
   type TrackRow,
 } from '@miftan/shared';
 import { useProperties, useTickets } from '@/api/hooks';
+import { Onboarding } from '@/components/shared/onboarding';
 import { DepartureTrack } from '@/components/shared/departure-track';
 import { OfferRail } from '@/components/shared/revenue';
 import { Money, Num, PageHeader, Phone, SectionTitle } from '@/components/shared/typography';
@@ -99,6 +100,16 @@ export function TenantHome() {
       <PageHeader
         title={`${address.street} ${address.number}`}
         subtitle={`${address.neighborhood} · ${address.city}`}
+      />
+
+      <Onboarding
+        role="tenant"
+        steps={[
+          /* Having a flat here is the first step, and it is already done. */
+          { key: 'home', done: true, to: '/tenant/documents' },
+          { key: 'report', done: tickets.some((tk) => tk.scope === 'tenant'), to: '/tenant/report' },
+          { key: 'renewal', done: home.lease.renewalIntent !== null, to: '/tenant/renewal' },
+        ]}
       />
 
       {home.photos[0] ? (

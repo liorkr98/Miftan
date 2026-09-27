@@ -14,7 +14,8 @@ import {
   type SearchFilters,
   type SearchResult,
 } from '@miftan/shared';
-import { useInquiries, useLeads, useRunSearch } from '@/api/hooks';
+import { useInquiries, useLeads, useRenterProfile, useRunSearch } from '@/api/hooks';
+import { Onboarding } from '@/components/shared/onboarding';
 import { ResultsMap } from '@/components/shared/map';
 import { AVAILABILITY_COLOR, AVAILABILITY_LABEL, AvailabilityChip } from '@/components/shared/status';
 import { Money, Num, PageHeader } from '@/components/shared/typography';
@@ -138,6 +139,8 @@ export function SeekerSearch() {
   const runSearch = useRunSearch();
   const { data: leads = [] } = useLeads();
   const { data: inquiries = [] } = useInquiries();
+  const { data: renterProfile } = useRenterProfile();
+  const mineSeeker = leads.filter((l) => l.scope === 'seeker');
 
   const [form, setForm] = React.useState<FormState>(EMPTY);
   const [activeId, setActiveId] = React.useState<string | null>(null);
@@ -379,6 +382,20 @@ export function SeekerSearch() {
                 {t.seeker.search.filters}
               </Button>
             }
+          />
+
+          <Onboarding
+            role="seeker"
+            className="mb-4"
+            steps={[
+              { key: 'profile', done: Boolean(renterProfile?.complete), to: '/search/profile' },
+              {
+                key: 'search',
+                done: mineSeeker.length > 0 || inquiries.some((x) => x.scope === 'seeker'),
+                to: '/search',
+              },
+              { key: 'apply', done: mineSeeker.length > 0, to: '/search/queue' },
+            ]}
           />
 
           <div className="mt-4 hidden flex-wrap items-end gap-3 lg:flex">{filterControls}</div>

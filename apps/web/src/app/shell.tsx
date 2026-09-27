@@ -29,9 +29,11 @@ import {
 } from '@/components/ui/dialog';
 import { Num } from '@/components/shared/typography';
 import { RevenueLensToggle } from '@/components/shared/revenue';
+import { NotificationBell } from '@/components/shared/notification-bell';
 import { OPEN_TICKET_STATUSES } from '@/data/selectors';
 import {
   Banknote,
+  Building2,
   CalendarClock,
   FileSignature,
   CalendarCheck2,
@@ -96,6 +98,7 @@ function TopBar() {
       </div>
 
       <div className="flex shrink-0 items-center gap-1">
+        <NotificationBell />
         <NavLink
           to="/pricing"
           className="press hidden items-center gap-1.5 rounded-[var(--radius-control)] px-2.5 py-1.5 text-xs font-semibold text-on-ink-muted hover:bg-white/10 hover:text-on-ink sm:flex"
@@ -429,6 +432,10 @@ export function SeekerShell() {
     { to: '/search/queue', label: t.seekerNav.queue, Icon: Send, count: queued },
     { to: '/search/profile', label: t.seekerNav.profile, Icon: Users },
     ...(capabilities?.isTenant ? [{ to: '/tenant', label: t.tenantNav.home, Icon: Home }] : []),
+    /* Someone who does not own anything yet still needs a way to start. */
+    ...(capabilities && !capabilities.isOwner
+      ? [{ to: '/start/owner', label: t.startOwner.nav, Icon: Building2, secondary: true }]
+      : []),
   ];
 
   return (

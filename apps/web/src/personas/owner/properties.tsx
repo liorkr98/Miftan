@@ -344,7 +344,7 @@ export function OwnerProperties() {
   );
 }
 
-function AddPropertyDialog({
+export function AddPropertyDialog({
   open,
   onOpenChange,
   onCreated,

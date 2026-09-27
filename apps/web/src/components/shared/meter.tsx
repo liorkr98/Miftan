@@ -33,7 +33,7 @@ export function Meter({
       aria-label={label}
     >
       <div
-        className={cn('h-full rounded-full transition-[width] duration-500 ease-[var(--ease-out-quint)]', fill)}
+        className={cn('h-full rounded-full transition-[width] duration-300 ease-[var(--ease-out-quint)]', fill)}
         style={{ width: `${pct}%` }}
       />
     </div>
