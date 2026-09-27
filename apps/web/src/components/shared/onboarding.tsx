@@ -33,7 +33,10 @@ export function Onboarding({ role, steps, className }: { role: Role; steps: Onbo
   const copy = t.onboarding[role];
   const done = steps.filter((s) => s.done).length;
 
-  if (!user || user.onboardingDismissed.includes(role) || done === steps.length) return null;
+  /* `?? []`: the web app ships before the API does. An API one version behind
+     does not send this field, and reading it bare took down the whole page. */
+  const dismissed = user?.onboardingDismissed ?? [];
+  if (!user || dismissed.includes(role) || done === steps.length) return null;
 
   const next = steps.find((s) => !s.done);
   const stepCopy = (key: string) => (copy.steps as Record<string, { title: string; body: string; cta: string }>)[key];
