@@ -87,6 +87,9 @@
     --z-map-overlay: 25;
     --z-backdrop: 30;
     --z-modal: 40;
+    /* Menus open from inside dialogs too (a select in a lead card), so they
+       sit above the modal — at --z-dropdown they opened behind it. */
+    --z-popover: 45;
     --z-toast: 50;
     --z-tooltip: 60;
   }

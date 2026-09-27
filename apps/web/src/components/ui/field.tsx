@@ -177,7 +177,7 @@ export const SelectContent = React.forwardRef<
       ref={ref}
       position="popper"
       sideOffset={4}
-      style={{ zIndex: 'var(--z-dropdown)' }}
+      style={{ zIndex: 'var(--z-popover)' }}
       className={cn(
         'pop-anim max-h-72 min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-[var(--radius-control)] border border-line bg-bg shadow-lg',
         className,

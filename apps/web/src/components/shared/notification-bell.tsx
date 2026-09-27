@@ -50,7 +50,7 @@ export function NotificationBell() {
           align="end"
           sideOffset={8}
           collisionPadding={12}
-          style={{ zIndex: 'var(--z-dropdown)' }}
+          style={{ zIndex: 'var(--z-popover)' }}
           className="pop-anim w-[min(24rem,calc(100vw-1.5rem))] overflow-hidden rounded-[var(--radius-panel)] border border-line bg-bg shadow-xl"
         >
           <header className="flex items-baseline justify-between gap-3 border-b border-line px-4 py-3">
