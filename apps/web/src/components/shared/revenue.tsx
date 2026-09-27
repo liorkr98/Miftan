@@ -264,7 +264,6 @@ export function RevenueLensToggle() {
       title={t.revenue.lensHint}
       className={cn(
         'press flex items-center gap-1.5 rounded-[var(--radius-control)] px-2.5 py-1.5 text-xs font-semibold',
-        'transition-[background-color,color,transform] duration-[var(--dur-press)] ease-[var(--ease-out)]',
         lens
           ? 'bg-signal text-ink'
           : 'text-on-ink-muted hover:bg-white/10 hover:text-on-ink',

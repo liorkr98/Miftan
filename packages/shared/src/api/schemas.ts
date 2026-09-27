@@ -44,6 +44,8 @@ export const userSchema = z.object({
   email: z.string(),
   phone: z.string().nullable(),
   createdAt: z.string(),
+  /** What the account has paid for. Anything the server cannot vouch for is 'free'. */
+  plan: z.enum(['free', 'pro']),
 });
 
 /**

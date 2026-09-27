@@ -40,7 +40,7 @@ export const DialogContent = React.forwardRef<
       {children}
       <DialogPrimitive.Close
         aria-label={t.shell.close}
-        className="press absolute top-3.5 end-3.5 grid h-8 w-8 place-items-center rounded-[var(--radius-control)] text-muted transition-[color,background-color,transform] duration-[var(--dur-press)] ease-[var(--ease-out)] hover:bg-surface hover:text-ink"
+        className="press absolute top-3.5 end-3.5 grid h-8 w-8 place-items-center rounded-[var(--radius-control)] text-muted hover:bg-surface hover:text-ink"
       >
         <X className="h-4 w-4" />
       </DialogPrimitive.Close>

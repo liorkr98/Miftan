@@ -13,6 +13,7 @@ import { authRoutes } from './routes/auth.ts';
 import { meRoutes } from './routes/me.ts';
 import { propertyRoutes } from './routes/properties.ts';
 import { rentPaymentRoutes } from './routes/rent-payments.ts';
+import { inviteRoutes } from './routes/invites.ts';
 import { ticketRoutes } from './routes/tickets.ts';
 import { directoryRoutes } from './routes/directory.ts';
 import { uploadRoutes } from './routes/uploads.ts';
@@ -126,6 +127,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(meRoutes);
   await app.register(propertyRoutes);
   await app.register(rentPaymentRoutes);
+  await app.register(inviteRoutes);
   await app.register(ticketRoutes);
   await app.register(directoryRoutes);
   await app.register(uploadRoutes);

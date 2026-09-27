@@ -140,7 +140,7 @@ export function SignIn() {
                   }}
                   className={cn(
                     'press-sm flex flex-col gap-0.5 rounded-[var(--radius-control)] border bg-bg px-3 py-2 text-start',
-                    'transition-[border-color,transform] duration-150 ease-[var(--ease-out)] hover:border-line-strong',
+                    'hover:border-line-strong',
                     /* The all-roles account is the odd one out, so it looks it
                        rather than hiding among three that behave differently. */
                     account.hint ? 'border-accent' : 'border-line',

@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useStore } from '@/data/store';
+import { useIsPro } from '@/components/shared/premium-gate';
 import {
   useInquiries,
   useLeads,
@@ -95,7 +96,7 @@ function TopBar() {
         <button
           type="button"
           onClick={() => setResetOpen(true)}
-          className="press flex items-center gap-1.5 rounded-[var(--radius-control)] px-2.5 py-1.5 text-xs font-semibold text-on-ink-muted transition-[color,background-color,transform] duration-[var(--dur-press)] ease-[var(--ease-out)] hover:bg-white/10 hover:text-on-ink"
+          className="press flex items-center gap-1.5 rounded-[var(--radius-control)] px-2.5 py-1.5 text-xs font-semibold text-on-ink-muted hover:bg-white/10 hover:text-on-ink"
         >
           <RotateCcw className="h-3.5 w-3.5" />
           <span className="hidden md:inline">{t.shell.resetDemo}</span>
@@ -105,7 +106,7 @@ function TopBar() {
           type="button"
           onClick={() => void signOut()}
           title={user?.name}
-          className="press flex items-center gap-1.5 rounded-[var(--radius-control)] px-2.5 py-1.5 text-xs font-semibold text-on-ink-muted transition-[color,background-color,transform] duration-[var(--dur-press)] ease-[var(--ease-out)] hover:bg-white/10 hover:text-on-ink"
+          className="press flex items-center gap-1.5 rounded-[var(--radius-control)] px-2.5 py-1.5 text-xs font-semibold text-on-ink-muted hover:bg-white/10 hover:text-on-ink"
         >
           <LogOut className="h-3.5 w-3.5" />
           <span className="hidden lg:inline">{user?.name ?? t.auth.signOut}</span>
@@ -143,6 +144,8 @@ function TopBar() {
 /* ── Nav pieces ────────────────────────────────────────── */
 
 function RailLink({ item }: { item: NavItem }) {
+  /* The lock is shown only to accounts that do not have the plan. */
+  const locked = useIsPro() ? false : Boolean(item.premium);
   return (
     <NavLink
       to={item.to}
@@ -150,14 +153,13 @@ function RailLink({ item }: { item: NavItem }) {
       className={({ isActive }) =>
         cn(
           'press-sm flex items-center gap-2.5 rounded-[var(--radius-control)] px-3 py-2 text-sm font-semibold',
-          'transition-[background-color,color,transform] duration-150 ease-[var(--ease-out)]',
           isActive ? 'bg-ink text-on-ink' : 'text-ink-soft hover:bg-surface-sunk hover:text-ink',
         )
       }
     >
       <item.Icon className="h-4 w-4 shrink-0" />
       <span className="flex-1 truncate">{item.label}</span>
-      {item.premium ? (
+      {locked ? (
         <Badge tone="signalSoft" size="sm" className="gap-1">
           <Lock className="h-2.5 w-2.5" />
           {t.premium.badge}

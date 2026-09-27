@@ -20,6 +20,7 @@ import { db, sql, schema as s } from './client.ts';
 import { seedId } from '../lib/ids.ts';
 import { hashPassword } from '../lib/auth.ts';
 import { DEMO_EMAIL, seedDemoAccount } from './seed-demo.ts';
+import { seedExtraDemo } from './seed-extra.ts';
 
 /**
  * Loads the demo portfolio into Postgres as development fixtures.
@@ -372,6 +373,11 @@ await db.transaction(async (tx) => {
      Last, and in its own module, because it exists to make the product
      demonstrable rather than to describe anything real. It only adds rows. */
   await seedDemoAccount(tx, DEV_PASSWORD_HASH);
+  await seedExtraDemo(tx, DEV_PASSWORD_HASH);
+
+  /* Every seeded account is a demo login, and a demo should show the whole
+     product — so all of them get the paid plan. Real accounts start free. */
+  await tx.update(s.users).set({ plan: 'pro' });
 });
 
 /* ── Report ────────────────────────────────────────────── */

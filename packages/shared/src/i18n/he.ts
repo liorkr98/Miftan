@@ -1437,6 +1437,7 @@ export const t = {
     badge: 'פרימיום',
     lockedTitle: 'זמין במסלול פרימיום',
     revenueLockedHint: 'מודל ההכנסות המלא — כולל תרחישי היקף פורטפוליו — ייפתח במסלול הפרימיום.',
+    seePlans: 'לתוכניות ולמחירים',
   },
 
   /* ── Owner: combined leads / inquiries / messages ──── */

@@ -191,7 +191,6 @@ export function TenantRenewal() {
                   onClick={() => choose(option.id)}
                   className={cn(
                     'press flex flex-col items-center gap-2 rounded-[var(--radius-card)] border p-4 text-center',
-                    'transition-[background-color,border-color,color,transform] duration-150 ease-[var(--ease-out)]',
                     'disabled:pointer-events-none disabled:opacity-50',
                     lease.renewalIntent === option.id
                       ? 'border-ink bg-ink text-on-ink'

@@ -346,7 +346,7 @@ export function OwnerDashboard() {
             <button
               type="button"
               onClick={() => navigate('/owner/leads?tab=inquiries')}
-              className="press-sm flex items-center gap-3 rounded-[var(--radius-card)] border border-signal/50 bg-signal-soft/40 p-3.5 text-start transition-[border-color,transform] duration-150 ease-[var(--ease-out)] hover:border-signal"
+              className="press-sm flex items-center gap-3 rounded-[var(--radius-card)] border border-signal/50 bg-signal-soft/40 p-3.5 text-start hover:border-signal"
             >
               <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[var(--radius-control)] bg-signal text-ink">
                 <MessageCircleQuestion className="h-4 w-4" />
@@ -365,7 +365,7 @@ export function OwnerDashboard() {
             <button
               type="button"
               onClick={() => navigate('/owner/maintenance')}
-              className="press-sm flex items-center gap-3 rounded-[var(--radius-card)] border border-line p-3.5 text-start transition-[border-color,transform] duration-150 ease-[var(--ease-out)] hover:border-line-strong"
+              className="press-sm flex items-center gap-3 rounded-[var(--radius-card)] border border-line p-3.5 text-start hover:border-line-strong"
             >
               <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[var(--radius-control)] bg-surface">
                 <CalendarClock className="h-4 w-4 text-ink-soft" />

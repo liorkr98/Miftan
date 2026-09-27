@@ -116,7 +116,6 @@ export function OwnerProperties() {
                 aria-label={label}
                 className={cn(
                   'press-sm flex items-center gap-1.5 rounded-[7px] px-2.5 py-1.5 text-xs font-bold',
-                  'transition-[background-color,color,transform] duration-150 ease-[var(--ease-out)]',
                   view === id ? 'bg-ink text-on-ink' : 'text-muted hover:text-ink',
                 )}
               >

@@ -1,32 +1,38 @@
+import { Link } from 'react-router-dom';
 import { t } from '@miftan/shared';
+import { useAuth } from '@/api/auth';
+import { Button } from '@/components/ui/button';
 import { EmptyState } from './empty-state';
 import { Lock } from 'lucide-react';
 
 /**
- * Fences off a feature reserved for a paid plan.
+ * Fences off a feature reserved for the paid plan.
  *
- * There is no billing system yet, so this is not authorization — it is a
- * single switch that decides what to *present* as locked, kept in one place
- * so turning a feature on later is one line, not a search-and-replace across
- * every screen that mentions it.
+ * The plan comes from the server on `/me`, and the server reads anything it
+ * cannot vouch for as 'free'. This gate follows it: only an exact 'pro'
+ * opens, so a missing user or an unknown value stays locked. There is no
+ * billing provider yet — the demo accounts are seeded as 'pro' — so this is
+ * what the product *presents*, not a payment check.
  *
- * No call-to-action button: there is nothing behind one yet — no plan to
- * upgrade to, no waitlist to join — and a button that does nothing on click
- * is worse than no button. The rail's own lock badge is what tells someone
- * this exists at all; this screen just explains why they cannot open it.
- *
- * The revenue/income-model page is the first tenant: real, finished code,
- * just not something every account should see by default. Gating it here
- * rather than deleting it means switching it on later costs one line.
+ * HUMAN REVIEW: this decides what an account can open.
  */
-export const PREMIUM_ENABLED = false;
+export function useIsPro(): boolean {
+  const { user } = useAuth();
+  return user?.plan === 'pro';
+}
 
 export function PremiumGate({ hint, children }: { hint: string; children: React.ReactNode }) {
-  if (PREMIUM_ENABLED) return <>{children}</>;
+  const isPro = useIsPro();
+  if (isPro) return <>{children}</>;
 
   return (
     <div className="grid min-h-[60dvh] place-items-center">
-      <EmptyState icon={Lock} title={t.premium.lockedTitle} hint={hint} className="max-w-md" />
+      <div className="flex max-w-md flex-col items-center gap-4">
+        <EmptyState icon={Lock} title={t.premium.lockedTitle} hint={hint} />
+        <Button asChild>
+          <Link to="/pricing">{t.premium.seePlans}</Link>
+        </Button>
+      </div>
     </div>
   );
 }

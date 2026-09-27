@@ -127,7 +127,6 @@ export function ProtocolPanel({ propertyId }: { propertyId: string }) {
                   aria-pressed={run.id === active?.id}
                   className={cn(
                     'press-sm rounded-full border px-3 py-1.5 text-2xs font-bold',
-                    'transition-[background-color,border-color,color,transform] duration-150 ease-[var(--ease-out)]',
                     run.id === active?.id
                       ? 'border-ink bg-ink text-on-ink'
                       : 'border-line text-ink-soft hover:border-line-strong',

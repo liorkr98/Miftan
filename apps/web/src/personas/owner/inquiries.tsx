@@ -119,7 +119,6 @@ export function OwnerInquiries() {
                   onClick={() => setOpenId(inquiry.id)}
                   className={cn(
                     'press-sm w-full rounded-[var(--radius-card)] border p-3.5 text-start',
-                    'transition-[border-color,background-color,transform] duration-150 ease-[var(--ease-out)]',
                     actionable
                       ? 'border-signal/50 bg-signal-soft/35 hover:border-signal'
                       : 'border-line hover:border-line-strong',

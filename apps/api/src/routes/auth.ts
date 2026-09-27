@@ -35,7 +35,17 @@ const publicUser = (u: typeof s.users.$inferSelect) => ({
   email: u.email,
   phone: u.phone,
   createdAt: u.createdAt.toISOString(),
+  plan: planOf(u),
 });
+
+/**
+ * Fails closed: only an exact 'pro' is paid. A typo, a null, a value from a
+ * future plan this build does not know — all read as free.
+ * HUMAN REVIEW: this decides what an account can open.
+ */
+export function planOf(u: { plan: string | null }): 'free' | 'pro' {
+  return u.plan === 'pro' ? 'pro' : 'free';
+}
 
 export async function authRoutes(app: FastifyInstance) {
   const r = app.withTypeProvider<ZodTypeProvider>();

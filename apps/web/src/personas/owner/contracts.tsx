@@ -154,7 +154,6 @@ export function OwnerContracts() {
                   disabled={scanContract.isPending}
                   className={cn(
                     'press flex w-full flex-col items-center gap-2 rounded-[var(--radius-card)] border border-dashed border-line px-4 py-10',
-                    'transition-[border-color,background-color,transform] duration-150 ease-[var(--ease-out)]',
                     'hover:border-line-strong hover:bg-surface disabled:pointer-events-none disabled:opacity-50',
                   )}
                 >
