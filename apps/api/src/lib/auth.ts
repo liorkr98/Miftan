@@ -70,7 +70,12 @@ export async function verifyAccessToken(token: string): Promise<string> {
 
 /* ── Refresh sessions ──────────────────────────────────── */
 
-const sha256 = (v: string) => createHash('sha256').update(v).digest('hex');
+export const hashToken = (v: string) => createHash('sha256').update(v).digest('hex');
+const sha256 = hashToken;
+
+/** Two tabs that refresh in the same beat share a grace window instead of
+    signing the user out everywhere. After this, a replay is treated as theft. */
+export const REFRESH_GRACE_MS = 10_000;
 
 export interface IssuedSession {
   token: string;
@@ -108,34 +113,50 @@ export async function rotateSession(
   meta: { userAgent?: string; ip?: string },
 ): Promise<{ userId: string; session: IssuedSession }> {
   const hash = sha256(presented);
-  const [existing] = await db.select().from(s.sessions).where(eq(s.sessions.tokenHash, hash));
 
-  if (!existing) throw new ApiError('session_expired', 'unknown refresh token');
+  return db.transaction(async (tx) => {
+    const [existing] = await tx
+      .select()
+      .from(s.sessions)
+      .where(eq(s.sessions.tokenHash, hash))
+      .for('update');
 
-  if (existing.revokedAt) {
-    await db
+    if (!existing) throw new ApiError('session_expired', 'unknown refresh token');
+
+    if (existing.revokedAt) {
+      const age = Date.now() - existing.revokedAt.getTime();
+      /* Grace is only for a rotation overlap (two tabs). A logout, a reset
+         or "sign out everywhere" leaves replacedBySessionId empty. */
+      if (existing.replacedBySessionId && age <= REFRESH_GRACE_MS) {
+        return { userId: existing.userId, session: await createSession(existing.userId, meta) };
+      }
+      if (existing.replacedBySessionId) {
+        await tx
+          .update(s.sessions)
+          .set({ revokedAt: new Date() })
+          .where(and(eq(s.sessions.userId, existing.userId), isNull(s.sessions.revokedAt)));
+        throw new ApiError('session_reused', 'refresh token replayed; all sessions revoked');
+      }
+      throw new ApiError('session_expired', 'refresh token revoked');
+    }
+
+    if (existing.expiresAt.getTime() < Date.now()) {
+      throw new ApiError('session_expired', 'refresh token expired');
+    }
+
+    const next = await createSession(existing.userId, meta);
+    const [replacement] = await tx
+      .select({ id: s.sessions.id })
+      .from(s.sessions)
+      .where(eq(s.sessions.tokenHash, sha256(next.token)));
+
+    await tx
       .update(s.sessions)
-      .set({ revokedAt: new Date() })
-      .where(and(eq(s.sessions.userId, existing.userId), isNull(s.sessions.revokedAt)));
-    throw new ApiError('session_reused', 'refresh token replayed; all sessions revoked');
-  }
+      .set({ revokedAt: new Date(), replacedBySessionId: replacement?.id ?? null })
+      .where(eq(s.sessions.id, existing.id));
 
-  if (existing.expiresAt.getTime() < Date.now()) {
-    throw new ApiError('session_expired', 'refresh token expired');
-  }
-
-  const next = await createSession(existing.userId, meta);
-  const [replacement] = await db
-    .select({ id: s.sessions.id })
-    .from(s.sessions)
-    .where(eq(s.sessions.tokenHash, sha256(next.token)));
-
-  await db
-    .update(s.sessions)
-    .set({ revokedAt: new Date(), replacedBySessionId: replacement?.id ?? null })
-    .where(eq(s.sessions.id, existing.id));
-
-  return { userId: existing.userId, session: next };
+    return { userId: existing.userId, session: next };
+  });
 }
 
 export async function revokeSession(presented: string): Promise<void> {

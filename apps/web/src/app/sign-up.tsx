@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useLocation } from 'react-router-dom';
 import { ApiError, APP_NAME, t } from '@miftan/shared';
 import { useAuth } from '@/api/auth';
 import { homeFor } from './guard';
@@ -22,7 +22,6 @@ const MIN_PASSWORD = 10;
  * either trust or ignore, and both are worse than deriving it.
  */
 export function SignUp() {
-  const navigate = useNavigate();
   const location = useLocation();
   const { signUp, user, capabilities, restoring } = useAuth();
   /* An invite link sends people here with somewhere to come back to. */
@@ -35,6 +34,7 @@ export function SignUp() {
   const [acceptedTerms, setAcceptedTerms] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
+  const [sent, setSent] = React.useState(false);
 
   if (user && !restoring) {
     return <Navigate to={from ?? homeFor(rolesFor(capabilities))} replace />;
@@ -63,7 +63,7 @@ export function SignUp() {
         password,
         acceptedTerms: true,
       });
-      navigate(from ?? '/', { replace: true });
+      setSent(true);
     } catch (err) {
       setError(
         err instanceof ApiError
@@ -92,6 +92,12 @@ export function SignUp() {
           className="rounded-[var(--radius-panel)] border border-line bg-bg p-5 shadow-sm"
         >
           <h2 className="mb-4 text-base font-bold text-ink">{t.auth.signUpTitle}</h2>
+          {sent ? (
+            <p role="status" className="text-sm font-semibold text-ink">
+              {t.auth.checkInbox}
+            </p>
+          ) : (
+          <>
 
           <div className="grid gap-3.5">
             <Field label={t.auth.name}>
@@ -188,6 +194,8 @@ export function SignUp() {
           </Button>
 
           <p className="mt-3 text-2xs leading-relaxed text-muted">{t.auth.roleNote}</p>
+          </>
+          )}
         </form>
 
         <p className="mt-4 text-center text-xs text-muted">

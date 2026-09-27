@@ -1,19 +1,34 @@
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
-import { eq, sql } from 'drizzle-orm';
+import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 import {
+  ApiError,
+  changeEmailSchema,
+  changePasswordSchema,
   dismissOnboardingSchema,
   meSchema,
   okSchema,
   renterProfileSchema,
+  sessionListSchema,
   updateRenterProfileSchema,
   type Employment,
   type RenterProfileMissing,
 } from '@miftan/shared';
 import { db, schema as s } from '../db/client.ts';
+import { sendMail } from '../email/index.ts';
+import { emailChangeMail, verifyMail } from '../email/templates.ts';
 import { capabilitiesFor } from '../lib/capabilities.ts';
+import {
+  hashPassword,
+  hashToken,
+  revokeAllSessions,
+  verifyPassword,
+} from '../lib/auth.ts';
+import { issueAuthToken, retireUnused } from '../lib/auth-tokens.ts';
+import { env } from '../lib/env.ts';
+import { REFRESH_COOKIE } from '../lib/http.ts';
 import { requireUser } from '../plugins/authenticate.ts';
-import { dismissedRoles, isDemoAccount, planOf } from './auth.ts';
+import { dismissedRoles, isDemoAccount, planOf, toPublicUser } from './auth.ts';
 
 type ProfileRow = typeof s.renterProfiles.$inferSelect;
 type UserRow = typeof s.users.$inferSelect;
@@ -88,6 +103,7 @@ export async function meRoutes(app: FastifyInstance) {
           plan: planOf(user),
           isDemo: isDemoAccount(user.id),
           onboardingDismissed: dismissedRoles(user.onboardingDismissed),
+          emailVerified: user.emailVerifiedAt !== null,
         },
         capabilities: await capabilitiesFor(id),
       };
@@ -184,6 +200,129 @@ export async function meRoutes(app: FastifyInstance) {
 
       const [row] = await db.select().from(s.renterProfiles).where(eq(s.renterProfiles.userId, id));
       return projectProfile(user, row);
+    },
+  );
+
+  r.post(
+    '/me/verify-email',
+    { onRequest: [app.authenticate], schema: { response: { 200: okSchema } } },
+    async (request) => {
+      const { id } = requireUser(request);
+      const [user] = await db.select().from(s.users).where(eq(s.users.id, id));
+      if (user.emailVerifiedAt) return { ok: true as const };
+      await retireUnused(id, 'verify');
+      const token = await issueAuthToken(id, 'verify');
+      await sendMail({
+        to: user.email,
+        ...verifyMail(`${env.WEB_ORIGIN.replace(/\/$/, '')}/verify/${token}`),
+      });
+      return { ok: true as const };
+    },
+  );
+
+  r.post(
+    '/me/password',
+    { onRequest: [app.authenticate], schema: { body: changePasswordSchema, response: { 200: okSchema } } },
+    async (request) => {
+      const { id } = requireUser(request);
+      const [user] = await db.select().from(s.users).where(eq(s.users.id, id));
+      if (!user.passwordHash || !(await verifyPassword(user.passwordHash, request.body.currentPassword))) {
+        throw new ApiError('invalid_credentials', 'current password is wrong');
+      }
+      await db
+        .update(s.users)
+        .set({ passwordHash: await hashPassword(request.body.newPassword), updatedAt: new Date() })
+        .where(eq(s.users.id, id));
+      return { ok: true as const };
+    },
+  );
+
+  r.post(
+    '/me/email',
+    { onRequest: [app.authenticate], schema: { body: changeEmailSchema, response: { 200: okSchema } } },
+    async (request) => {
+      const { id } = requireUser(request);
+      const [user] = await db.select().from(s.users).where(eq(s.users.id, id));
+      if (!user.passwordHash || !(await verifyPassword(user.passwordHash, request.body.password))) {
+        throw new ApiError('invalid_credentials', 'password is wrong');
+      }
+      const next = request.body.email;
+      if (next === user.email) return { ok: true as const };
+      const [taken] = await db.select({ id: s.users.id }).from(s.users).where(eq(s.users.email, next));
+      if (taken) throw new ApiError('email_taken', 'that email is already registered');
+      await retireUnused(id, 'email_change');
+      const token = await issueAuthToken(id, 'email_change', next);
+      await sendMail({
+        to: next,
+        ...emailChangeMail(`${env.WEB_ORIGIN.replace(/\/$/, '')}/verify/${token}`),
+      });
+      return { ok: true as const };
+    },
+  );
+
+  r.get(
+    '/me/sessions',
+    { onRequest: [app.authenticate], schema: { response: { 200: sessionListSchema } } },
+    async (request) => {
+      const { id } = requireUser(request);
+      const presented = request.cookies[REFRESH_COOKIE];
+      const currentHash = presented ? hashToken(presented) : null;
+      const rows = await db
+        .select()
+        .from(s.sessions)
+        .where(and(eq(s.sessions.userId, id), isNull(s.sessions.revokedAt)))
+        .orderBy(desc(s.sessions.createdAt));
+      return {
+        sessions: rows.map((row) => ({
+          id: row.id,
+          userAgent: row.userAgent,
+          ip: row.ip,
+          createdAt: row.createdAt.toISOString(),
+          current: currentHash !== null && row.tokenHash === currentHash,
+        })),
+      };
+    },
+  );
+
+  r.post(
+    '/me/sessions/revoke-all',
+    { onRequest: [app.authenticate], schema: { response: { 200: okSchema } } },
+    async (request) => {
+      const { id } = requireUser(request);
+      await revokeAllSessions(id);
+      return { ok: true as const };
+    },
+  );
+
+  r.get(
+    '/me/export',
+    { onRequest: [app.authenticate] },
+    async (request) => {
+      const { id } = requireUser(request);
+      const [user] = await db.select().from(s.users).where(eq(s.users.id, id));
+      const properties = await db.select().from(s.properties).where(eq(s.properties.ownerId, id));
+      const leases = await db.select().from(s.leases).where(eq(s.leases.tenantId, id));
+      return {
+        exportedAt: new Date().toISOString(),
+        user: toPublicUser(user),
+        properties: properties.map((p) => ({ id: p.id, street: p.street, city: p.city })),
+        leases: leases.map((l) => ({ id: l.id, startDate: l.startDate, endDate: l.endDate })),
+      };
+    },
+  );
+
+  r.post(
+    '/me/delete',
+    { onRequest: [app.authenticate], schema: { body: changeEmailSchema.pick({ password: true }), response: { 200: okSchema } } },
+    async (request) => {
+      const { id } = requireUser(request);
+      const [user] = await db.select().from(s.users).where(eq(s.users.id, id));
+      if (!user.passwordHash || !(await verifyPassword(user.passwordHash, request.body.password))) {
+        throw new ApiError('invalid_credentials', 'password is wrong');
+      }
+      await db.update(s.users).set({ deletedAt: new Date(), updatedAt: new Date() }).where(eq(s.users.id, id));
+      await revokeAllSessions(id);
+      return { ok: true as const };
     },
   );
 }

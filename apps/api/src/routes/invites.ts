@@ -17,6 +17,8 @@ import {
 import { db, schema as s } from '../db/client.ts';
 import { newId } from '../lib/ids.ts';
 import { requireOwner, resolveViewer } from '../policy/viewer.ts';
+import { joinBurst } from '../lib/rate-limit.ts';
+import { isDemoAccount } from './auth.ts';
 
 /**
  * Tenant invites.
@@ -92,6 +94,10 @@ export async function inviteRoutes(app: FastifyInstance) {
     async (request, reply) => {
       const viewer = await resolveViewer(request.currentUser!.id);
       requireOwner(viewer, request.params.id);
+      const [owner] = await db.select().from(s.users).where(eq(s.users.id, viewer.userId));
+      if (!owner?.emailVerifiedAt && !isDemoAccount(viewer.userId)) {
+        throw new ApiError('email_unverified', 'verify your email before inviting anyone');
+      }
       const b = request.body;
 
       if (await overlappingLease(request.params.id, b.startDate, b.endDate)) {
@@ -182,6 +188,7 @@ export async function inviteRoutes(app: FastifyInstance) {
   r.get(
     '/join/:token',
     {
+      onRequest: [joinBurst],
       schema: { params: z.object({ token: z.string().min(16).max(64) }), response: { 200: invitePreviewSchema } },
     },
     async (request) => {

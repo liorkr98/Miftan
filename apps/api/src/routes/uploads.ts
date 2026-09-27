@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { ApiError } from '@miftan/shared';
 import { MAX_UPLOAD_BYTES, assertUploadable, createStorage, localDriver } from '../storage/index.ts';
 import { env } from '../lib/env.ts';
+import { uploadBurst } from '../lib/rate-limit.ts';
 
 const signSchema = z.object({
   folder: z.enum(['tickets', 'receipts', 'protocol', 'properties']),
@@ -28,7 +29,7 @@ export async function uploadRoutes(app: FastifyInstance) {
   /** Ask for somewhere to put a file. Authenticated: uploads are not free. */
   r.post(
     '/uploads/sign',
-    { onRequest: [app.authenticate], schema: { body: signSchema, response: { 200: targetSchema } } },
+    { onRequest: [uploadBurst, app.authenticate], schema: { body: signSchema, response: { 200: targetSchema } } },
     async (request) => {
       assertUploadable(request.body.contentType);
       return storage.createUpload(request.body);

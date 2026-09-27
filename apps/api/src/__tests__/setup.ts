@@ -1,5 +1,6 @@
 import { afterAll, beforeEach } from 'vitest';
 import { sql } from '../db/client.ts';
+import { sentMail } from '../email/index.ts';
 
 /**
  * Every test starts from an empty database.
@@ -13,6 +14,7 @@ beforeEach(async () => {
     select tablename from pg_tables
     where schemaname = 'public' and tablename <> '__drizzle_migrations'
   `;
+  sentMail.length = 0;
   if (tables.length === 0) return;
   const names = tables.map((t) => `"public"."${t.tablename}"`).join(', ');
   await sql.unsafe(`truncate ${names} restart identity cascade`);

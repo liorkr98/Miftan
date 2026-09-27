@@ -28,6 +28,9 @@ const schema = z.object({
    * ids are then ordinary users — the demo badge and the revenue lens stay off.
    */
   DEMO_MODE: z.enum(['true', 'false']).optional(),
+  /** Resend. Unset = console adapter (dev, tests, demo). Never commit the key. */
+  RESEND_API_KEY: z.string().optional(),
+  EMAIL_FROM: z.string().default('בעל הבית <noreply@baalabait.co.il>'),
 
   /* ── Object storage (Cloudflare R2, S3 API) ──────────────
      Optional in development, required in production — the check lives in

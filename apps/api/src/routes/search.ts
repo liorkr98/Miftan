@@ -15,6 +15,7 @@ import {
 } from '@miftan/shared';
 import { db, schema as s } from '../db/client.ts';
 import { newId } from '../lib/ids.ts';
+import { searchBurst } from '../lib/rate-limit.ts';
 
 /**
  * Below this, a median is a rumour. The row still reports its demand count —
@@ -63,7 +64,7 @@ export async function searchRoutes(app: FastifyInstance) {
   r.post(
     '/search',
     {
-      onRequest: [app.optionalAuth],
+      onRequest: [searchBurst, app.optionalAuth],
       schema: { body: searchRequestSchema, response: { 200: searchResponseSchema } },
     },
     async (request) => {

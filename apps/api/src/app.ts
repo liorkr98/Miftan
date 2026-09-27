@@ -44,8 +44,17 @@ export async function buildApp(): Promise<FastifyInstance> {
         : isProd
           ? true
           : { transport: { target: 'pino-pretty', options: { translateTime: 'HH:MM:ss', ignore: 'pid,hostname' } } },
-    /* Behind a proxy in production, so request.ip is the real client. */
-    trustProxy: isProd,
+    /* Do not trust X-Forwarded-For. Fly sets Fly-Client-IP; clientIp() reads
+       that header. trustProxy: true would let a caller pick their own IP. */
+    trustProxy: false,
+  });
+
+  app.addHook('onSend', async (_request, reply, payload) => {
+    reply.header('X-Content-Type-Options', 'nosniff');
+    reply.header('Referrer-Policy', 'strict-origin-when-cross-origin');
+    reply.header('X-Frame-Options', 'DENY');
+    reply.header('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+    return payload;
   });
 
   app.setValidatorCompiler(validatorCompiler);
@@ -70,6 +79,7 @@ export async function buildApp(): Promise<FastifyInstance> {
     /* Credentials mode means the origin cannot be '*'. */
     origin: env.WEB_ORIGIN,
     credentials: true,
+    maxAge: 600,
     /* @fastify/cors allows only GET, HEAD and POST unless told otherwise. The
        dev proxy is same-origin and never sends a preflight, so every PATCH,
        PUT and DELETE worked locally and failed the moment the web app and the

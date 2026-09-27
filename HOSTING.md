@@ -106,6 +106,23 @@ With none of these set the API writes to `apps/api/uploads` in development, and
 **refuses to boot** in production rather than writing a tenant's evidence to a
 filesystem that the next deploy throws away.
 
+## Email (Resend)
+
+`RESEND_API_KEY` lives in Fly secrets, never in the repo. Unset, the API prints
+mail to the console (dev, tests, demo).
+
+After `baalabait.co.il` is on Cloudflare, add these DNS records from the Resend
+dashboard (Domain → baalabait.co.il):
+
+| Type | Name | Purpose |
+|---|---|---|
+| TXT | `@` | SPF (`v=spf1 include:amazonses.com ~all` or whatever Resend shows) |
+| CNAME | `resend._domainkey` (or as shown) | DKIM |
+| TXT | `_dmarc` | `v=DMARC1; p=quarantine; rua=mailto:privacy@baalabait.co.il` |
+
+From: `בעל הבית <noreply@baalabait.co.il>`. Forward `support@`, `privacy@` and
+`accessibility@` with Cloudflare Email Routing.
+
 ## Agent tracing
 
 Cloudflare's `agent-setup/tracing.md` configures `observability.traces` for a

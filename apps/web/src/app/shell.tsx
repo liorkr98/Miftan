@@ -11,6 +11,7 @@ import {
   useTickets,
 } from '@/api/hooks';
 import { useAuth } from '@/api/auth';
+import { api } from '@/api/client';
 import { queryClient } from '@/api/query';
 import { t, daysUntil } from '@miftan/shared';
 import { cn } from '@/lib/utils';
@@ -40,6 +41,7 @@ import {
   FileText,
   Gauge,
   Home,
+  CircleUser,
   LogOut,
   ListChecks,
   Send,
@@ -76,12 +78,13 @@ function TopBar() {
   const [resetOpen, setResetOpen] = React.useState(false);
   const resetDemo = useStore((s) => s.resetDemo);
   const pushToast = useStore((s) => s.pushToast);
-  const { capabilities, user, signOut } = useAuth();
+  const { capabilities, user, signOut, refreshMe } = useAuth();
+  const [verifySent, setVerifySent] = React.useState(false);
 
   return (
     <header
       style={{ zIndex: 'var(--z-sticky)' }}
-      className="sticky top-0 flex h-14 shrink-0 items-center gap-3 bg-ink px-3 sm:px-4"
+      className="relative sticky top-0 flex h-14 shrink-0 items-center gap-3 bg-ink px-3 sm:px-4"
     >
       <div className="flex shrink-0 items-center gap-2">
         <Wordmark size="sm" onInk />
@@ -98,6 +101,13 @@ function TopBar() {
 
       <div className="flex shrink-0 items-center gap-1">
         <NotificationBell />
+        <NavLink
+          to="/account"
+          className="press hidden items-center gap-1.5 rounded-[var(--radius-control)] px-2.5 py-1.5 text-xs font-semibold text-on-ink-muted hover:bg-white/10 hover:text-on-ink sm:flex"
+        >
+          <CircleUser className="h-3.5 w-3.5" />
+          <span className="hidden md:inline">{t.shell.account}</span>
+        </NavLink>
         <NavLink
           to="/pricing"
           className="press hidden items-center gap-1.5 rounded-[var(--radius-control)] px-2.5 py-1.5 text-xs font-semibold text-on-ink-muted hover:bg-white/10 hover:text-on-ink sm:flex"
@@ -127,6 +137,26 @@ function TopBar() {
           <span className="hidden lg:inline">{user?.name ?? t.auth.signOut}</span>
         </button>
       </div>
+
+      {user && !user.emailVerified ? (
+        <div className="absolute inset-x-0 top-full border-b border-line bg-surface px-4 py-2 text-xs font-semibold text-ink">
+          {verifySent ? t.auth.verifyBannerSent : t.auth.verifyBanner}{' '}
+          {!verifySent ? (
+            <button
+              type="button"
+              className="underline"
+              onClick={() => {
+                void api.request('/me/verify-email', { method: 'POST' }).then(() => {
+                  setVerifySent(true);
+                  void refreshMe();
+                });
+              }}
+            >
+              {t.auth.verifyBannerAction}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
 
       <Dialog open={resetOpen} onOpenChange={setResetOpen}>
         <DialogContent>
@@ -376,9 +406,29 @@ export function OwnerShell() {
           </div>
         </main>
       </div>
+      <AppFooter />
       <BottomTabs items={mobileItems} />
       <Toaster />
     </div>
+  );
+}
+
+function AppFooter() {
+  return (
+    <footer className="hidden items-center justify-center gap-4 border-t border-line bg-surface px-4 py-2 text-2xs text-muted md:flex">
+      <NavLink to="/contact" className="hover:text-ink hover:underline">
+        {t.shell.contact}
+      </NavLink>
+      <NavLink to="/legal/terms" className="hover:text-ink hover:underline">
+        {t.auth.termsLink}
+      </NavLink>
+      <NavLink to="/legal/privacy" className="hover:text-ink hover:underline">
+        {t.auth.privacyLink}
+      </NavLink>
+      <NavLink to="/account" className="hover:text-ink hover:underline">
+        {t.shell.account}
+      </NavLink>
+    </footer>
   );
 }
 
@@ -414,6 +464,7 @@ export function TenantShell() {
           <Outlet />
         </div>
       </main>
+      <AppFooter />
       <BottomTabs items={items} />
       <Toaster />
     </div>
@@ -449,6 +500,7 @@ export function SeekerShell() {
       <main ref={main} id="main" className="min-w-0 flex-1 overflow-y-auto">
         <Outlet />
       </main>
+      <AppFooter />
       <BottomTabs items={items} />
       <Toaster />
     </div>

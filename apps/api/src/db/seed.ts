@@ -380,7 +380,10 @@ await db.transaction(async (tx) => {
   /* Every seeded account is a demo login, and a demo should show the whole
      product — so those accounts, and only those, get the paid plan. A real
      signup that somehow shares this database stays free. */
-  await tx.update(s.users).set({ plan: 'pro' }).where(like(s.users.id, 'usr_seed_%'));
+  await tx
+    .update(s.users)
+    .set({ plan: 'pro', emailVerifiedAt: new Date() })
+    .where(like(s.users.id, 'usr_seed_%'));
 
   await tx
     .insert(s.appMeta)

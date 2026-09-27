@@ -106,6 +106,31 @@ export const appMeta = pgTable('app_meta', {
 });
 
 /**
+ * One-time tokens for reset, verify and email-change. Only a hash is stored,
+ * same as invites — a leaked table does not hand out working links.
+ */
+export const authTokens = pgTable(
+  'auth_tokens',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    purpose: text('purpose', { enum: ['reset', 'verify', 'email_change'] }).notNull(),
+    tokenHash: text('token_hash').notNull(),
+    /** New email, only for email_change. */
+    payload: text('payload'),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    usedAt: timestamp('used_at', { withTimezone: true }),
+    createdAt,
+  },
+  (t) => [
+    uniqueIndex('auth_tokens_hash_key').on(t.tokenHash),
+    index('auth_tokens_user_idx').on(t.userId),
+  ],
+);
+
+/**
  * The seeker's reusable renter profile — filled once, reused across every
  * application. Deliberately has no field for family status, parenthood, age,
  * gender, nationality, religion or sexual orientation: if the column does not

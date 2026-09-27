@@ -1,8 +1,14 @@
-import { createBrowserRouter } from 'react-router-dom';
+import { createBrowserRouter, Outlet } from 'react-router-dom';
 import { Entry, RequireAuth } from './guard';
 import { LegalPage } from './legal-page';
 import { SignIn } from './sign-in';
 import { SignUp } from './sign-up';
+import { ForgotPassword } from './forgot';
+import { ResetPassword } from './reset';
+import { VerifyEmail } from './verify';
+import { Contact } from './contact';
+import { Account } from './account';
+import { AppErrorPage } from './error-page';
 import { Join } from './join';
 import { StartOwner } from './start-owner';
 import { Pricing } from './pricing';
@@ -34,9 +40,17 @@ import { SeekerProfile } from '@/personas/seeker/profile';
 import { isDemoBuild } from '@/lib/demo';
 
 export const router = createBrowserRouter([
+  {
+    element: <Outlet />,
+    errorElement: <AppErrorPage />,
+    children: [
   { path: '/', element: <Entry /> },
   { path: '/sign-in', element: <SignIn /> },
   { path: '/sign-up', element: <SignUp /> },
+  { path: '/forgot', element: <ForgotPassword /> },
+  { path: '/reset/:token', element: <ResetPassword /> },
+  { path: '/verify/:token', element: <VerifyEmail /> },
+  { path: '/contact', element: <Contact /> },
   /* Public: the invite link and the price list work signed out. */
   { path: '/join/:token', element: <Join /> },
   { path: '/pricing', element: <Pricing /> },
@@ -45,6 +59,7 @@ export const router = createBrowserRouter([
     /* Everything below here needs a session. */
     element: <RequireAuth />,
     children: [
+      { path: '/account', element: <Account /> },
       /* Any signed-in account: the door into the owner role. */
       { path: '/start/owner', element: <StartOwner /> },
       {
@@ -109,4 +124,6 @@ export const router = createBrowserRouter([
     ],
   },
   { path: '*', element: <NotFound /> },
+    ],
+  },
 ]);

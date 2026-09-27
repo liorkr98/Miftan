@@ -117,6 +117,11 @@ export function SignIn() {
           </Button>
 
           <p className="mt-3 text-center text-xs text-muted">
+            <Link to="/forgot" className="font-bold text-ink underline-offset-2 hover:underline">
+              {t.auth.forgot}
+            </Link>
+          </p>
+          <p className="mt-2 text-center text-xs text-muted">
             {t.auth.noAccount}{' '}
             <Link to="/sign-up" className="font-bold text-ink underline-offset-2 hover:underline">
               {t.auth.createOne}

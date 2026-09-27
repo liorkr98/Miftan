@@ -30,6 +30,7 @@ export const ID_PREFIX = {
   contractTemplate: 'ctpl',
   session: 'sess',
   invite: 'inv',
+  authToken: 'atok',
 } as const;
 
 export type IdKind = keyof typeof ID_PREFIX;

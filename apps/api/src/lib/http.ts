@@ -29,6 +29,16 @@ export function readRefreshCookie(request: FastifyRequest): string {
   return token;
 }
 
+/**
+ * Fly's own header, not X-Forwarded-For. Anyone can send X-Forwarded-For;
+ * only Fly can set Fly-Client-IP on the public service.
+ */
+export function clientIp(request: FastifyRequest): string {
+  const fly = request.headers['fly-client-ip'];
+  if (typeof fly === 'string' && fly.length > 0) return fly.split(',')[0]!.trim();
+  return request.socket.remoteAddress ?? '0.0.0.0';
+}
+
 export function clientMeta(request: FastifyRequest) {
-  return { userAgent: request.headers['user-agent'], ip: request.ip };
+  return { userAgent: request.headers['user-agent'], ip: clientIp(request) };
 }

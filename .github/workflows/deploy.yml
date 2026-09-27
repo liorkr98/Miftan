@@ -9,6 +9,7 @@
 #   CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID   web deploys; until these
 #     exist, turn the Cloudflare dashboard auto-deploy off by hand and the
 #     web step here skips itself
+#   RESEND_API_KEY  (also set on the Fly app as a secret; not a GitHub-only secret)
 #
 # Create GitHub Environments named `demo` and `production`. On `production`,
 # add yourself as a required reviewer.

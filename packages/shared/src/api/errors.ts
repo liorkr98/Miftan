@@ -9,6 +9,8 @@
 export const ERROR_CODES = [
   'invalid_credentials',
   'email_taken',
+  'email_unverified',
+  'invalid_token',
   'not_authenticated',
   'session_expired',
   'session_reused',
@@ -40,6 +42,8 @@ export interface ApiErrorBody {
 export const ERROR_STATUS: Record<ErrorCode, number> = {
   invalid_credentials: 401,
   email_taken: 409,
+  email_unverified: 403,
+  invalid_token: 400,
   not_authenticated: 401,
   session_expired: 401,
   session_reused: 401,

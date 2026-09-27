@@ -31,6 +31,7 @@ export * from './catalog/pricing';
 export * from './catalog/protocol-items';
 export * from './catalog/contract-templates';
 export * from './catalog/legal-content';
+export * from './catalog/support';
 export * from './catalog/seasonal-templates';
 export * from './lib/seasonal';
 export * from './lib/budget';

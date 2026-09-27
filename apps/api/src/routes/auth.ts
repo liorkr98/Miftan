@@ -4,9 +4,12 @@ import { and, eq, isNull } from 'drizzle-orm';
 import {
   ApiError,
   authResultSchema,
+  forgotPasswordSchema,
   loginSchema,
   okSchema,
   registerSchema,
+  resetPasswordSchema,
+  verifyTokenSchema,
 } from '@miftan/shared';
 import { db, schema as s } from '../db/client.ts';
 import { env, isProd } from '../lib/env.ts';
@@ -15,12 +18,14 @@ import {
   ACCESS_TTL_SECONDS,
   createSession,
   hashPassword,
+  revokeAllSessions,
   revokeSession,
   rotateSession,
   signAccessToken,
   verifyPassword,
   wasteTimeLikeAVerify,
 } from '../lib/auth.ts';
+import { consumeAuthToken, issueAuthToken, retireUnused } from '../lib/auth-tokens.ts';
 import { capabilitiesFor } from '../lib/capabilities.ts';
 import {
   REFRESH_COOKIE,
@@ -29,6 +34,9 @@ import {
   readRefreshCookie,
   setRefreshCookie,
 } from '../lib/http.ts';
+import { authBurst, refreshBurst } from '../lib/rate-limit.ts';
+import { sendMail } from '../email/index.ts';
+import { alreadyRegisteredMail, resetMail, verifyMail } from '../email/templates.ts';
 
 const publicUser = (u: typeof s.users.$inferSelect) => ({
   id: u.id,
@@ -39,7 +47,12 @@ const publicUser = (u: typeof s.users.$inferSelect) => ({
   plan: planOf(u),
   isDemo: isDemoAccount(u.id),
   onboardingDismissed: dismissedRoles(u.onboardingDismissed),
+  emailVerified: u.emailVerifiedAt !== null,
 });
+
+export function toPublicUser(u: typeof s.users.$inferSelect) {
+  return publicUser(u);
+}
 
 /**
  * Fails closed: only an exact 'pro' is paid. A typo, a null, a value from a
@@ -71,19 +84,27 @@ export function isDemoAccount(id: string): boolean {
   return accountIsDemo(id, isProd, env.DEMO_MODE === 'true');
 }
 
+function webUrl(path: string): string {
+  return `${env.WEB_ORIGIN.replace(/\/$/, '')}${path}`;
+}
+
 export async function authRoutes(app: FastifyInstance) {
   const r = app.withTypeProvider<ZodTypeProvider>();
 
   r.post(
     '/auth/register',
-    { schema: { body: registerSchema, response: { 201: authResultSchema } } },
+    { onRequest: [authBurst], schema: { body: registerSchema, response: { 201: okSchema } } },
     async (request, reply) => {
       const { name, email, phone, password } = request.body;
-      /* Validated by the schema already (acceptedTerms must be literal true);
-         read here only to timestamp it. */
 
-      const [taken] = await db.select({ id: s.users.id }).from(s.users).where(eq(s.users.email, email));
-      if (taken) throw new ApiError('email_taken', 'that email is already registered');
+      const [taken] = await db.select().from(s.users).where(eq(s.users.email, email));
+      if (taken) {
+        await wasteTimeLikeAVerify();
+        if (!taken.deletedAt) {
+          await sendMail({ to: email, ...alreadyRegisteredMail(webUrl('/sign-in')) });
+        }
+        return reply.code(201).send({ ok: true as const });
+      }
 
       const [user] = await db
         .insert(s.users)
@@ -97,21 +118,16 @@ export async function authRoutes(app: FastifyInstance) {
         })
         .returning();
 
-      const session = await createSession(user.id, clientMeta(request));
-      setRefreshCookie(reply, session.token, session.expiresAt);
+      const token = await issueAuthToken(user.id, 'verify');
+      await sendMail({ to: email, ...verifyMail(webUrl(`/verify/${token}`)) });
 
-      return reply.code(201).send({
-        accessToken: await signAccessToken(user.id),
-        expiresIn: ACCESS_TTL_SECONDS,
-        user: publicUser(user),
-        capabilities: await capabilitiesFor(user.id),
-      });
+      return reply.code(201).send({ ok: true as const });
     },
   );
 
   r.post(
     '/auth/login',
-    { schema: { body: loginSchema, response: { 200: authResultSchema } } },
+    { onRequest: [authBurst], schema: { body: loginSchema, response: { 200: authResultSchema } } },
     async (request, reply) => {
       const { email, password } = request.body;
 
@@ -120,9 +136,6 @@ export async function authRoutes(app: FastifyInstance) {
         .from(s.users)
         .where(and(eq(s.users.email, email), isNull(s.users.deletedAt)));
 
-      /* Same error and roughly the same timing whether the account is missing
-         or the password is wrong, so this endpoint cannot be used to find out
-         which emails are registered. */
       if (!user?.passwordHash) {
         await wasteTimeLikeAVerify();
         throw new ApiError('invalid_credentials', 'email or password is wrong');
@@ -144,8 +157,86 @@ export async function authRoutes(app: FastifyInstance) {
   );
 
   r.post(
+    '/auth/forgot',
+    { onRequest: [authBurst], schema: { body: forgotPasswordSchema, response: { 200: okSchema } } },
+    async (request) => {
+      const { email } = request.body;
+      const [user] = await db
+        .select()
+        .from(s.users)
+        .where(and(eq(s.users.email, email), isNull(s.users.deletedAt)));
+
+      if (user) {
+        await retireUnused(user.id, 'reset');
+        const token = await issueAuthToken(user.id, 'reset');
+        await sendMail({ to: email, ...resetMail(webUrl(`/reset/${token}`)) });
+      } else {
+        await wasteTimeLikeAVerify();
+      }
+      return { ok: true as const };
+    },
+  );
+
+  r.post(
+    '/auth/reset',
+    { onRequest: [authBurst], schema: { body: resetPasswordSchema, response: { 200: okSchema } } },
+    async (request) => {
+      const { token, password } = request.body;
+      const row = await consumeAuthToken(token, 'reset');
+      await db
+        .update(s.users)
+        .set({ passwordHash: await hashPassword(password), updatedAt: new Date() })
+        .where(eq(s.users.id, row.userId));
+      await revokeAllSessions(row.userId);
+      return { ok: true as const };
+    },
+  );
+
+  r.post(
+    '/auth/verify',
+    { onRequest: [authBurst], schema: { body: verifyTokenSchema, response: { 200: authResultSchema } } },
+    async (request, reply) => {
+      const presented = request.body.token;
+      /* Try verify first, then email_change — the hash is unique so only one matches. */
+      let row;
+      try {
+        row = await consumeAuthToken(presented, 'verify');
+      } catch {
+        row = await consumeAuthToken(presented, 'email_change');
+      }
+
+      const [user] = await db.select().from(s.users).where(eq(s.users.id, row.userId));
+      if (!user || user.deletedAt) throw new ApiError('not_authenticated', 'user no longer exists');
+
+      if (row.purpose === 'email_change' && row.payload) {
+        await db
+          .update(s.users)
+          .set({ email: row.payload, emailVerifiedAt: new Date(), updatedAt: new Date() })
+          .where(eq(s.users.id, user.id));
+        await revokeAllSessions(user.id);
+      } else {
+        await db
+          .update(s.users)
+          .set({ emailVerifiedAt: new Date(), updatedAt: new Date() })
+          .where(eq(s.users.id, user.id));
+      }
+
+      const [fresh] = await db.select().from(s.users).where(eq(s.users.id, user.id));
+      const session = await createSession(fresh.id, clientMeta(request));
+      setRefreshCookie(reply, session.token, session.expiresAt);
+
+      return {
+        accessToken: await signAccessToken(fresh.id),
+        expiresIn: ACCESS_TTL_SECONDS,
+        user: publicUser(fresh),
+        capabilities: await capabilitiesFor(fresh.id),
+      };
+    },
+  );
+
+  r.post(
     '/auth/refresh',
-    { schema: { response: { 200: authResultSchema } } },
+    { onRequest: [refreshBurst], schema: { response: { 200: authResultSchema } } },
     async (request, reply) => {
       const presented = readRefreshCookie(request);
 
@@ -153,8 +244,6 @@ export async function authRoutes(app: FastifyInstance) {
       try {
         rotated = await rotateSession(presented, clientMeta(request));
       } catch (err) {
-        /* Any failure here means the cookie is worthless — drop it so the
-           browser stops sending it and the client can route to login. */
         clearRefreshCookie(reply);
         throw err;
       }
@@ -162,7 +251,10 @@ export async function authRoutes(app: FastifyInstance) {
       setRefreshCookie(reply, rotated.session.token, rotated.session.expiresAt);
 
       const [user] = await db.select().from(s.users).where(eq(s.users.id, rotated.userId));
-      if (!user) throw new ApiError('not_authenticated', 'user no longer exists');
+      if (!user || user.deletedAt) {
+        clearRefreshCookie(reply);
+        throw new ApiError('not_authenticated', 'user no longer exists');
+      }
 
       return {
         accessToken: await signAccessToken(user.id),

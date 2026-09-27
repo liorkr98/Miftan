@@ -40,7 +40,9 @@ const req = (method: 'GET' | 'POST' | 'DELETE', url: string, token?: string, pay
 
 async function makeUser(name: string, email: string) {
   const id = newId('user');
-  await db.insert(s.users).values({ id, name, email, passwordHash: await hashPassword(PASSWORD) });
+  await db.insert(s.users).values({
+    id, name, email, passwordHash: await hashPassword(PASSWORD), emailVerifiedAt: new Date(),
+  });
   const res = await app.inject({ method: 'POST', url: '/auth/login', payload: { email, password: PASSWORD } });
   return { id, token: res.json().accessToken as string };
 }
@@ -76,6 +78,15 @@ async function invite(body: object = terms) {
   expect(res.statusCode).toBe(201);
   return res.json() as { invite: { id: string; status: string }; token: string };
 }
+
+describe('email must be verified before inviting', () => {
+  it('refuses an unverified owner', async () => {
+    await db.update(s.users).set({ emailVerifiedAt: null }).where(eq(s.users.id, owner.id));
+    const res = await req('POST', `/properties/${propertyId}/invites`, owner.token, terms);
+    expect(res.statusCode).toBe(403);
+    expect(res.json().error.code).toBe('email_unverified');
+  });
+});
 
 describe('making an invite', () => {
   it('returns the token once and stores only its hash', async () => {
