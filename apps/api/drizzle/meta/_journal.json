@@ -64,6 +64,13 @@
       "when": 1790492487087,
       "tag": "0008_plans_and_invites",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1790494223548,
+      "tag": "0009_demo_accounts_pro",
+      "breakpoints": true
     }
   ]
 }

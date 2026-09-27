@@ -11,7 +11,7 @@ import {
 import { db, schema as s } from '../db/client.ts';
 import { capabilitiesFor } from '../lib/capabilities.ts';
 import { requireUser } from '../plugins/authenticate.ts';
-import { planOf } from './auth.ts';
+import { isDemoAccount, planOf } from './auth.ts';
 
 type ProfileRow = typeof s.renterProfiles.$inferSelect;
 type UserRow = typeof s.users.$inferSelect;
@@ -84,6 +84,7 @@ export async function meRoutes(app: FastifyInstance) {
           phone: user.phone,
           createdAt: user.createdAt.toISOString(),
           plan: planOf(user),
+          isDemo: isDemoAccount(user.id),
         },
         capabilities: await capabilitiesFor(id),
       };

@@ -46,6 +46,8 @@ export const userSchema = z.object({
   createdAt: z.string(),
   /** What the account has paid for. Anything the server cannot vouch for is 'free'. */
   plan: z.enum(['free', 'pro']),
+  /** A seeded demo login. Gates demo-only affordances like the revenue lens. */
+  isDemo: z.boolean(),
 });
 
 /**

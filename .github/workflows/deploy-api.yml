@@ -14,16 +14,16 @@ on:
   workflow_dispatch:
     inputs:
       web_origin:
-        description: 'The web app address, for CORS (e.g. https://miftan-web.example.workers.dev)'
+        description: 'The web app address, for CORS'
         required: true
-      seed:
-        description: 'Load the demo data. First run only — the seed is not idempotent.'
-        type: boolean
-        default: false
-      reset:
-        description: 'WIPE the database first (all data lost), then migrate and seed. Demo only.'
-        type: boolean
-        default: false
+        default: https://miftan.liorkr98.workers.dev
+      data:
+        description: 'keep = only apply migrations (safe). reset-demo = ERASE everything and reload the demo data.'
+        type: choice
+        options:
+          - keep
+          - reset-demo
+        default: keep
 
 concurrency:
   group: deploy-api
@@ -46,11 +46,11 @@ jobs:
 
       # Direct connection: migrations and the seed need a session, not a
       # transaction-mode pooler.
-      # Destructive, and only when ticked: drops every table so the demo can be
-      # re-seeded from scratch. The seed is not idempotent, so a changed seed
-      # needs this rather than a second seed run.
+      # One choice, not two checkboxes: seeding on top of existing data always
+      # fails (the seed is not idempotent), so seeding only ever happens after
+      # a reset. Destructive; demo only.
       - name: Reset database
-        if: ${{ inputs.reset }}
+        if: ${{ inputs.data == 'reset-demo' }}
         run: npm run db:reset -w @miftan/api
         env:
           DATABASE_URL: ${{ secrets.NEON_DIRECT_URL }}
@@ -61,7 +61,7 @@ jobs:
           DATABASE_URL: ${{ secrets.NEON_DIRECT_URL }}
 
       - name: Seed demo data
-        if: ${{ inputs.seed || inputs.reset }}
+        if: ${{ inputs.data == 'reset-demo' }}
         run: npm run db:seed -w @miftan/api
         env:
           DATABASE_URL: ${{ secrets.NEON_DIRECT_URL }}

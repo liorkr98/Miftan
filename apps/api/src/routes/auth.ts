@@ -36,6 +36,7 @@ const publicUser = (u: typeof s.users.$inferSelect) => ({
   phone: u.phone,
   createdAt: u.createdAt.toISOString(),
   plan: planOf(u),
+  isDemo: isDemoAccount(u.id),
 });
 
 /**
@@ -45,6 +46,11 @@ const publicUser = (u: typeof s.users.$inferSelect) => ({
  */
 export function planOf(u: { plan: string | null }): 'free' | 'pro' {
   return u.plan === 'pro' ? 'pro' : 'free';
+}
+
+/** Seeded accounts, and only those, have ids from seedId(): usr_seed_… */
+export function isDemoAccount(id: string): boolean {
+  return id.startsWith('usr_seed_');
 }
 
 export async function authRoutes(app: FastifyInstance) {

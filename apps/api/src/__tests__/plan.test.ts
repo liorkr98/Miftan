@@ -52,4 +52,15 @@ describe('plan', () => {
     await db.execute(dsql`update users set plan = 'gold' where id = ${u.id}`);
     expect((await me(u.token)).user.plan).toBe('free');
   });
+
+  it('marks only seeded accounts as demo', async () => {
+    const real = await signedIn();
+    expect(real.login.user.isDemo).toBe(false);
+
+    const id = 'usr_seed_plan-demo';
+    const email = `demo-${Date.now()}@example.com`;
+    await db.insert(s.users).values({ id, name: 'דמו', email, passwordHash: await hashPassword(PASSWORD) });
+    const res = await app.inject({ method: 'POST', url: '/auth/login', payload: { email, password: PASSWORD } });
+    expect(res.json().user.isDemo).toBe(true);
+  });
 });
