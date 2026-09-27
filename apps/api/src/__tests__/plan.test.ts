@@ -5,6 +5,7 @@ import { buildApp } from '../app.ts';
 import { db, schema as s } from '../db/client.ts';
 import { newId } from '../lib/ids.ts';
 import { hashPassword } from '../lib/auth.ts';
+import { accountIsDemo } from '../routes/auth.ts';
 
 /**
  * The plan decides what an account can open, so it fails closed: a new
@@ -51,6 +52,12 @@ describe('plan', () => {
     const u = await signedIn();
     await db.execute(dsql`update users set plan = 'gold' where id = ${u.id}`);
     expect((await me(u.token)).user.plan).toBe('free');
+  });
+
+  it('does not treat a seeded id as demo on production', () => {
+    expect(accountIsDemo('usr_seed_own-1', true, false)).toBe(false);
+    expect(accountIsDemo('usr_seed_own-1', true, true)).toBe(true);
+    expect(accountIsDemo('usr_real', false, true)).toBe(false);
   });
 
   it('marks only seeded accounts as demo', async () => {

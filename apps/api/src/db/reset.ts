@@ -1,13 +1,13 @@
 import 'dotenv/config';
 import { sql } from './client.ts';
+import { assertSafeToErase } from './demo-guard.ts';
 
 /**
- * Drops and recreates the public schema. Development only — this is how you
- * get back to a clean slate before re-seeding.
+ * Drops and recreates the public schema. Demo only — this is how the demo
+ * database gets back to a clean slate before re-seeding. It will not run
+ * against a database that holds real accounts.
  */
-if (process.env.NODE_ENV === 'production') {
-  throw new Error('db:reset refuses to run with NODE_ENV=production');
-}
+await assertSafeToErase();
 
 /* Drizzle keeps its migration journal in its own `drizzle` schema, so dropping
    only `public` leaves the journal behind — migrate then believes everything is

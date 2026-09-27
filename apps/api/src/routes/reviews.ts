@@ -7,6 +7,7 @@ import {
   REVIEW_WINDOW_DAYS,
   reviewListSchema,
   reviewSchema,
+  israelToday,
   writeReviewSchema,
 } from '@miftan/shared';
 import { db, schema as s } from '../db/client.ts';
@@ -97,7 +98,7 @@ export async function reviewRoutes(app: FastifyInstance) {
         lease.tenantId === me ? 'tenant' : property?.ownerId === me ? 'owner' : null;
       if (!authorRole) throw new ApiError('not_found', 'no such tenancy');
 
-      const today = new Date().toISOString().slice(0, 10);
+      const today = israelToday();
       if (lease.endDate >= today) {
         throw new ApiError('forbidden', 'a tenancy can only be reviewed once it has ended');
       }
@@ -251,7 +252,7 @@ async function writtenBy(authorId: string) {
 
 /** Ended tenancies this person was party to and has not yet written about. */
 async function pendingFor(userId: string) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = israelToday();
 
   const rows = await db
     .select({

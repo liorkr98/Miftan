@@ -31,6 +31,7 @@ import { SeekerSearch } from '@/personas/seeker/search';
 import { SeekerListing } from '@/personas/seeker/listing';
 import { SeekerQueue } from '@/personas/seeker/queue';
 import { SeekerProfile } from '@/personas/seeker/profile';
+import { isDemoBuild } from '@/lib/demo';
 
 export const router = createBrowserRouter([
   { path: '/', element: <Entry /> },
@@ -63,14 +64,18 @@ export const router = createBrowserRouter([
           { path: 'maintenance', element: <OwnerMaintenanceHub /> },
           { path: 'vendors', element: <OwnerMaintenanceHub /> },
           { path: 'contracts', element: <OwnerContracts /> },
-          {
-            path: 'revenue',
-            element: (
-              <PremiumGate hint={t.premium.revenueLockedHint}>
-                <OwnerRevenue />
-              </PremiumGate>
-            ),
-          },
+          ...(isDemoBuild
+            ? [
+                {
+                  path: 'revenue',
+                  element: (
+                    <PremiumGate hint={t.premium.revenueLockedHint}>
+                      <OwnerRevenue />
+                    </PremiumGate>
+                  ),
+                },
+              ]
+            : []),
           { path: 'leads/filters', element: <OwnerScreening /> },
           { path: 'crm/filters', element: <OwnerScreening /> },
           { path: 'finance', element: <OwnerFinance /> },

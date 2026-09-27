@@ -9,6 +9,7 @@ import { Field, Input } from '@/components/ui/field';
 import { cn } from '@/lib/utils';
 import { LogIn } from 'lucide-react';
 import { Wordmark } from '@/components/shared/wordmark';
+import { isDemoBuild } from '@/lib/demo';
 
 /**
  * Seeded accounts, so the three sides of the product are one click apart.
@@ -19,10 +20,10 @@ import { Wordmark } from '@/components/shared/wordmark';
  * signing out twice and losing the thread each time.
  */
 const DEMO_ACCOUNTS = [
-  { role: t.roles.owner, email: 'ran@almog-nadlan.co.il', name: 'רן אלמוג', hint: t.roles.ownerHint },
-  { role: t.roles.tenant, email: 'michal.stern@gmail.com', name: 'מיכל שטרן', hint: null },
-  { role: t.roles.seeker, email: 'tal.aviram@gmail.com', name: 'טל אבירם', hint: null },
-  { role: t.roles.all, email: 'dana@miftan-demo.co.il', name: 'דנה לוי', hint: t.roles.allHint },
+  { role: t.roles.owner, email: 'ran@demo.baalabait.invalid', name: 'רן אלמוג', hint: t.roles.ownerHint },
+  { role: t.roles.tenant, email: 'michal.stern@demo.baalabait.invalid', name: 'מיכל שטרן', hint: null },
+  { role: t.roles.seeker, email: 'tal.aviram@demo.baalabait.invalid', name: 'טל אבירם', hint: null },
+  { role: t.roles.all, email: 'dana@demo.baalabait.invalid', name: 'דנה לוי', hint: t.roles.allHint },
 ];
 const DEMO_PASSWORD = 'miftan-dev-2026';
 
@@ -123,7 +124,7 @@ export function SignIn() {
           </p>
         </form>
 
-        {import.meta.env.DEV ? (
+        {import.meta.env.DEV || isDemoBuild ? (
           <section className="mt-5">
             <h2 className="text-xs font-bold text-ink">{t.auth.demoTitle}</h2>
             <p className="mb-2 text-2xs text-muted">{t.auth.demoHint}</p>

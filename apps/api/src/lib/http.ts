@@ -2,7 +2,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 import { ApiError } from '@miftan/shared';
 import { env, isProd } from './env.ts';
 
-export const REFRESH_COOKIE = 'miftan_rt';
+export const REFRESH_COOKIE = 'bb_rt';
 
 /**
  * httpOnly so no script can read it, sameSite=lax so it survives a normal

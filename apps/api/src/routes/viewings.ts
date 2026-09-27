@@ -15,6 +15,7 @@ import {
   type OwnerSlot,
   type SeekerSlot,
   type SlotView,
+  zonedWallTime,
 } from '@miftan/shared';
 import { db, schema as s } from '../db/client.ts';
 import { newId } from '../lib/ids.ts';
@@ -119,8 +120,8 @@ export async function viewingRoutes(app: FastifyInstance) {
       const { propertyId, date, from, until, durationMinutes, gapMinutes } = request.body;
       if (scopeFor(viewer, propertyId) !== 'owner') throw new ApiError('not_found', 'no such property');
 
-      const start = new Date(`${date}T${from}:00`);
-      const end = new Date(`${date}T${until}:00`);
+      const start = zonedWallTime(date, from);
+      const end = zonedWallTime(date, until);
       if (!(start < end)) {
         throw new ApiError('validation_failed', 'the window ends before it starts', {
           until: ['must be after `from`'],

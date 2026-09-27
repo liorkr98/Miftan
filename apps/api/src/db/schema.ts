@@ -96,6 +96,16 @@ export const users = pgTable(
 );
 
 /**
+ * One row marks a database as the demo. Seed and reset refuse to touch a
+ * database that has real accounts and does not carry `environment=demo`.
+ * Production never gets that row.
+ */
+export const appMeta = pgTable('app_meta', {
+  key: text('key').primaryKey(),
+  value: text('value').notNull(),
+});
+
+/**
  * The seeker's reusable renter profile — filled once, reused across every
  * application. Deliberately has no field for family status, parenthood, age,
  * gender, nationality, religion or sexual orientation: if the column does not

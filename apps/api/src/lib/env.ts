@@ -23,6 +23,11 @@ const schema = z.object({
    * session.
    */
   COOKIE_PATH: z.string().default('/auth'),
+  /**
+   * Set only on the demo API. Production leaves it unset, and seeded account
+   * ids are then ordinary users — the demo badge and the revenue lens stay off.
+   */
+  DEMO_MODE: z.enum(['true', 'false']).optional(),
 
   /* ── Object storage (Cloudflare R2, S3 API) ──────────────
      Optional in development, required in production — the check lives in

@@ -1,0 +1,207 @@
+# Demo deploys after verify is green on main. Production deploys only from the
+# Actions tab, and only after a required reviewer on the `production`
+# environment approves. reset-demo cannot target production.
+#
+# Secrets (Settings → Secrets and variables → Actions):
+#   FLY_API_TOKEN
+#   NEON_DATABASE_URL / NEON_DIRECT_URL     demo database (the one that exists today)
+#   PROD_DATABASE_URL / PROD_DIRECT_URL     new empty production database
+#   CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID   web deploys; until these
+#     exist, turn the Cloudflare dashboard auto-deploy off by hand and the
+#     web step here skips itself
+#
+# Create GitHub Environments named `demo` and `production`. On `production`,
+# add yourself as a required reviewer.
+
+name: deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'demo or production'
+        type: choice
+        options:
+          - demo
+          - production
+        default: demo
+      data:
+        description: 'keep = migrations only. reset-demo erases the DEMO database.'
+        type: choice
+        options:
+          - keep
+          - reset-demo
+        default: keep
+      confirm:
+        description: 'For reset-demo, type erase-demo-database'
+        required: false
+        default: ''
+      web_origin:
+        description: 'Web origin for CORS. Leave empty for the target default.'
+        required: false
+        default: ''
+  workflow_run:
+    workflows: [verify]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-${{ github.event_name }}-${{ github.event.inputs.target || 'demo' }}
+  cancel-in-progress: false
+
+jobs:
+  deploy-demo:
+    if: >-
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+      || (github.event_name == 'workflow_dispatch' && inputs.target == 'demo')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: demo
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: Refuse a reset that was not typed out
+        if: ${{ inputs.data == 'reset-demo' }}
+        run: |
+          if [ "$CONFIRM" != "erase-demo-database" ]; then
+            echo "reset-demo requires confirm=erase-demo-database" >&2
+            exit 1
+          fi
+        env:
+          CONFIRM: ${{ inputs.confirm }}
+
+      - name: Reset demo database
+        if: ${{ inputs.data == 'reset-demo' }}
+        run: npm run db:reset -w @miftan/api
+        env:
+          DATABASE_URL: ${{ secrets.NEON_DIRECT_URL }}
+          DEMO_DATABASE: 'true'
+          CONFIRM_RESET: erase-demo-database
+
+      - name: Migrate demo
+        run: npm run db:migrate -w @miftan/api
+        env:
+          DATABASE_URL: ${{ secrets.NEON_DIRECT_URL }}
+
+      - name: Seed demo data
+        if: ${{ inputs.data == 'reset-demo' }}
+        run: npm run db:seed -w @miftan/api
+        env:
+          DATABASE_URL: ${{ secrets.NEON_DIRECT_URL }}
+          DEMO_DATABASE: 'true'
+          JWT_SECRET: seed-only-placeholder-that-is-long-enough-to-validate
+
+      - uses: superfly/flyctl-actions/setup-flyctl@1.5
+
+      - name: Set demo runtime secrets
+        run: |
+          case "$WEB_ORIGIN" in http://*|https://*) ;; *) WEB_ORIGIN="https://$WEB_ORIGIN" ;; esac
+          WEB_ORIGIN="${WEB_ORIGIN%/}"
+          echo "WEB_ORIGIN=$WEB_ORIGIN"
+          flyctl secrets set --stage -a miftan \
+            DATABASE_URL="$DATABASE_URL" \
+            WEB_ORIGIN="$WEB_ORIGIN" \
+            DEMO_MODE=true
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+          WEB_ORIGIN: ${{ inputs.web_origin || 'https://miftan.liorkr98.workers.dev' }}
+
+      - name: Deploy demo API
+        run: flyctl deploy --remote-only -a miftan --config fly.toml
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      - name: Deploy demo web
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          VITE_API_URL: https://miftan.fly.dev
+          VITE_DEMO: 'true'
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "CLOUDFLARE_API_TOKEN is unset; web deploy skipped."
+            exit 0
+          fi
+          npm run build
+          npx --yes wrangler@4.40.0 deploy
+
+  deploy-production:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.target == 'production' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      # No reset step exists in this job. Migrations only add.
+      - name: Migrate production
+        run: npm run db:migrate -w @miftan/api
+        env:
+          DATABASE_URL: ${{ secrets.PROD_DIRECT_URL }}
+
+      - uses: superfly/flyctl-actions/setup-flyctl@1.5
+
+      - name: Ensure the production app exists
+        run: |
+          if ! flyctl status -a baalabait-api >/dev/null 2>&1; then
+            flyctl apps create baalabait-api
+          fi
+          if ! flyctl ips list -a baalabait-api --json | grep -q '"Address"'; then
+            flyctl ips allocate-v6 -a baalabait-api
+            flyctl ips allocate-v4 --shared -a baalabait-api
+          fi
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      - name: Set production runtime secrets
+        run: |
+          case "$WEB_ORIGIN" in http://*|https://*) ;; *) WEB_ORIGIN="https://$WEB_ORIGIN" ;; esac
+          WEB_ORIGIN="${WEB_ORIGIN%/}"
+          flyctl secrets set --stage -a baalabait-api \
+            DATABASE_URL="$DATABASE_URL" \
+            WEB_ORIGIN="$WEB_ORIGIN" \
+            NODE_ENV=production
+          flyctl secrets unset DEMO_MODE -a baalabait-api || true
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+          WEB_ORIGIN: ${{ inputs.web_origin || 'https://baalabait.co.il' }}
+
+      - name: Deploy production API
+        run: flyctl deploy --remote-only -a baalabait-api --config fly.production.toml
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      - name: Deploy production web
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          VITE_API_URL: https://api.baalabait.co.il
+          VITE_DEMO: 'false'
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "CLOUDFLARE_API_TOKEN is unset; web deploy skipped."
+            exit 0
+          fi
+          npm run build
+          npx --yes wrangler@4.40.0 deploy --config wrangler.production.jsonc

@@ -1,5 +1,5 @@
 import { and, eq, gte, isNull } from 'drizzle-orm';
-import { ApiError } from '@miftan/shared';
+import { ApiError, israelToday } from '@miftan/shared';
 import { db, schema as s } from '../db/client.ts';
 
 /**
@@ -24,7 +24,7 @@ export const ANONYMOUS: Viewer = {
 };
 
 export async function resolveViewer(userId: string): Promise<Viewer> {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = israelToday();
 
   const [owned, tenanted] = await Promise.all([
     db

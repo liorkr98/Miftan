@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { and, eq, gte, inArray, isNotNull, isNull, lt, lte, ne, or, sql } from 'drizzle-orm';
-import { notificationFeedSchema, okSchema, type NotificationView } from '@miftan/shared';
+import { israelMonth, notificationFeedSchema, okSchema, zonedWallTime, type NotificationView } from '@miftan/shared';
 import { db, schema as s } from '../db/client.ts';
 import { resolveViewer } from '../policy/viewer.ts';
 
@@ -111,7 +111,7 @@ export async function notificationRoutes(app: FastifyInstance) {
         }
 
         /* Rent: anything short of paid for a month that has started. */
-        const thisMonth = new Date().toISOString().slice(0, 7);
+        const thisMonth = israelMonth();
         const unpaid = await db
           .select({ r: s.rentPayments, p: s.properties })
           .from(s.rentPayments)
@@ -126,7 +126,7 @@ export async function notificationRoutes(app: FastifyInstance) {
           );
         for (const { r: row, p } of unpaid) {
           /* Due on the 10th; before that it is not late, just not yet paid. */
-          const due = new Date(`${row.month}-10T09:00:00Z`);
+          const due = zonedWallTime(`${row.month}-10`, '09:00');
           if (due > new Date()) continue;
           items.push({
             id: `rent:${row.id}`, kind: 'rent_unpaid', role: 'owner',

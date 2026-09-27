@@ -10,6 +10,7 @@ import {
   ticketActionSchema,
   ticketListSchema,
   ticketViewSchema,
+  israelToday,
   uploadReceiptSchema,
 } from '@miftan/shared';
 import { db, schema as s } from '../db/client.ts';
@@ -291,7 +292,7 @@ export async function ticketRoutes(app: FastifyInstance) {
           amountAgorot,
           vendorId: ticket.vendorId,
           vendorName: vendor?.name ?? null,
-          date: new Date().toISOString().slice(0, 10),
+          date: israelToday(),
           ticketId: ticket.id,
           receiptFile: file,
           documentType: 'receipt',

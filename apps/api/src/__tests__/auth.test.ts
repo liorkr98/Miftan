@@ -25,7 +25,7 @@ const post = (url: string, payload?: unknown, headers?: Record<string, string>) 
   app.inject({ method: 'POST', url, payload: payload as object, headers });
 
 const refreshCookieFrom = (res: Awaited<ReturnType<typeof post>>) =>
-  res.cookies.find((c) => c.name === 'miftan_rt');
+  res.cookies.find((c) => c.name === 'bb_rt');
 
 async function register() {
   const res = await post('/auth/register', CREDENTIALS);
@@ -112,7 +112,7 @@ describe('refresh rotation', () => {
   it('issues a new refresh token and invalidates the old one', async () => {
     const first = await register();
 
-    const second = await post('/auth/refresh', undefined, { cookie: `miftan_rt=${first.cookie.value}` });
+    const second = await post('/auth/refresh', undefined, { cookie: `bb_rt=${first.cookie.value}` });
     expect(second.statusCode).toBe(200);
     const rotated = refreshCookieFrom(second)!;
     expect(rotated.value).not.toBe(first.cookie.value);
@@ -120,11 +120,11 @@ describe('refresh rotation', () => {
 
   it('revokes every session when a used token is replayed', async () => {
     const first = await register();
-    await post('/auth/refresh', undefined, { cookie: `miftan_rt=${first.cookie.value}` });
+    await post('/auth/refresh', undefined, { cookie: `bb_rt=${first.cookie.value}` });
 
     /* Presenting the already-rotated token means it leaked or was copied. We
        cannot tell which, so every session for that user ends. */
-    const replay = await post('/auth/refresh', undefined, { cookie: `miftan_rt=${first.cookie.value}` });
+    const replay = await post('/auth/refresh', undefined, { cookie: `bb_rt=${first.cookie.value}` });
     expect(replay.statusCode).toBe(401);
     expect(replay.json().error.code).toBe('session_reused');
 
@@ -133,7 +133,7 @@ describe('refresh rotation', () => {
   });
 
   it('rejects an unknown refresh token', async () => {
-    const res = await post('/auth/refresh', undefined, { cookie: 'miftan_rt=not-a-real-token' });
+    const res = await post('/auth/refresh', undefined, { cookie: 'bb_rt=not-a-real-token' });
     expect(res.statusCode).toBe(401);
     expect(res.json().error.code).toBe('session_expired');
   });
@@ -219,12 +219,12 @@ describe('logout', () => {
   it('revokes the session so the cookie stops working', async () => {
     const { cookie, body } = await register();
     const res = await post('/auth/logout', undefined, {
-      cookie: `miftan_rt=${cookie.value}`,
+      cookie: `bb_rt=${cookie.value}`,
       authorization: `Bearer ${body.accessToken}`,
     });
     expect(res.statusCode).toBe(200);
 
-    const after = await post('/auth/refresh', undefined, { cookie: `miftan_rt=${cookie.value}` });
+    const after = await post('/auth/refresh', undefined, { cookie: `bb_rt=${cookie.value}` });
     expect(after.statusCode).toBe(401);
   });
 });

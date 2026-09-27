@@ -7,6 +7,7 @@ import {
   hasZodFastifySchemaValidationErrors,
 } from 'fastify-type-provider-zod';
 import { ApiError } from '@miftan/shared';
+import { sql } from './db/client.ts';
 import { env, isProd } from './lib/env.ts';
 import { authenticatePlugin } from './plugins/authenticate.ts';
 import { authRoutes } from './routes/auth.ts';
@@ -122,7 +123,19 @@ export async function buildApp(): Promise<FastifyInstance> {
     reply.code(404).send(new ApiError('not_found', 'no such route').toBody()),
   );
 
-  app.get('/health', async () => ({ ok: true, env: env.NODE_ENV }));
+  /* Liveness only. The environment name used to be in this body; it is not
+     something a public URL needs to advertise. */
+  app.get('/health', async () => ({ ok: true }));
+
+  /* Readiness for the uptime monitor: the process is up and Postgres answers. */
+  app.get('/ready', async (_request, reply) => {
+    try {
+      await sql`select 1`;
+      return { ok: true };
+    } catch {
+      return reply.code(503).send({ ok: false });
+    }
+  });
 
   await app.register(authRoutes);
   await app.register(meRoutes);

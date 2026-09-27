@@ -11,6 +11,7 @@ import {
   inviteListSchema,
   invitePreviewSchema,
   okSchema,
+  israelToday,
   toAgorot,
 } from '@miftan/shared';
 import { db, schema as s } from '../db/client.ts';
@@ -30,7 +31,7 @@ import { requireOwner, resolveViewer } from '../policy/viewer.ts';
 
 const INVITE_TTL_DAYS = 14;
 const hashToken = (token: string) => createHash('sha256').update(token).digest('hex');
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => israelToday();
 
 type InviteRow = typeof s.tenantInvites.$inferSelect;
 

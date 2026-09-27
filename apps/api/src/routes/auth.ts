@@ -9,6 +9,7 @@ import {
   registerSchema,
 } from '@miftan/shared';
 import { db, schema as s } from '../db/client.ts';
+import { env, isProd } from '../lib/env.ts';
 import { newId } from '../lib/ids.ts';
 import {
   ACCESS_TTL_SECONDS,
@@ -56,9 +57,18 @@ export function dismissedRoles(raw: string[] | null): Array<'owner' | 'tenant' |
   );
 }
 
-/** Seeded accounts, and only those, have ids from seedId(): usr_seed_… */
-export function isDemoAccount(id: string): boolean {
+/**
+ * Seeded accounts have ids from seedId(): usr_seed_…
+ * On a production process that is not the demo, that prefix means nothing —
+ * a copied id must not unlock demo-only UI for a real landlord.
+ */
+export function accountIsDemo(id: string, production: boolean, demoMode: boolean): boolean {
+  if (production && !demoMode) return false;
   return id.startsWith('usr_seed_');
+}
+
+export function isDemoAccount(id: string): boolean {
+  return accountIsDemo(id, isProd, env.DEMO_MODE === 'true');
 }
 
 export async function authRoutes(app: FastifyInstance) {

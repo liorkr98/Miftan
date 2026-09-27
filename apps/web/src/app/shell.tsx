@@ -53,6 +53,7 @@ import {
   Tag,
 } from 'lucide-react';
 import { Wordmark } from '@/components/shared/wordmark';
+import { isDemoBuild } from '@/lib/demo';
 
 interface NavItem {
   to: string;
@@ -84,9 +85,11 @@ function TopBar() {
     >
       <div className="flex shrink-0 items-center gap-2">
         <Wordmark size="sm" onInk />
-        <span className="hidden rounded-full bg-white/10 px-2 py-0.5 text-2xs font-bold text-on-ink-muted lg:inline">
-          {t.shell.demoBadge}
-        </span>
+        {isDemoBuild ? (
+          <span className="hidden rounded-full bg-white/10 px-2 py-0.5 text-2xs font-bold text-on-ink-muted lg:inline">
+            {t.shell.demoBadge}
+          </span>
+        ) : null}
       </div>
 
       <div className="flex flex-1 justify-center">
@@ -102,15 +105,17 @@ function TopBar() {
           <Tag className="h-3.5 w-3.5" />
           <span className="hidden md:inline">{t.pricing.nav}</span>
         </NavLink>
-        <RevenueLensToggle />
-        <button
-          type="button"
-          onClick={() => setResetOpen(true)}
-          className="press flex items-center gap-1.5 rounded-[var(--radius-control)] px-2.5 py-1.5 text-xs font-semibold text-on-ink-muted hover:bg-white/10 hover:text-on-ink"
-        >
-          <RotateCcw className="h-3.5 w-3.5" />
-          <span className="hidden md:inline">{t.shell.resetDemo}</span>
-        </button>
+        {isDemoBuild ? <RevenueLensToggle /> : null}
+        {isDemoBuild ? (
+          <button
+            type="button"
+            onClick={() => setResetOpen(true)}
+            className="press flex items-center gap-1.5 rounded-[var(--radius-control)] px-2.5 py-1.5 text-xs font-semibold text-on-ink-muted hover:bg-white/10 hover:text-on-ink"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            <span className="hidden md:inline">{t.shell.resetDemo}</span>
+          </button>
+        ) : null}
 
         <button
           type="button"
@@ -336,7 +341,9 @@ export function OwnerShell() {
        explicitly, and separate from the revenue premium gate below: this one
        is not locked, it is simply not shown yet. The route and screen still
        exist and work if opened directly. */
-    { to: '/owner/revenue', label: t.ownerNav.revenue, Icon: Coins, premium: true },
+    ...(isDemoBuild
+      ? [{ to: '/owner/revenue', label: t.ownerNav.revenue, Icon: Coins, premium: true } satisfies NavItem]
+      : []),
   ];
 
   /* Bottom nav caps at five: dashboard, portfolio, tickets, leads, maintenance. */

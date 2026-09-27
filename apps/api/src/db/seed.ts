@@ -16,10 +16,12 @@ import {
   protocolRuns as fxProtocolRuns,
 } from '@miftan/fixtures';
 import { districtOf, toAgorot } from '@miftan/shared';
+import { like } from 'drizzle-orm';
 import { db, sql, schema as s } from './client.ts';
 import { seedId } from '../lib/ids.ts';
 import { hashPassword } from '../lib/auth.ts';
 import { DEMO_EMAIL, seedDemoAccount } from './seed-demo.ts';
+import { assertDemoSeedAllowed, DEMO_MARKER_KEY, DEMO_MARKER_VALUE } from './demo-guard.ts';
 import { seedExtraDemo } from './seed-extra.ts';
 
 /**
@@ -36,12 +38,12 @@ import { seedExtraDemo } from './seed-extra.ts';
  *    can be traced back to the fixture that produced it.
  *
  * Everyone gets the same development password. This script refuses to run
- * against a production database for that reason.
+ * unless DEMO_DATABASE=true, and refuses again if the database already holds
+ * a real account. NODE_ENV is not the gate: CI does not set it to production,
+ * which is how a reset used to be able to wipe the live database.
  */
 
-if (process.env.NODE_ENV === 'production') {
-  throw new Error('db:seed refuses to run with NODE_ENV=production');
-}
+await assertDemoSeedAllowed();
 
 /**
  * Every seeded account shares one throwaway password so you can sign in as the
@@ -376,8 +378,17 @@ await db.transaction(async (tx) => {
   await seedExtraDemo(tx, DEV_PASSWORD_HASH);
 
   /* Every seeded account is a demo login, and a demo should show the whole
-     product — so all of them get the paid plan. Real accounts start free. */
-  await tx.update(s.users).set({ plan: 'pro' });
+     product — so those accounts, and only those, get the paid plan. A real
+     signup that somehow shares this database stays free. */
+  await tx.update(s.users).set({ plan: 'pro' }).where(like(s.users.id, 'usr_seed_%'));
+
+  await tx
+    .insert(s.appMeta)
+    .values({ key: DEMO_MARKER_KEY, value: DEMO_MARKER_VALUE })
+    .onConflictDoUpdate({
+      target: s.appMeta.key,
+      set: { value: DEMO_MARKER_VALUE },
+    });
 });
 
 /* ── Report ────────────────────────────────────────────── */
@@ -401,10 +412,6 @@ const counts = await Promise.all(
   ).map(async ([name, table]) => `${name}: ${(await db.select().from(table)).length}`),
 );
 console.log('seeded —', counts.join(', '));
-console.log('');
-console.log(`sign in with password: ${DEV_PASSWORD}`);
-console.log(`  owner   ${fxOwner.email}`);
-console.log(`  tenant  ${fxTenants.find((t) => t.id === 't11')?.email}  (נחלת בנימין 55)`);
-console.log(`  seeker  ${fxSeekers.find((x) => x.id === 's01')?.email}`);
-console.log(`  all 3   ${DEMO_EMAIL}  (owns 3, rents 1, queueing for 2)`);
+console.log(`demo marker written. Accounts are @demo.baalabait.invalid (for example ${DEMO_EMAIL}).`);
+console.log('The shared password is not printed. It lives in the demo password manager.');
 await sql.end();

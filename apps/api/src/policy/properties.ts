@@ -1,6 +1,7 @@
 import { and, count, eq, inArray, isNull, sql } from 'drizzle-orm';
 import {
   deriveAvailability,
+  israelToday,
   type OwnerProperty,
   type PropertyView,
   type PublicProperty,
@@ -139,7 +140,7 @@ export async function loadPropertyContexts(
 ): Promise<PropertyContext[]> {
   if (properties.length === 0) return [];
   const ids = properties.map((p) => p.id);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = israelToday();
 
   const privileged = properties.filter((p) => scopeFor(viewer, p.id) !== 'public').map((p) => p.id);
 

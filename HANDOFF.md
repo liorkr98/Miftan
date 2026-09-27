@@ -46,12 +46,12 @@ Password for every seeded account: `miftan-dev-2026`
 
 | Account | Email | Holds |
 |---|---|---|
-| Owner | `ran@almog-nadlan.co.il` | 22 properties |
-| Tenant | `michal.stern@gmail.com` | 1 lease |
-| Seeker | `tal.aviram@gmail.com` | queue rows only |
-| **All three** | `dana@miftan-demo.co.il` | owns 3, rents 1, queues for 2 |
+| Owner | `ran@demo.baalabait.invalid` | 22 properties |
+| Tenant | `michal.stern@demo.baalabait.invalid` | 1 lease |
+| Seeker | `tal.aviram@demo.baalabait.invalid` | queue rows only |
+| **All three** | `dana@demo.baalabait.invalid` | owns 3, rents 1, queues for 2 |
 
-**Test with `dana@miftan-demo.co.il`.** It is the only account that holds all
+**Test with `dana@demo.baalabait.invalid`.** It is the only account that holds all
 three relationships, and it is how you catch the bug class described in §3.1.
 
 ### Verifying your work
@@ -211,7 +211,7 @@ To curl as Dana:
 ```bash
 TOK=$(curl -s -X POST http://127.0.0.1:4000/auth/login \
   -H 'content-type: application/json' \
-  -d '{"email":"dana@miftan-demo.co.il","password":"miftan-dev-2026"}' \
+  -d '{"email":"dana@demo.baalabait.invalid","password":"miftan-dev-2026"}' \
   | python3 -c "import sys,json;print(json.load(sys.stdin)['accessToken'])")
 
 curl -s http://127.0.0.1:4000/leads -H "authorization: Bearer $TOK" | python3 -m json.tool

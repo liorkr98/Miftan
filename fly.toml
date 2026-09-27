@@ -6,15 +6,17 @@ primary_region = 'fra'
 [build]
   dockerfile = 'Dockerfile'
 
-# Migrations run before the new version takes traffic, in a throwaway machine.
-# A failed migration fails the deploy instead of leaving a half-migrated app
-# serving requests.
-[deploy]
-  release_command = 'npx tsx src/db/migrate.ts'
+# Migrations run once, from the deploy workflow, through the direct database
+# URL. A release_command here would run them a second time through the pooled
+# URL that the app uses for queries.
 
 [env]
   PORT = '4000'
   NODE_ENV = 'production'
+  TZ = 'Asia/Jerusalem'
+  # This file is the demo app. Production uses fly.production.toml and does
+  # not set DEMO_MODE, so seeded ids are not treated as demo accounts there.
+  DEMO_MODE = 'true'
   # The API is on its own hostname, so the refresh cookie is scoped to /auth.
   # It is /api/auth only under the Vite dev proxy.
   COOKIE_PATH = '/auth'

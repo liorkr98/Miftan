@@ -25,6 +25,10 @@ export const sql = postgres(url, {
   /* The pooler is doing the real pooling; ours just needs to reach it. */
   max: isPooled ? 20 : 10,
   prepare: !isPooled,
+  /* A hung Neon connection should fail the request, not pin a worker. */
+  connect_timeout: 10,
+  idle_timeout: 20,
+  max_lifetime: 60 * 30,
 });
 
 export const db = drizzle(sql, { schema });

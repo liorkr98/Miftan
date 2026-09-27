@@ -29,6 +29,10 @@ COPY packages/shared ./packages/shared
 COPY packages/fixtures ./packages/fixtures
 COPY apps/api ./apps/api
 
+# The process does not need to be root to listen on 4000.
+RUN chown -R node:node /app
+USER node
+
 WORKDIR /app/apps/api
 
 # The source is TypeScript and stays that way: tsx strips the types at load.

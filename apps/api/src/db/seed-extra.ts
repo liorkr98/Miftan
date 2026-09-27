@@ -57,10 +57,10 @@ const FLATS = [
 ];
 
 const TENANTS = [
-  { key: 'demo-t3', name: 'נועה ברק', email: 'noa.barak@miftan-demo.co.il', phone: '0528812044' },
-  { key: 'demo-t4', name: 'אלון מזרחי', email: 'alon.mizrahi@miftan-demo.co.il', phone: '0546620371' },
-  { key: 'demo-t5', name: 'שירה גולן', email: 'shira.golan@miftan-demo.co.il', phone: '0503347710' },
-  { key: 'demo-t6', name: 'משפחת פרידמן', email: 'friedman@miftan-demo.co.il', phone: '0524419983' },
+  { key: 'demo-t3', name: 'נועה ברק', email: 'noa.barak@demo.baalabait.invalid', phone: '0528812044' },
+  { key: 'demo-t4', name: 'אלון מזרחי', email: 'alon.mizrahi@demo.baalabait.invalid', phone: '0546620371' },
+  { key: 'demo-t5', name: 'שירה גולן', email: 'shira.golan@demo.baalabait.invalid', phone: '0503347710' },
+  { key: 'demo-t6', name: 'משפחת פרידמן', email: 'friedman@demo.baalabait.invalid', phone: '0524419983' },
 ];
 
 const SEEKERS = [
@@ -76,7 +76,7 @@ const SEEKERS = [
 
 export async function seedExtraDemo(tx: Tx, passwordHash: string) {
   const dana = uid('demo-dana');
-  const email = (k: string) => `${k.replace('demo-', '')}@miftan-demo.co.il`;
+  const email = (k: string) => `${k.replace('demo-', '')}@demo.baalabait.invalid`;
 
   /* ── People ─────────────────────────────────────────── */
   await tx.insert(s.users).values([

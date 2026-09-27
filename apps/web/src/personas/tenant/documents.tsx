@@ -8,6 +8,7 @@ import { ListSkeleton } from '@/components/shared/skeleton';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FileText, Receipt, Wallet } from 'lucide-react';
+import { isDemoBuild } from '@/lib/demo';
 
 export function TenantDocuments() {
   const {
@@ -87,9 +88,11 @@ export function TenantDocuments() {
                 </Num>
               </p>
             </div>
-            <Button size="sm" variant="secondary" onClick={() => pushToast(t.ui.demoNote)}>
-              {t.tenant.documents.view}
-            </Button>
+            {isDemoBuild ? (
+              <Button size="sm" variant="secondary" onClick={() => pushToast(t.ui.demoNote)}>
+                {t.tenant.documents.view}
+              </Button>
+            ) : null}
           </div>
         </TabsContent>
 

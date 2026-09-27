@@ -16,6 +16,7 @@ import {
   templateListSchema,
   templateSchema,
   type TemplateVariable,
+  israelToday,
   type TemplateView,
 } from '@miftan/shared';
 import { db, schema as s } from '../db/client.ts';
@@ -251,7 +252,7 @@ export async function contractTemplateRoutes(app: FastifyInstance) {
 
       /* Typed values override the lease. The owner is looking at the paper. */
       const values: Record<string, string> = {
-        signed_date: new Date().toISOString().slice(0, 10),
+        signed_date: israelToday(),
         ...prefilled,
         ...request.body.values,
       };
