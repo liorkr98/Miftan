@@ -77,6 +77,7 @@ export function PropertyFormDialog({
       amenities: new Set((property?.amenities ?? []) as Amenity[]),
       status: (property?.status ?? 'vacant') as Status,
       listed: property?.listed ?? false,
+      showExactAddress: property?.showExactAddress ?? false,
     }),
     [property],
   );
@@ -112,6 +113,7 @@ export function PropertyFormDialog({
     amenities: [...form.amenities],
     status: form.status,
     listed: form.listed,
+    showExactAddress: form.showExactAddress,
   };
 
   const done = (id: string) => {
@@ -223,6 +225,17 @@ export function PropertyFormDialog({
           <label className="flex items-center justify-between gap-3 rounded-[var(--radius-control)] border border-line px-3.5 py-2.5">
             <span className="text-sm font-semibold text-ink">{t.properties.listedAfterSave}</span>
             <Switch checked={form.listed} onCheckedChange={(v) => set('listed', v)} aria-label={t.properties.listedAfterSave} />
+          </label>
+          <label className="flex items-center justify-between gap-3 rounded-[var(--radius-control)] border border-line px-3.5 py-2.5">
+            <span>
+              <span className="block text-sm font-semibold text-ink">{t.properties.showExactAddress}</span>
+              <span className="mt-0.5 block text-2xs leading-5 text-muted">{t.properties.showExactAddressHint}</span>
+            </span>
+            <Switch
+              checked={form.showExactAddress}
+              onCheckedChange={(v) => set('showExactAddress', v)}
+              aria-label={t.properties.showExactAddress}
+            />
           </label>
         </DialogBody>
         <DialogFooter>

@@ -42,6 +42,7 @@ function context(id: string): PropertyContext {
       availableFrom: '2099-07-15',
       availabilityConfidence: 'likely',
       listed: true,
+      showExactAddress: false,
       notes: 'PRIVATE-OWNER-NOTE',
       createdAt: new Date(), updatedAt: new Date(), deletedAt: null,
     },

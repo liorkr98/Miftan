@@ -802,6 +802,19 @@ export function useCreateInvite(propertyId: string) {
   });
 }
 
+/** The whole ordered list: the first photo is the cover. */
+export function useSetPropertyPhotos(propertyId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (photos: string[]) =>
+      api.request<PropertyView>(`/properties/${propertyId}/photos`, { method: 'PUT', body: JSON.stringify({ photos }) }),
+    onSuccess: (property) => {
+      qc.setQueryData(keys.property(property.id), property);
+      void qc.invalidateQueries({ queryKey: keys.properties });
+    },
+  });
+}
+
 export function useRecordLease(propertyId: string) {
   const qc = useQueryClient();
   return useMutation({

@@ -10,6 +10,7 @@ import {
 import { db, schema as s } from '../db/client.ts';
 import { OPEN_TICKET_STATUSES } from './constants.ts';
 import { scopeFor, type Viewer } from './viewer.ts';
+import { publicLocation } from './address.ts';
 import { fileLinks } from '../storage/files.ts';
 
 /**
@@ -102,6 +103,7 @@ export function projectProperty(viewer: Viewer, ctx: PropertyContext): PropertyV
       scope: 'owner',
       status: ctx.property.status,
       listed: ctx.property.listed,
+      showExactAddress: ctx.property.showExactAddress,
       notes: ctx.property.notes,
       lease: ctx.lease ? leaseTerms(ctx.lease) : null,
       tenant: ctx.tenant ? contact(ctx.tenant) : null,
@@ -124,7 +126,12 @@ export function projectProperty(viewer: Viewer, ctx: PropertyContext): PropertyV
 
   /* Public. There is no `tenant`, `lease`, `notes` or `status` key to forget
      to remove, because the shape does not have them. */
-  const anyone: PublicProperty = { ...base, scope: 'public' };
+  const where = publicLocation(ctx.property);
+  const anyone: PublicProperty = {
+    ...base,
+    address: { ...base.address, number: where.number, lat: where.lat, lng: where.lng },
+    scope: 'public',
+  };
   return anyone;
 }
 

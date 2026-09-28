@@ -92,6 +92,13 @@
       "when": 1790610000000,
       "tag": "0012_auth_tokens",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1790700000000,
+      "tag": "0013_show_exact_address",
+      "breakpoints": true
     }
   ]
 }

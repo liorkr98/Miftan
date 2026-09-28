@@ -64,6 +64,7 @@ import {
   Pencil,
 } from 'lucide-react';
 import { PropertyFormDialog } from './property-form';
+import { PhotoManager } from './photo-manager';
 
 function amenityLabel(key: string): string {
   return key in t.amenity ? t.amenity[key as Amenity] : key;
@@ -236,21 +237,7 @@ function DetailsTab({ property }: { property: OwnerProperty }) {
 
   return (
     <>
-      {property.photos.length ? (
-        <div className="hide-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 sm:mx-0 sm:px-0">
-          {property.photos.map((src, i) => (
-            <img
-              key={src}
-              src={src}
-              alt=""
-              loading={i === 0 ? 'eager' : 'lazy'}
-              className="h-40 w-56 shrink-0 rounded-[var(--radius-card)] object-cover"
-            />
-          ))}
-        </div>
-      ) : (
-        <EmptyState title={t.unit.noPhotos} hint={t.unit.noPhotosHint} compact />
-      )}
+      <PhotoManager property={property} />
 
       <div className="grid gap-4 md:grid-cols-2">
         <section className="rounded-[var(--radius-card)] border border-line p-4">

@@ -79,6 +79,7 @@ export const ownerPropertySchema = publicPropertySchema.extend({
   scope: z.literal('owner'),
   status: z.enum(['occupied', 'vacant', 'vacating', 'renovating']),
   listed: z.boolean(),
+  showExactAddress: z.boolean(),
   notes: z.string().nullable(),
   lease: leaseTermsSchema.nullable(),
   tenant: contactSchema.nullable(),

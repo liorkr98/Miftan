@@ -17,6 +17,7 @@ import { db, schema as s } from '../db/client.ts';
 import { newId } from '../lib/ids.ts';
 import { searchBurst } from '../lib/rate-limit.ts';
 import { fileLinks } from '../storage/files.ts';
+import { publicLocation } from '../policy/address.ts';
 
 /**
  * Below this, a median is a rumour. The row still reports its demand count —
@@ -115,12 +116,13 @@ export async function searchRoutes(app: FastifyInstance) {
           confidence: p.availabilityConfidence,
           renewalIntent: intentByProperty.get(p.id) ?? null,
         });
+        const where = publicLocation(p);
         return {
           id: p.id,
-          street: p.street, houseNumber: p.houseNumber,
+          street: p.street, houseNumber: where.number,
           city: p.city, neighborhood: p.neighborhood,
           district: (p.district as District | null) ?? null,
-          lat: Number(p.lat), lng: Number(p.lng),
+          lat: where.lat, lng: where.lng,
           rooms: Number(p.rooms), sqm: p.sqm, floor: p.floor, totalFloors: p.totalFloors,
           amenities: p.amenities, photos: fileLinks(p.photos),
           monthlyRentAgorot: p.monthlyRentAgorot,

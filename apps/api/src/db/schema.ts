@@ -189,6 +189,8 @@ export const properties = pgTable(
     availabilityConfidence: availabilityConfidence('availability_confidence').notNull().default('unknown'),
     /** Published to the seeker-facing search */
     listed: boolean('listed').notNull().default(false),
+    /** Public listing shows the house number and the exact pin. Off by default. */
+    showExactAddress: boolean('show_exact_address').notNull().default(false),
     notes: text('notes'),
 
     createdAt,

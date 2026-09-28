@@ -17,7 +17,8 @@ import { db, schema as s } from '../db/client.ts';
 import { newId } from '../lib/ids.ts';
 import { ANONYMOUS, resolveViewer, scopeFor, type Viewer } from '../policy/viewer.ts';
 import { loadPropertyContexts, projectProperty } from '../policy/properties.ts';
-import { toStoredKeys } from '../storage/files.ts';
+import { toStoredKey } from '../storage/files.ts';
+import { geocodeAddress } from '../lib/geocode.ts';
 
 async function viewerFor(request: FastifyRequest): Promise<Viewer> {
   return request.currentUser ? resolveViewer(request.currentUser.id) : ANONYMOUS;
@@ -125,9 +126,19 @@ export async function propertyRoutes(app: FastifyInstance) {
         throw new ApiError('not_found', 'no such property');
       }
 
+      /* A photo already on the listing keeps its stored form (the demo's
+         placeholder images included); anything new must be one of our
+         uploads. */
+      const [current] = await db
+        .select({ photos: s.properties.photos })
+        .from(s.properties)
+        .where(eq(s.properties.id, request.params.id));
+      const kept = new Set(current?.photos ?? []);
+      const photos = request.body.photos.map((p) => (kept.has(p) ? p : toStoredKey(p)));
+
       await db
         .update(s.properties)
-        .set({ photos: toStoredKeys(request.body.photos), updatedAt: new Date() })
+        .set({ photos, updatedAt: new Date() })
         .where(eq(s.properties.id, request.params.id));
 
       const [row] = await db.select().from(s.properties).where(eq(s.properties.id, request.params.id));
@@ -156,8 +167,10 @@ export async function propertyRoutes(app: FastifyInstance) {
       }
 
       const city = cityEntry(b.city);
-      const lat = b.lat ?? city?.lat;
-      const lng = b.lng ?? city?.lng;
+      /* A pin the owner placed wins; then the street address; then the city. */
+      const found = b.lat == null || b.lng == null ? await geocodeAddress(b) : null;
+      const lat = b.lat ?? found?.lat ?? city?.lat;
+      const lng = b.lng ?? found?.lng ?? city?.lng;
       if (lat == null || lng == null) {
         throw new ApiError('validation_failed', 'city is not in the catalogue; provide lat and lng');
       }
@@ -183,6 +196,7 @@ export async function propertyRoutes(app: FastifyInstance) {
         district: districtOf(b.city) ?? null,
         status: b.status,
         listed: b.listed,
+        showExactAddress: b.showExactAddress,
         notes: b.notes ?? null,
         availableFrom: b.availableFrom ?? null,
         availabilityConfidence: b.availabilityConfidence ?? 'unknown',
@@ -220,8 +234,21 @@ export async function propertyRoutes(app: FastifyInstance) {
       const b = request.body;
       const city = b.city ?? existing.city;
       const cityMeta = cityEntry(city);
-      const lat = b.lat ?? (b.city ? cityMeta?.lat : undefined);
-      const lng = b.lng ?? (b.city ? cityMeta?.lng : undefined);
+      /* The address moved and nobody placed a pin: look the new one up. */
+      const addressChanged =
+        (b.street !== undefined && b.street !== existing.street) ||
+        (b.houseNumber !== undefined && b.houseNumber !== existing.houseNumber) ||
+        (b.city !== undefined && b.city !== existing.city);
+      const found =
+        addressChanged && (b.lat == null || b.lng == null)
+          ? await geocodeAddress({
+              street: b.street ?? existing.street,
+              houseNumber: b.houseNumber ?? existing.houseNumber,
+              city,
+            })
+          : null;
+      const lat = b.lat ?? found?.lat ?? (b.city ? cityMeta?.lat : undefined);
+      const lng = b.lng ?? found?.lng ?? (b.city ? cityMeta?.lng : undefined);
       const floor = b.floor ?? existing.floor;
       const totalFloors = b.totalFloors ?? existing.totalFloors;
       if (floor > totalFloors) {
@@ -253,6 +280,7 @@ export async function propertyRoutes(app: FastifyInstance) {
             : {}),
           ...(b.status !== undefined ? { status: b.status } : {}),
           ...(b.listed !== undefined ? { listed: b.listed } : {}),
+          ...(b.showExactAddress !== undefined ? { showExactAddress: b.showExactAddress } : {}),
           ...(b.notes !== undefined ? { notes: b.notes } : {}),
           ...(b.availableFrom !== undefined ? { availableFrom: b.availableFrom } : {}),
           ...(b.availabilityConfidence !== undefined
