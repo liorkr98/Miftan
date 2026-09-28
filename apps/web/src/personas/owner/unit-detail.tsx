@@ -61,7 +61,9 @@ import {
   Receipt,
   Users,
   Wrench,
+  Pencil,
 } from 'lucide-react';
+import { PropertyFormDialog } from './property-form';
 
 function amenityLabel(key: string): string {
   return key in t.amenity ? t.amenity[key as Amenity] : key;
@@ -77,6 +79,7 @@ export function OwnerUnitDetail() {
   const { data: leads = [] } = useLeads(id);
   const { data: expenseData } = useExpenses(id);
   const updateProperty = useUpdateProperty();
+  const [editOpen, setEditOpen] = React.useState(false);
 
   const owned = property?.scope === 'owner' ? property : undefined;
   const unitTickets = tickets.filter((tk): tk is TicketView & { scope: 'owner' } => tk.scope === 'owner');
@@ -145,6 +148,10 @@ export function OwnerUnitDetail() {
                 />
                 {owned.listed ? t.unit.listedOn : t.unit.listedOff}
               </label>
+              <Button variant="secondary" onClick={() => setEditOpen(true)}>
+                <Pencil className="h-3.5 w-3.5" />
+                {t.properties.edit}
+              </Button>
               <Button variant="secondary" onClick={() => navigate(`/search/${owned.id}`)}>
                 {t.unit.openInSearch}
               </Button>
@@ -152,6 +159,8 @@ export function OwnerUnitDetail() {
           }
         />
       </div>
+
+      <PropertyFormDialog open={editOpen} onOpenChange={setEditOpen} property={owned} />
 
       <div className="flex flex-wrap items-center gap-2">
         <UnitStatusBadge status={owned.status} />
