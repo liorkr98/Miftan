@@ -21,5 +21,8 @@ export function setMailer(next: Mailer): void {
 }
 
 export async function sendMail(mail: OutboundMail): Promise<void> {
+  /* Tenants recorded by an owner have a placeholder address under the
+     reserved .invalid domain. Nothing is ever sent there. */
+  if (/\.invalid$/i.test(mail.to)) return;
   await getMailer().send(mail);
 }

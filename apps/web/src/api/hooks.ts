@@ -30,6 +30,7 @@ import type {
   RenderedContract,
   UpdatePropertyInput,
   CreateInviteInput,
+  RecordLeaseInput,
   CreatedInvite,
   InvitePreview,
   OwnerInvite,
@@ -788,6 +789,18 @@ export function useCreateInvite(propertyId: string) {
     mutationFn: (body: CreateInviteInput) =>
       api.request<CreatedInvite>(`/properties/${propertyId}/invites`, { method: 'POST', body: JSON.stringify(body) }),
     onSuccess: () => void qc.invalidateQueries({ queryKey: keys.invites(propertyId) }),
+  });
+}
+
+export function useRecordLease(propertyId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: RecordLeaseInput) =>
+      api.request<{ leaseId: string }>(`/properties/${propertyId}/leases`, { method: 'POST', body: JSON.stringify(body) }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: keys.properties });
+      void qc.invalidateQueries({ queryKey: keys.property(propertyId) });
+    },
   });
 }
 

@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
-import { createHash, randomBytes } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { and, desc, eq, gte, isNull, lte } from 'drizzle-orm';
 import { z } from 'zod';
 import {
@@ -11,6 +11,8 @@ import {
   inviteListSchema,
   invitePreviewSchema,
   okSchema,
+  recordLeaseSchema,
+  recordedLeaseSchema,
   israelToday,
   toAgorot,
 } from '@miftan/shared';
@@ -61,10 +63,19 @@ function ownerView(row: InviteRow) {
   };
 }
 
+/**
+ * A tenant recorded by the owner, with no account of their own. They cannot
+ * sign in (no password, an address under .invalid that is never mailed); the
+ * row exists so their lease can. An invite for the same dates later hands
+ * the lease to the real account that accepts it.
+ */
+export const OFFLINE_TENANT_PREFIX = 'usr_offline_';
+export const isOfflineTenant = (id: string) => id.startsWith(OFFLINE_TENANT_PREFIX);
+
 /** A lease on the unit that overlaps [start, end] — two tenants at once is a typo. */
 async function overlappingLease(propertyId: string, start: string, end: string) {
   const [row] = await db
-    .select({ id: s.leases.id })
+    .select({ id: s.leases.id, tenantId: s.leases.tenantId, startDate: s.leases.startDate, endDate: s.leases.endDate })
     .from(s.leases)
     .where(
       and(
@@ -100,7 +111,14 @@ export async function inviteRoutes(app: FastifyInstance) {
       }
       const b = request.body;
 
-      if (await overlappingLease(request.params.id, b.startDate, b.endDate)) {
+      /* The one overlap that is allowed: inviting the tenant the owner already
+         recorded, onto that same lease. */
+      const overlap = await overlappingLease(request.params.id, b.startDate, b.endDate);
+      const takeover =
+        overlap && isOfflineTenant(overlap.tenantId) && overlap.startDate === b.startDate && overlap.endDate === b.endDate
+          ? overlap.id
+          : null;
+      if (overlap && !takeover) {
         throw new ApiError('validation_failed', 'the unit already has a lease in those dates', {
           startDate: ['overlaps an existing lease'],
         });
@@ -135,6 +153,7 @@ export async function inviteRoutes(app: FastifyInstance) {
           depositAgorot: toAgorot(b.depositShekels),
           paymentMethod: b.paymentMethod,
           tenantName: b.tenantName ?? null,
+          leaseId: takeover,
           expiresAt: new Date(Date.now() + INVITE_TTL_DAYS * 86_400_000),
         });
       });
@@ -244,6 +263,27 @@ export async function inviteRoutes(app: FastifyInstance) {
         if (status !== 'open') throw new ApiError('forbidden', `invite is ${status}`);
         if (invite.createdBy === userId) throw new ApiError('forbidden', 'an owner cannot rent their own unit');
 
+        /* An invite made for a recorded tenant takes over that lease. */
+        if (invite.leaseId) {
+          const [lease] = await tx
+            .select()
+            .from(s.leases)
+            .where(and(eq(s.leases.id, invite.leaseId), isNull(s.leases.deletedAt)))
+            .for('update');
+          if (!lease || !isOfflineTenant(lease.tenantId)) {
+            throw new ApiError('forbidden', 'this lease already belongs to an account');
+          }
+          await tx
+            .update(s.leases)
+            .set({ tenantId: userId, updatedAt: new Date() })
+            .where(eq(s.leases.id, lease.id));
+          await tx
+            .update(s.tenantInvites)
+            .set({ acceptedAt: new Date(), acceptedBy: userId })
+            .where(eq(s.tenantInvites.id, invite.id));
+          return { propertyId: invite.propertyId, leaseId: lease.id };
+        }
+
         const [overlap] = await tx
           .select({ id: s.leases.id })
           .from(s.leases)
@@ -286,6 +326,64 @@ export async function inviteRoutes(app: FastifyInstance) {
 
         return { propertyId: invite.propertyId, leaseId };
       });
+    },
+  );
+
+  /** Recording a tenancy the owner already has, with no invite. */
+  r.post(
+    '/properties/:id/leases',
+    {
+      onRequest: [app.authenticate],
+      schema: {
+        params: z.object({ id: z.string() }),
+        body: recordLeaseSchema,
+        response: { 201: recordedLeaseSchema },
+      },
+    },
+    async (request, reply) => {
+      const viewer = await resolveViewer(request.currentUser!.id);
+      requireOwner(viewer, request.params.id);
+      const b = request.body;
+
+      if (await overlappingLease(request.params.id, b.startDate, b.endDate)) {
+        throw new ApiError('validation_failed', 'the unit already has a lease in those dates', {
+          startDate: ['overlaps an existing lease'],
+        });
+      }
+
+      const tenantId = `${OFFLINE_TENANT_PREFIX}${randomUUID().replace(/-/g, '')}`;
+      const leaseId = newId('lease');
+
+      await db.transaction(async (tx) => {
+        await tx.insert(s.users).values({
+          id: tenantId,
+          name: b.tenantName,
+          phone: b.tenantPhone ?? null,
+          email: `${tenantId}@offline.invalid`,
+          passwordHash: null,
+        });
+        await tx.insert(s.leases).values({
+          id: leaseId,
+          propertyId: request.params.id,
+          tenantId,
+          startDate: b.startDate,
+          endDate: b.endDate,
+          monthlyRentAgorot: toAgorot(b.monthlyRentShekels),
+          depositAgorot: toAgorot(b.depositShekels),
+          paymentMethod: b.paymentMethod,
+          ...(b.noticePeriodDays !== undefined ? { noticePeriodDays: b.noticePeriodDays } : {}),
+          hasExtensionOption: b.hasExtensionOption ?? false,
+          extensionMonths: b.extensionMonths ?? null,
+        });
+        if (b.startDate <= today()) {
+          await tx
+            .update(s.properties)
+            .set({ status: 'occupied', listed: false, availableFrom: null, updatedAt: new Date() })
+            .where(eq(s.properties.id, request.params.id));
+        }
+      });
+
+      return reply.code(201).send({ leaseId });
     },
   );
 }

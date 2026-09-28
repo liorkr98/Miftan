@@ -67,8 +67,38 @@ export const invitePreviewSchema = z.object({
   expiresAt: z.string(),
 });
 
+/**
+ * Recording a tenancy the owner already has, without inviting anyone.
+ *
+ * Most landlords arrive with tenants in place, many of whom will never open
+ * an app. The lease still needs to exist for rent, tickets and documents to
+ * work. The tenant can be invited later; accepting then takes over this lease.
+ */
+export const recordLeaseSchema = z
+  .object({
+    startDate: day,
+    endDate: day,
+    monthlyRentShekels: z.number().int().min(1).max(200_000),
+    depositShekels: z.number().int().min(0).max(1_000_000).default(0),
+    paymentMethod: paymentMethodSchema,
+    tenantName: z.string().trim().min(1).max(120),
+    tenantPhone: z
+      .string()
+      .trim()
+      .regex(/^05d-?d{7}$/, 'expected an Israeli mobile number')
+      .transform((v) => v.replace(/-/g, ''))
+      .nullish(),
+    noticePeriodDays: z.number().int().min(0).max(365).optional(),
+    hasExtensionOption: z.boolean().optional(),
+    extensionMonths: z.number().int().min(1).max(60).nullish(),
+  })
+  .refine((b) => b.endDate > b.startDate, { message: 'endDate must be after startDate', path: ['endDate'] });
+
+export const recordedLeaseSchema = z.object({ leaseId: z.string() });
+
 export const acceptedInviteSchema = z.object({ propertyId: z.string(), leaseId: z.string() });
 
+export type RecordLeaseInput = z.input<typeof recordLeaseSchema>;
 export type CreateInviteInput = z.input<typeof createInviteSchema>;
 export type OwnerInvite = z.infer<typeof ownerInviteSchema>;
 export type CreatedInvite = z.infer<typeof createdInviteSchema>;

@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { addYears, format } from 'date-fns';
 import { t, formatDate, toShekels, type OwnerInvite, type OwnerProperty } from '@miftan/shared';
-import { useCreateInvite, useInvites, useRevokeInvite } from '@/api/hooks';
+import { useCreateInvite, useInvites, useRecordLease, useRevokeInvite } from '@/api/hooks';
 import { useStore } from '@/data/store';
 import { Money, Num, SectionTitle } from '@/components/shared/typography';
 import { Button } from '@/components/ui/button';
@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/field';
+import { cn } from '@/lib/utils';
 import { Check, Copy, Link2, MessageCircle, UserPlus } from 'lucide-react';
 
 type PaymentMethod = OwnerInvite['paymentMethod'];
@@ -40,6 +41,14 @@ export function InviteCard({ property }: { property: OwnerProperty }) {
   const create = useCreateInvite(property.id);
   const revoke = useRevokeInvite(property.id);
   const { data: invites = [] } = useInvites(property.id);
+  const recordLease = useRecordLease(property.id);
+  /* Most landlords arrive with a tenant already living there. */
+  const [mode, setMode] = React.useState<'invite' | 'record'>(property.lease ? 'invite' : 'record');
+  const [phone, setPhone] = React.useState('');
+  /* A tenant the owner recorded has no account yet. */
+  const recorded = property.tenant && property.lease && property.tenant.id.startsWith('usr_offline_')
+    ? { tenant: property.tenant, lease: property.lease }
+    : null;
 
   /* The next lease starts the day after the current one ends, or today. */
   const defaultStart = property.lease?.endDate
@@ -58,7 +67,48 @@ export function InviteCard({ property }: { property: OwnerProperty }) {
 
   const address = `${property.address.street} ${property.address.number}`;
 
+  const showLink = (token: string) => {
+    setLink(`${window.location.origin}/join/${token}`);
+    setCopied(false);
+  };
+
+  /* Invites the recorded tenant onto their existing lease: same dates, same
+     terms, so accepting takes the lease over instead of adding a second. */
+  const inviteRecorded = () => {
+    if (!recorded) return;
+    create.mutate(
+      {
+        startDate: recorded.lease.startDate,
+        endDate: recorded.lease.endDate,
+        monthlyRentShekels: Math.round(toShekels(recorded.lease.monthlyRentAgorot)),
+        depositShekels: Math.round(toShekels(recorded.lease.depositAgorot)),
+        paymentMethod: recorded.lease.paymentMethod,
+        tenantName: recorded.tenant.name,
+      },
+      { onSuccess: ({ token }) => showLink(token), onError: () => pushToast(t.invites.error, 'alert') },
+    );
+  };
+
+  const submitRecord = () => {
+    recordLease.mutate(
+      {
+        startDate,
+        endDate,
+        monthlyRentShekels: Number(rent) || rentShekels,
+        depositShekels: Number(deposit) || 0,
+        paymentMethod: method,
+        tenantName: name.trim(),
+        tenantPhone: phone.trim() || null,
+      },
+      {
+        onSuccess: () => pushToast(t.invites.recorded, 'success'),
+        onError: () => pushToast(t.invites.recordError, 'alert'),
+      },
+    );
+  };
+
   const submit = () => {
+    if (mode === 'record') return submitRecord();
     create.mutate(
       {
         startDate,
@@ -69,10 +119,7 @@ export function InviteCard({ property }: { property: OwnerProperty }) {
         tenantName: name.trim() || null,
       },
       {
-        onSuccess: ({ token }) => {
-          setLink(`${window.location.origin}/join/${token}`);
-          setCopied(false);
-        },
+        onSuccess: ({ token }) => showLink(token),
         onError: () => pushToast(t.invites.error, 'alert'),
       },
     );
@@ -104,9 +151,39 @@ export function InviteCard({ property }: { property: OwnerProperty }) {
         </span>
         <div>
           <SectionTitle className="mb-1">{property.lease ? t.invites.nextTenant : t.invites.title}</SectionTitle>
-          <p className="text-2xs leading-5 text-muted">{t.invites.lede}</p>
+          <p className="text-2xs leading-5 text-muted">{mode === 'record' ? t.invites.recordLede : t.invites.lede}</p>
         </div>
       </div>
+
+      {recorded && !link ? (
+        <div className="mt-4 rounded-[var(--radius-control)] bg-surface p-3.5">
+          <p className="text-2xs leading-5 text-muted">{t.invites.inviteRecordedHint}</p>
+          <Button size="sm" className="mt-2" onClick={inviteRecorded} loading={create.isPending}>
+            <Link2 className="h-3.5 w-3.5" />
+            {t.invites.inviteRecorded.replace('{name}', recorded.tenant.name)}
+          </Button>
+        </div>
+      ) : null}
+
+      {!link ? (
+        <div role="radiogroup" className="mt-4 inline-flex rounded-[var(--radius-control)] border border-line p-0.5 text-xs font-semibold">
+          {(['record', 'invite'] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              role="radio"
+              aria-checked={mode === m}
+              onClick={() => setMode(m)}
+              className={cn(
+                'press rounded-[calc(var(--radius-control)-2px)] px-3 py-1.5',
+                mode === m ? 'bg-ink text-on-ink' : 'text-ink-soft hover:bg-surface',
+              )}
+            >
+              {m === 'record' ? t.invites.modeRecord : t.invites.modeInvite}
+            </button>
+          ))}
+        </div>
+      ) : null}
 
       {link ? (
         <div className="mt-4 space-y-3 rounded-[var(--radius-control)] bg-surface p-3.5">
@@ -161,13 +238,26 @@ export function InviteCard({ property }: { property: OwnerProperty }) {
           <Field label={t.invites.deposit} htmlFor="inv-deposit">
             <Input id="inv-deposit" inputMode="numeric" dir="ltr" className="num" value={deposit} onChange={(e) => setDeposit(e.target.value.replace(/\D/g, ''))} />
           </Field>
-          <Field label={t.invites.tenantName} hint={t.ui.optional} htmlFor="inv-name">
+          <Field
+            label={mode === 'record' ? t.invites.recordName : t.invites.tenantName}
+            hint={mode === 'record' ? undefined : t.ui.optional}
+            htmlFor="inv-name"
+          >
             <Input id="inv-name" value={name} onChange={(e) => setName(e.target.value)} />
           </Field>
+          {mode === 'record' ? (
+            <Field label={t.invites.recordPhone} hint={t.ui.optional} htmlFor="inv-phone">
+              <Input id="inv-phone" type="tel" dir="ltr" inputMode="tel" placeholder="050-0000000" value={phone} onChange={(e) => setPhone(e.target.value)} />
+            </Field>
+          ) : null}
           <div className="sm:col-span-2 lg:col-span-3">
-            <Button onClick={submit} loading={create.isPending} disabled={!startDate || !endDate || endDate <= startDate}>
-              <Link2 className="h-4 w-4" />
-              {t.invites.create}
+            <Button
+              onClick={submit}
+              loading={create.isPending || recordLease.isPending}
+              disabled={!startDate || !endDate || endDate <= startDate || (mode === 'record' && !name.trim())}
+            >
+              {mode === 'record' ? <UserPlus className="h-4 w-4" /> : <Link2 className="h-4 w-4" />}
+              {mode === 'record' ? t.invites.record : t.invites.create}
             </Button>
           </div>
         </div>
