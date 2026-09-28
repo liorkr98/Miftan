@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { MapContainer, Marker, TileLayer, useMap } from 'react-leaflet';
+import { MapContainer, Marker, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { formatDateShortYear, formatMoneyShort } from '@miftan/shared';
 import type { AvailabilityKind } from '@/data/selectors';
@@ -86,6 +86,64 @@ function KeepSized() {
   return null;
 }
 
+/**
+ * The basemap. OpenStreetMap's own tile server does not allow commercial use,
+ * so the map is drawn from OpenFreeMap's vector tiles (free, no key,
+ * commercial use allowed) by MapLibre, inside the existing Leaflet map so the
+ * pins stay as they are. Labels are switched to their Hebrew names where OSM
+ * has one, and the RTL plugin shapes them. Everything here is loaded only
+ * when a map is actually shown.
+ */
+const STYLE_URL = 'https://tiles.openfreemap.org/styles/positron';
+const ATTRIBUTION =
+  '<a href="https://openfreemap.org" target="_blank" rel="noreferrer">OpenFreeMap</a> © <a href="https://www.openmaptiles.org/" target="_blank" rel="noreferrer">OpenMapTiles</a> · נתונים © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">תורמי OpenStreetMap</a>';
+
+function VectorBasemap() {
+  const map = useMap();
+  React.useEffect(() => {
+    let layer: L.Layer | null = null;
+    let cancelled = false;
+
+    void (async () => {
+      const [{ default: maplibregl }, rtl] = await Promise.all([
+        import('maplibre-gl'),
+        import('@mapbox/mapbox-gl-rtl-text/dist/mapbox-gl-rtl-text.js?url'),
+        import('maplibre-gl/dist/maplibre-gl.css'),
+      ]);
+      /* The adapter registers L.maplibreGL on the Leaflet instance it imports. */
+      await import('@maplibre/maplibre-gl-leaflet');
+      if (maplibregl.getRTLTextPluginStatus() === 'unavailable') {
+        void maplibregl.setRTLTextPlugin(rtl.default, true);
+      }
+      if (cancelled) return;
+
+      const factory = (L as unknown as { maplibreGL: (o: object) => L.Layer & { getMaplibreMap(): import('maplibre-gl').Map } }).maplibreGL;
+      const gl = factory({ style: STYLE_URL, attribution: ATTRIBUTION, interactive: false });
+      gl.addTo(map);
+      layer = gl;
+
+      const glMap = gl.getMaplibreMap();
+      glMap.once('styledata', () => {
+        for (const styleLayer of glMap.getStyle().layers ?? []) {
+          if (styleLayer.type !== 'symbol') continue;
+          if (!glMap.getLayoutProperty(styleLayer.id, 'text-field')) continue;
+          glMap.setLayoutProperty(styleLayer.id, 'text-field', [
+            'coalesce',
+            ['get', 'name:he'],
+            ['get', 'name'],
+          ]);
+        }
+      });
+    })();
+
+    return () => {
+      cancelled = true;
+      layer?.remove();
+    };
+  }, [map]);
+  return null;
+}
+
 /** Keeps the viewport in step with the filtered result set. */
 function FitBounds({ listings }: { listings: MapListing[] }) {
   const map = useMap();
@@ -128,11 +186,7 @@ export function ResultsMap({
       className={className}
       style={{ background: 'var(--color-surface-sunk)' }}
     >
-      <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-        url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-        maxZoom={19}
-      />
+      <VectorBasemap />
       <KeepSized />
       <FitBounds listings={listings} />
       {listings.map((listing) => (
