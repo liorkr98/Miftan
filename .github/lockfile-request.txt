@@ -1,2 +1,4 @@
-# GHSA-hq66-cqwq-w95j (high) affects pdfjs-dist 5.6.83 up to 6.2.108.
-install pdfjs-dist@^6.2.108 -w apps/web
+# Map tiles: OpenStreetMap's own tile server does not allow commercial use.
+# OpenFreeMap (free, no key, commercial use allowed) serves vector tiles,
+# drawn by MapLibre under the existing Leaflet map; the RTL plugin shapes Hebrew labels.
+install maplibre-gl@^5 @maplibre/maplibre-gl-leaflet@^0.1 @mapbox/mapbox-gl-rtl-text@^0.3 -w apps/web
