@@ -108,12 +108,22 @@ describe('PUT /properties/:id/photos', () => {
   it('replaces the whole array, because order is the cover', async () => {
     const created = await req('POST', '/properties', owner.token, createBody);
     const id = created.json().id as string;
+    /* The links the upload flow hands back (the local driver, under test). */
     const photos = [
-      'https://uploads.example.com/cover.jpg',
-      'https://uploads.example.com/kitchen.jpg',
+      'http://127.0.0.1:4000/files/properties/44444444-4444-4444-8444-444444444444.jpg',
+      'http://127.0.0.1:4000/files/properties/55555555-5555-4555-8555-555555555555.jpg',
     ];
     const res = await req('PUT', `/properties/${id}/photos`, owner.token, { photos });
     expect(res.statusCode).toBe(200);
     expect(res.json().photos).toEqual(photos);
+  });
+
+  it('refuses an image hosted anywhere else', async () => {
+    const created = await req('POST', '/properties', owner.token, createBody);
+    const id = created.json().id as string;
+    const res = await req('PUT', `/properties/${id}/photos`, owner.token, {
+      photos: ['https://tracker.example/pixel.gif'],
+    });
+    expect(res.statusCode).toBe(422);
   });
 });
