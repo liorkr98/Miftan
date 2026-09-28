@@ -59,8 +59,16 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      # On failure the last lines also go out as annotations, which can be
+      # read through the API without downloading the log.
       - name: Build
-        run: npm run build
+        run: |
+          npm run build > build.log 2>&1 || {
+            cat build.log
+            tail -n 25 build.log | sed 's/^/::error::/'
+            exit 1
+          }
+          cat build.log
 
       - name: Test
         run: npm test
