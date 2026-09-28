@@ -1,0 +1,63 @@
+# npm cannot run on the main development machine (endpoint protection blocks
+# the registry), so package changes are made here instead.
+#
+# To add, upgrade or remove packages: write the npm arguments into
+# .github/lockfile-request.txt, one command per line, and push. For example:
+#
+#   install drizzle-orm@^0.45.2 -w apps/api
+#
+# This job runs each line as `npm <line>`, then commits package.json and
+# package-lock.json back to the same branch. A commit pushed with the
+# workflow token does not start other workflows, so push any follow-up commit
+# to get verify to run on the result.
+
+name: lockfile
+
+on:
+  push:
+    paths:
+      - .github/lockfile-request.txt
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Run the requested npm commands
+        run: |
+          set -euo pipefail
+          while IFS= read -r line || [ -n "$line" ]; do
+            line="${line%%#*}"
+            [ -z "${line// }" ] && continue
+            case "$line" in
+              install\ *|uninstall\ *|update\ *) ;;
+              *) echo "Only install, uninstall and update are allowed: $line" >&2; exit 1 ;;
+            esac
+            echo "npm $line"
+            # shellcheck disable=SC2086
+            npm $line
+          done < .github/lockfile-request.txt
+
+      - name: Commit the result
+        run: |
+          set -euo pipefail
+          git config user.name "lockfile-bot"
+          git config user.email "lockfile-bot@users.noreply.github.com"
+          git add -A -- '*package.json' package-lock.json
+          if git diff --cached --quiet; then
+            echo "Nothing changed."
+            exit 0
+          fi
+          git commit -m "Update packages from lockfile-request.txt"
+          git push

@@ -1,0 +1,3 @@
+# GHSA-gpj5-g38j-94v9 (high): drizzle-orm below 0.45.2 escapes SQL identifiers badly.
+install drizzle-orm@^0.45.2 -w apps/api
+install drizzle-orm@^0.45.2
