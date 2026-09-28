@@ -48,13 +48,9 @@ jobs:
 
       - run: npm ci
 
-
       # Known-vulnerable runtime dependencies fail the build. Dev tooling is
-
       # excluded: it never ships.
-
       - name: Audit production dependencies
-
         run: npm audit --omit=dev --audit-level=high
 
       - name: Typecheck
