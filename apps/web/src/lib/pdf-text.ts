@@ -1,0 +1,63 @@
+/**
+ * The text of a PDF, read in the browser.
+ *
+ * Landlords already have their lease as a PDF, and uploading it is the
+ * fastest way in: the scan fills the lease from it. pdf.js is loaded only when
+ * a PDF is actually picked, so it never weighs on the rest of the app.
+ *
+ * A scanned PDF (a photo of paper) has no text layer; that comes back empty
+ * and the caller says so, rather than pretending to have read it.
+ */
+
+/** Words every Hebrew lease contains. Used to tell reading order apart. */
+const MARKERS = ['שכירות', 'המשכיר', 'השוכר', 'הדירה', 'חודש', 'תקופת'];
+
+function markerHits(text: string): number {
+  return MARKERS.reduce((n, w) => n + (text.split(w).length - 1), 0);
+}
+
+/**
+ * Some PDF producers store Hebrew in visual order — each line written left
+ * to right, so the words come out reversed. If reversing each line finds
+ * clearly more of the words every lease contains, the file was visual.
+ */
+function logicalOrder(text: string): string {
+  const reversed = text
+    .split('\n')
+    .map((line) => Array.from(line).reverse().join(''))
+    .join('\n');
+  return markerHits(reversed) > markerHits(text) * 2 ? reversed : text;
+}
+
+export async function pdfText(file: File): Promise<string> {
+  const pdfjs = await import('pdfjs-dist');
+  const worker = await import('pdfjs-dist/build/pdf.worker.min.mjs?url');
+  pdfjs.GlobalWorkerOptions.workerSrc = worker.default;
+
+  const doc = await pdfjs.getDocument({
+    data: new Uint8Array(await file.arrayBuffer()),
+    /* Text only: no font programs are compiled, so no eval under our CSP. */
+    isEvalSupported: false,
+  }).promise;
+
+  const pages: string[] = [];
+  for (let i = 1; i <= doc.numPages; i++) {
+    const page = await doc.getPage(i);
+    const content = await page.getTextContent();
+    let line = '';
+    const lines: string[] = [];
+    for (const item of content.items) {
+      if (!('str' in item)) continue;
+      line += item.str;
+      if (item.hasEOL) {
+        lines.push(line);
+        line = '';
+      }
+    }
+    if (line) lines.push(line);
+    pages.push(lines.join('\n'));
+  }
+  await doc.destroy();
+
+  return logicalOrder(pages.join('\n\n')).trim();
+}

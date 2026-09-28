@@ -10,7 +10,7 @@ import { env } from '../lib/env.ts';
 import { uploadBurst } from '../lib/rate-limit.ts';
 
 const signSchema = z.object({
-  folder: z.enum(['tickets', 'receipts', 'protocol', 'properties']),
+  folder: z.enum(['tickets', 'receipts', 'protocol', 'properties', 'contracts']),
   filename: z.string().min(1).max(200),
   contentType: z.string().min(1).max(100),
   size: z.number().int().positive(),

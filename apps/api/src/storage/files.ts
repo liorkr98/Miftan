@@ -15,7 +15,7 @@ import { presignGet } from './presign.ts';
  * The R2 bucket itself should have public access turned OFF.
  */
 
-const KEY = /^(tickets|receipts|protocol|properties)\/[0-9a-f-]{36}(\.[a-z0-9]{1,5})?$/;
+const KEY = /^(tickets|receipts|protocol|properties|contracts)\/[0-9a-f-]{36}(\.[a-z0-9]{1,5})?$/;
 
 /** How long a read link lasts, and the step it is aligned to. */
 const LINK_SECONDS = 2 * 60 * 60;

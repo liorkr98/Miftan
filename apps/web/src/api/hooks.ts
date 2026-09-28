@@ -267,7 +267,7 @@ export function usePostMessage() {
  */
 export async function uploadFile(
   original: File,
-  folder: 'tickets' | 'receipts' | 'protocol' | 'properties',
+  folder: 'tickets' | 'receipts' | 'protocol' | 'properties' | 'contracts',
 ): Promise<string> {
   /* Resized, and stripped of EXIF — including GPS — before it leaves the phone. */
   const file = await prepareForUpload(original);

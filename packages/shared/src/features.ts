@@ -9,8 +9,8 @@ export const launchFeatures = {
   marketplace: false,
   /** A general inbox. Ticket conversations stay. Launch 2. */
   generalMessaging: false,
-  /** The scanner reads plain text only. Hidden until it reads PDFs. */
-  contractScan: false,
+  /** Reads the text of an uploaded lease PDF in the browser. */
+  contractScan: true,
   /** Affiliate offers. Hidden until the contracts exist. */
   affiliates: false,
   /** Illustrated income points. Demo only — not a billed feature. */

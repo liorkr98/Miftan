@@ -16,6 +16,7 @@ import {
   useRenderTemplate,
   useSaveTemplate,
   useScanContract,
+  uploadFile,
 } from '@/api/hooks';
 import { Num, PageHeader, SectionTitle } from '@/components/shared/typography';
 import { EmptyState } from '@/components/shared/empty-state';
@@ -45,6 +46,7 @@ import {
   Trash2,
   Upload,
 } from 'lucide-react';
+import { pdfText } from '@/lib/pdf-text';
 
 const SCAN_STEPS = [
   t.contracts.scanStep.upload,
@@ -67,6 +69,7 @@ export function OwnerContracts() {
   const { data: scans = [], isLoading, isError, refetch } = useContractScans();
   const { data: properties = [] } = useProperties();
   const scanContract = useScanContract();
+  const pushToast = useStore((s) => s.pushToast);
   const fileInput = React.useRef<HTMLInputElement>(null);
 
   const owned = properties.filter((p): p is OwnerProperty => p.scope === 'owner');
@@ -88,9 +91,28 @@ export function OwnerContracts() {
       t.contracts.fileNamePattern
         .replace('{street}', property?.address.street ?? '')
         .replace('{number}', property?.address.number ?? '');
-    const text = await file.text();
+    /* The lease file itself is kept (it is the signed document), and its
+       text is read in the browser to fill the lease. */
+    let text = '';
+    let fileUrl: string | null = null;
+    try {
+      const isPdf = file.type === 'application/pdf' || /.pdf$/i.test(file.name);
+      const [read, stored] = await Promise.all([
+        isPdf ? pdfText(file) : file.text(),
+        isPdf ? uploadFile(file, 'contracts') : Promise.resolve(null),
+      ]);
+      text = read;
+      fileUrl = stored;
+    } catch {
+      pushToast(t.contracts.readFailed, 'alert');
+      return;
+    }
+    if (!text) {
+      pushToast(t.contracts.noText, 'alert');
+      return;
+    }
     scanContract.mutate(
-      { propertyId: unitId, fileName: name, text },
+      { propertyId: unitId, fileName: name, fileUrl, text },
       { onSuccess: (scan) => setActiveScanId(scan.id) },
     );
   };
@@ -138,7 +160,7 @@ export function OwnerContracts() {
                 <input
                   ref={fileInput}
                   type="file"
-                  accept=".txt,.pdf,.png,.jpg,.jpeg"
+                  accept=".pdf,application/pdf,.txt"
                   className="sr-only"
                   tabIndex={-1}
                   aria-hidden="true"
