@@ -85,7 +85,7 @@ export const recordLeaseSchema = z
     tenantPhone: z
       .string()
       .trim()
-      .regex(/^05d-?d{7}$/, 'expected an Israeli mobile number')
+      .regex(/^05\d-?\d{7}$/, 'expected an Israeli mobile number')
       .transform((v) => v.replace(/-/g, ''))
       .nullish(),
     noticePeriodDays: z.number().int().min(0).max(365).optional(),

@@ -93,11 +93,12 @@ beforeEach(async () => {
 
 describe('GET /rent-payments', () => {
   it('gives the owner every unit, with the tenant named', async () => {
-    /* The months every lease generates are covered below; these two are the seeded ones. */
+    /* Two leases over two months: the three seeded rows, plus the August
+       row the second lease generates for itself. */
     const res = await req('GET', '/rent-payments?from=2026-08&to=2026-09', owner.token);
     expect(res.statusCode).toBe(200);
     const { payments } = res.json();
-    expect(payments).toHaveLength(3);
+    expect(payments).toHaveLength(4);
     expect(payments.every((p: { scope: string }) => p.scope === 'owner')).toBe(true);
     const names = payments.map((p: { tenant: { name: string } }) => p.tenant.name);
     expect(names).toContain('מיכל שטרן־קוראלניק');
