@@ -105,7 +105,7 @@ function VectorBasemap() {
     let cancelled = false;
 
     void (async () => {
-      const [{ default: maplibregl }, rtl] = await Promise.all([
+      const [maplibregl, rtl] = await Promise.all([
         import('maplibre-gl'),
         import('@mapbox/mapbox-gl-rtl-text/dist/mapbox-gl-rtl-text.js?url'),
         import('maplibre-gl/dist/maplibre-gl.css'),
