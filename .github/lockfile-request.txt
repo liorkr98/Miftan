@@ -1,4 +1,2 @@
-# Map tiles: OpenStreetMap's own tile server does not allow commercial use.
-# OpenFreeMap (free, no key, commercial use allowed) serves vector tiles,
-# drawn by MapLibre under the existing Leaflet map; the RTL plugin shapes Hebrew labels.
-install maplibre-gl@^5 @maplibre/maplibre-gl-leaflet@^0.1 @mapbox/mapbox-gl-rtl-text@^0.3 -w apps/web
+# GHSA-jrc7-96c5-q579 (critical) in maplibre-gl below 6.4.1.
+install maplibre-gl@^6.4.1 -w apps/web
