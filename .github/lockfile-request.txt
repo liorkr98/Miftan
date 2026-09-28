@@ -1,3 +1,2 @@
-# pdf.js (Mozilla) reads the text of an uploaded lease PDF in the browser, so
-# landlords can onboard by uploading the contract they already have.
-install pdfjs-dist@^5 -w apps/web
+# GHSA-hq66-cqwq-w95j (high) affects pdfjs-dist 5.6.83 up to 6.2.108.
+install pdfjs-dist@^6.2.108 -w apps/web
