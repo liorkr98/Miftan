@@ -56,6 +56,7 @@ type ReviewBundle = {
 };
 import { api } from './client';
 import { keys } from './query';
+import { prepareForUpload } from '@/lib/image';
 
 /**
  * Every server read and write the app makes.
@@ -265,9 +266,11 @@ export function usePostMessage() {
  * API at all, so a phone full of leak photos does not become our bandwidth bill.
  */
 export async function uploadFile(
-  file: File,
+  original: File,
   folder: 'tickets' | 'receipts' | 'protocol' | 'properties',
 ): Promise<string> {
+  /* Resized, and stripped of EXIF — including GPS — before it leaves the phone. */
+  const file = await prepareForUpload(original);
   const target = await api.request<{ uploadUrl: string; publicUrl: string }>('/uploads/sign', {
     method: 'POST',
     body: JSON.stringify({ folder, filename: file.name, contentType: file.type, size: file.size }),

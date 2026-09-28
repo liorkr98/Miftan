@@ -201,8 +201,20 @@ export async function ticketRoutes(app: FastifyInstance) {
             scheduledAt: scheduledAt ? [] : ['required'],
           });
         }
-        const [vendor] = await db.select().from(s.vendors).where(eq(s.vendors.id, vendorId));
-        if (!vendor) throw new ApiError('not_found', 'no such vendor');
+        const [vendor] = await db
+          .select()
+          .from(s.vendors)
+          .where(and(eq(s.vendors.id, vendorId), isNull(s.vendors.deletedAt)));
+        /* Only this owner's own vendors, or the shared directory (no owner).
+           Another landlord's private list — names and phone numbers — is not
+           this owner's to book, or to show their tenant. */
+        const [property] = await db
+          .select({ ownerId: s.properties.ownerId })
+          .from(s.properties)
+          .where(eq(s.properties.id, ticket.propertyId));
+        if (!vendor || (vendor.ownerId !== null && vendor.ownerId !== property?.ownerId)) {
+          throw new ApiError('not_found', 'no such vendor');
+        }
 
         patch.vendorId = vendorId;
         patch.scheduledAt = new Date(scheduledAt);

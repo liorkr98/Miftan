@@ -26,20 +26,20 @@ export function scrubMessage(message: string): string {
   return message.replace(/params:[\s\S]*$/i, 'params: [redacted]');
 }
 
+/* The shape Fastify's logger options expect from an error serializer. */
 interface LoggableError {
   type: string;
   message: string;
-  code?: string;
-  stack?: string;
-  cause?: LoggableError;
+  stack: string;
+  [key: string]: unknown;
 }
 
 export function safeError(err: unknown, depth = 0): LoggableError {
-  if (!(err instanceof Error)) return { type: typeof err, message: '[non-error thrown]' };
+  if (!(err instanceof Error)) return { type: typeof err, message: '[non-error thrown]', stack: '' };
   const out: LoggableError = {
     type: err.name,
     message: scrubMessage(err.message),
-    stack: err.stack ? scrubMessage(err.stack) : undefined,
+    stack: err.stack ? scrubMessage(err.stack) : '',
   };
   const code = (err as { code?: unknown }).code;
   if (typeof code === 'string') out.code = code;

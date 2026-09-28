@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { ApiError } from '@miftan/shared';
 import { R2Driver } from '../storage/r2.ts';
+import { MAX_UPLOAD_BYTES } from '../storage/contract.ts';
 
 /**
  * The R2 driver signs a URL; it does not upload anything. So this tests the
- * signature's shape and the two rules that actually protect us — the content
- * type is bound into the signature, and the client never chooses the key.
+ * signature's shape and the rules that actually protect us — the content type
+ * and the size are bound into the signature, and the client never chooses the
+ * key or its extension.
  */
 
 const driver = new R2Driver({
@@ -13,7 +15,6 @@ const driver = new R2Driver({
   bucket: 'miftan-uploads',
   accessKeyId: 'AKIAEXAMPLE',
   secretAccessKey: 'secret-example-value',
-  publicUrl: 'https://files.miftan.co.il/',
 });
 
 describe('the R2 upload target', () => {
@@ -22,6 +23,7 @@ describe('the R2 upload target', () => {
       folder: 'tickets',
       filename: 'leak.JPG',
       contentType: 'image/jpeg',
+      size: 1_000_000,
     });
 
     const url = new URL(target.uploadUrl);
@@ -29,20 +31,26 @@ describe('the R2 upload target', () => {
     expect(url.pathname).toMatch(/^\/miftan-uploads\/tickets\/[0-9a-f-]{36}\.jpg$/);
     expect(url.searchParams.get('X-Amz-Expires')).toBe('900');
     expect(url.searchParams.get('X-Amz-Signature')).toBeTruthy();
-    /* Binding content-type means a target issued for a photo cannot be used to
-       upload something else. */
+    /* A target issued for a 1 MB photo cannot be used for anything else, or
+       anything bigger. */
     expect(url.searchParams.get('X-Amz-SignedHeaders')).toContain('content-type');
+    expect(url.searchParams.get('X-Amz-SignedHeaders')).toContain('content-length');
   });
 
-  it('reads back from the public origin, not the signing endpoint', async () => {
+  it('refuses a file over the size cap before signing anything', async () => {
+    await expect(
+      driver.createUpload({ folder: 'tickets', filename: 'a.jpg', contentType: 'image/jpeg', size: MAX_UPLOAD_BYTES + 1 }),
+    ).rejects.toBeInstanceOf(ApiError);
+  });
+
+  it('takes the extension from the checked type, not the filename', async () => {
     const target = await driver.createUpload({
-      folder: 'receipts',
-      filename: 'r.pdf',
-      contentType: 'application/pdf',
+      folder: 'tickets',
+      filename: 'page.html',
+      contentType: 'image/png',
+      size: 10,
     });
-    /* A trailing slash in configuration must not produce a double slash. */
-    expect(target.publicUrl).toBe(`https://files.miftan.co.il/${target.key}`);
-    expect(target.publicUrl).not.toContain('r2.cloudflarestorage.com');
+    expect(target.key).toMatch(/\.png$/);
   });
 
   it('ignores the name the client sent', async () => {
@@ -50,6 +58,7 @@ describe('the R2 upload target', () => {
       folder: 'tickets',
       filename: '../../etc/passwd',
       contentType: 'image/png',
+      size: 10,
     });
     expect(target.key).not.toContain('..');
     expect(target.key).not.toContain('passwd');
@@ -57,7 +66,7 @@ describe('the R2 upload target', () => {
 
   it('refuses a type we do not accept', async () => {
     await expect(
-      driver.createUpload({ folder: 'tickets', filename: 'x.sh', contentType: 'application/x-sh' }),
+      driver.createUpload({ folder: 'tickets', filename: 'x.sh', contentType: 'application/x-sh', size: 10 }),
     ).rejects.toBeInstanceOf(ApiError);
   });
 });

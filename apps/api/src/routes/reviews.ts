@@ -41,6 +41,11 @@ export async function reviewRoutes(app: FastifyInstance) {
     async (request) => {
       const me = request.currentUser!.id;
       const subject = request.query.userId ?? me;
+      if (subject !== me && !(await related(me, subject))) {
+        /* Same answer as a person with no reviews would get from a stranger's
+           point of view: nothing to see. */
+        throw new ApiError('not_found', 'no such user');
+      }
 
       /* Sweeping here rather than on a timer: the seal has to lift even if
          nothing is scheduled to lift it, and a read is the only moment we can
@@ -174,6 +179,35 @@ export async function reviewRoutes(app: FastifyInstance) {
 }
 
 /* ── helpers ─────────────────────────────────────────────── */
+
+/**
+ * Whether one account may read what has been published about another.
+ * HUMAN REVIEW.
+ *
+ * Reviews carry a street, a house number and tenancy dates. They are for the
+ * decision at hand — a landlord weighing someone who applied, a tenant or
+ * applicant weighing the landlord — not a public lookup of anyone by id.
+ */
+async function related(me: string, subject: string): Promise<boolean> {
+  const mine = db.select({ id: s.properties.id }).from(s.properties).where(eq(s.properties.ownerId, me));
+  const theirs = db.select({ id: s.properties.id }).from(s.properties).where(eq(s.properties.ownerId, subject));
+
+  const checks = await Promise.all([
+    /* They rent, or rented, from me. */
+    db.select({ id: s.leases.id }).from(s.leases)
+      .where(and(eq(s.leases.tenantId, subject), inArray(s.leases.propertyId, mine))).limit(1),
+    /* They applied to one of my units. */
+    db.select({ id: s.leads.id }).from(s.leads)
+      .where(and(eq(s.leads.seekerId, subject), inArray(s.leads.propertyId, mine))).limit(1),
+    /* I rent, or rented, from them. */
+    db.select({ id: s.leases.id }).from(s.leases)
+      .where(and(eq(s.leases.tenantId, me), inArray(s.leases.propertyId, theirs))).limit(1),
+    /* I applied to one of their units. */
+    db.select({ id: s.leads.id }).from(s.leads)
+      .where(and(eq(s.leads.seekerId, me), inArray(s.leads.propertyId, theirs))).limit(1),
+  ]);
+  return checks.some((rows) => rows.length > 0);
+}
 
 /**
  * Release reviews whose window has run out with no counterpart.
