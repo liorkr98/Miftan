@@ -55,7 +55,7 @@ import {
   Tag,
 } from 'lucide-react';
 import { Wordmark } from '@/components/shared/wordmark';
-import { isDemoBuild } from '@/lib/demo';
+import { useIsDemo } from '@/lib/demo';
 
 interface NavItem {
   to: string;
@@ -75,6 +75,7 @@ interface NavItem {
 /* ── Top bar — the one dark band, present in every persona ─── */
 
 function TopBar() {
+  const isDemo = useIsDemo();
   const [resetOpen, setResetOpen] = React.useState(false);
   const resetDemo = useStore((s) => s.resetDemo);
   const pushToast = useStore((s) => s.pushToast);
@@ -88,7 +89,7 @@ function TopBar() {
     >
       <div className="flex shrink-0 items-center gap-2">
         <Wordmark size="sm" onInk />
-        {isDemoBuild ? (
+        {isDemo ? (
           <span className="hidden rounded-full bg-white/10 px-2 py-0.5 text-2xs font-bold text-on-ink-muted lg:inline">
             {t.shell.demoBadge}
           </span>
@@ -115,8 +116,8 @@ function TopBar() {
           <Tag className="h-3.5 w-3.5" />
           <span className="hidden md:inline">{t.pricing.nav}</span>
         </NavLink>
-        {isDemoBuild ? <RevenueLensToggle /> : null}
-        {isDemoBuild ? (
+        {isDemo ? <RevenueLensToggle /> : null}
+        {isDemo ? (
           <button
             type="button"
             onClick={() => setResetOpen(true)}
@@ -315,6 +316,7 @@ function SkipLink() {
 /* ── Owner: rail + dense workstation ───────────────────── */
 
 export function OwnerShell() {
+  const isDemo = useIsDemo();
   const main = React.useRef<HTMLElement>(null!);
   useScrollReset(main);
 
@@ -371,7 +373,7 @@ export function OwnerShell() {
        explicitly, and separate from the revenue premium gate below: this one
        is not locked, it is simply not shown yet. The route and screen still
        exist and work if opened directly. */
-    ...(isDemoBuild
+    ...(isDemo
       ? [{ to: '/owner/revenue', label: t.ownerNav.revenue, Icon: Coins, premium: true } satisfies NavItem]
       : []),
   ];

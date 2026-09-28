@@ -38,7 +38,7 @@ import { SeekerSearch } from '@/personas/seeker/search';
 import { SeekerListing } from '@/personas/seeker/listing';
 import { SeekerQueue } from '@/personas/seeker/queue';
 import { SeekerProfile } from '@/personas/seeker/profile';
-import { isDemoBuild } from '@/lib/demo';
+import { DemoOnly } from './demo-only';
 
 export const router = createBrowserRouter([
   {
@@ -81,18 +81,17 @@ export const router = createBrowserRouter([
           { path: 'maintenance', element: <OwnerMaintenanceHub /> },
           { path: 'vendors', element: <OwnerMaintenanceHub /> },
           { path: 'contracts', element: <OwnerContracts /> },
-          ...(isDemoBuild
-            ? [
-                {
-                  path: 'revenue',
-                  element: (
-                    <PremiumGate hint={t.premium.revenueLockedHint}>
-                      <OwnerRevenue />
-                    </PremiumGate>
-                  ),
-                },
-              ]
-            : []),
+          {
+            /* The investor model runs on illustrative data: demo accounts only. */
+            path: 'revenue',
+            element: (
+              <DemoOnly>
+                <PremiumGate hint={t.premium.revenueLockedHint}>
+                  <OwnerRevenue />
+                </PremiumGate>
+              </DemoOnly>
+            ),
+          },
           { path: 'leads/filters', element: <OwnerScreening /> },
           { path: 'crm/filters', element: <OwnerScreening /> },
           { path: 'finance', element: <OwnerFinance /> },

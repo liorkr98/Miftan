@@ -16,6 +16,7 @@ import { ArrowLeft, Check, KeyRound, Search } from 'lucide-react';
 import { homeFor } from './guard';
 import { rolesFor } from './role-switcher';
 import { Wordmark } from '@/components/shared/wordmark';
+import { useIsDemo } from '@/lib/demo';
 
 /**
  * One price list for all three sides.
@@ -30,6 +31,8 @@ export function Pricing() {
   const { user, capabilities } = useAuth();
   const home = user ? homeFor(rolesFor(capabilities)) : null;
   const currentPlan = user?.plan;
+  /* The add-ons are not built yet: demo accounts show them, nobody can buy them. */
+  const isDemo = useIsDemo();
 
   return (
     <div className="min-h-dvh bg-bg text-ink">
@@ -151,6 +154,7 @@ export function Pricing() {
           </div>
 
           {/* Add-ons */}
+          {isDemo ? (
           <div className="mt-6 rounded-[var(--radius-card)] border border-line p-5">
             <h3 className="text-sm font-bold text-ink">{t.pricing.addOnsTitle}</h3>
             <ul className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -165,6 +169,7 @@ export function Pricing() {
               ))}
             </ul>
           </div>
+          ) : null}
         </section>
 
         {/* ── Tenants and seekers ────────────────────────── */}

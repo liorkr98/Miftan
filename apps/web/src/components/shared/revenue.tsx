@@ -7,6 +7,7 @@ import { Money, Num } from './typography';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { BadgeCheck, Banknote, Check, Info, Lock, X } from 'lucide-react';
+import { useIsDemo } from '@/lib/demo';
 
 /**
  * The lens is a demo affordance: it shows up, and turns on, only for seeded
@@ -235,11 +236,15 @@ export function OfferRail({
   className?: string;
 }) {
   const affiliateOffers = useStore((s) => s.affiliateOffers);
+  /* The offers are illustrations with placeholder partners. Demo accounts
+     show them to landlords; real accounts never see them until the partner
+     contracts exist. */
+  const demo = useIsDemo();
   const offers = affiliateOffers.filter(
     (o) => o.placement === placement && (!audience || o.audience === audience),
   );
 
-  if (offers.length === 0) return null;
+  if (!demo || offers.length === 0) return null;
 
   const heading =
     title ??

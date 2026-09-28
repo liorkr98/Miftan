@@ -7,6 +7,8 @@ export const SUPPORT = {
   email: 'support@baalabait.co.il',
   privacy: 'privacy@baalabait.co.il',
   accessibility: 'accessibility@baalabait.co.il',
+  /** Named in the accessibility statement, as the regulations require. */
+  accessibilityCoordinator: { name: 'ליאור', phone: '054-2190840' },
   whatsapp: null as string | null,
   hours: 'ראשון–חמישי, 9:00–18:00',
   reply: 'מענה תוך יום עסקים אחד',
