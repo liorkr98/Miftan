@@ -2,6 +2,7 @@ import 'dotenv/config';
 import { buildApp } from './app.ts';
 import { env } from './lib/env.ts';
 import { sql } from './db/client.ts';
+import { backfillCityCentrePins } from './lib/backfill-pins.ts';
 
 const app = await buildApp();
 
@@ -11,6 +12,9 @@ try {
   app.log.error(err);
   process.exit(1);
 }
+
+/* In the background: serving requests never waits on it. */
+void backfillCityCentrePins((msg) => app.log.info(msg)).catch((err) => app.log.warn({ err }, 'pin backfill stopped'));
 
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.on(signal, async () => {

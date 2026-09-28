@@ -206,3 +206,58 @@ export function ResultsMap({
     </MapContainer>
   );
 }
+
+/**
+ * A single pin the owner can drag onto the right building.
+ *
+ * The address lookup is good, not perfect: a new street, a house number OSM
+ * does not have, or two buildings sharing a number land the pin nearby
+ * rather than on it. Dragging fixes that in one move. The pin is a plain dot
+ * rather than Leaflet's image marker, whose icon files do not survive
+ * bundling.
+ */
+const PICKER_ICON = L.divIcon({
+  className: 'miftan-pin',
+  html: `<div style="transform:translate(-50%,-50%);width:22px;height:22px;border-radius:999px;
+                     background:var(--color-ink);border:3px solid #fff;
+                     box-shadow:0 2px 8px rgb(0 0 0 / .35);cursor:grab"></div>`,
+  iconSize: [0, 0],
+  iconAnchor: [0, 0],
+});
+
+export function PinPicker({
+  lat,
+  lng,
+  onMove,
+  className,
+}: {
+  lat: number;
+  lng: number;
+  onMove: (point: { lat: number; lng: number }) => void;
+  className?: string;
+}) {
+  return (
+    <MapContainer
+      center={[lat, lng]}
+      zoom={17}
+      fadeAnimation={false}
+      scrollWheelZoom={false}
+      className={className}
+      style={{ background: 'var(--color-surface-sunk)' }}
+    >
+      <VectorBasemap />
+      <KeepSized />
+      <Marker
+        position={[lat, lng]}
+        icon={PICKER_ICON}
+        draggable
+        eventHandlers={{
+          dragend: (e) => {
+            const { lat: la, lng: ln } = (e.target as L.Marker).getLatLng();
+            onMove({ lat: Number(la.toFixed(6)), lng: Number(ln.toFixed(6)) });
+          },
+        }}
+      />
+    </MapContainer>
+  );
+}

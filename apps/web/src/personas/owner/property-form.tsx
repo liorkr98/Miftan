@@ -24,6 +24,11 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 
+/* The map (Leaflet + MapLibre) loads only when an edit form opens. */
+const PinPicker = React.lazy(() =>
+  import('@/components/shared/map').then((m) => ({ default: m.PinPicker })),
+);
+
 const AMENITIES = [
   'elevator', 'parking', 'balcony', 'mamad', 'furnished',
   'ac', 'pets_allowed', 'storage', 'accessible', 'renovated',
@@ -78,6 +83,9 @@ export function PropertyFormDialog({
       status: (property?.status ?? 'vacant') as Status,
       listed: property?.listed ?? false,
       showExactAddress: property?.showExactAddress ?? false,
+      /* Set only when the owner drags the pin; otherwise the server keeps or
+         looks up the point itself. */
+      pin: null as { lat: number; lng: number } | null,
     }),
     [property],
   );
@@ -114,6 +122,7 @@ export function PropertyFormDialog({
     status: form.status,
     listed: form.listed,
     showExactAddress: form.showExactAddress,
+    ...(form.pin ? { lat: form.pin.lat, lng: form.pin.lng } : {}),
   };
 
   const done = (id: string) => {
@@ -191,6 +200,21 @@ export function PropertyFormDialog({
               <Input id="pf-vaad" dir="ltr" inputMode="numeric" className="num" value={form.vaad} onChange={(e) => set('vaad', e.target.value)} />
             </Field>
           </div>
+
+          {property ? (
+            <div>
+              <p className="mb-1.5 text-xs font-semibold text-ink-soft">{t.properties.pinLabel}</p>
+              <React.Suspense fallback={<div className="h-48 rounded-[var(--radius-card)] bg-surface" />}>
+                <PinPicker
+                  lat={form.pin?.lat ?? property.address.lat}
+                  lng={form.pin?.lng ?? property.address.lng}
+                  onMove={(pin) => set('pin', pin)}
+                  className="h-48 overflow-hidden rounded-[var(--radius-card)] border border-line"
+                />
+              </React.Suspense>
+              <p className="mt-1.5 text-2xs leading-5 text-muted">{t.properties.pinHint}</p>
+            </div>
+          ) : null}
 
           <Field label={t.properties.statusLabel} htmlFor="pf-status">
             <Select value={form.status} onValueChange={(v) => set('status', v as Status)}>

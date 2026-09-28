@@ -259,6 +259,8 @@ export const t = {
     edit: 'עריכה',
     saveChanges: 'שמור שינויים',
     statusLabel: 'מצב הדירה',
+    pinLabel: 'מיקום על המפה',
+    pinHint: 'הנקודה נקבעת לפי הכתובת. אם היא לא על הבניין הנכון, גררו אותה למקום.',
     showExactAddress: 'הצג בחיפוש את מספר הבית והמיקום המדויק',
     showExactAddressHint: 'כבוי: מופיעים רק הרחוב ונקודה במרחק של כ־150 מטר, כדי לא לחשוף דירה שגרים בה. דיירים ומבקרים שתיאמת איתם מקבלים ממך את הכתובת המלאה.',
     houseNumber: 'מספר',
@@ -1691,6 +1693,21 @@ export const t = {
   },
 
   /* ── Legal pages ──────────────────────────────────── */
+  publicListing: {
+    title: '{rooms} חדרים ב{street}, {city}',
+    heading: '{rooms} חדרים ברחוב {street}',
+    perMonth: 'לחודש',
+    contact: 'לפנייה ולתיאום ביקור',
+    contactHint: 'הפנייה לבעל הדירה נעשית דרך חשבון חינמי בבעל הבית — כך הוא רואה מי פונה, ואתם רואים מתי הדירה מתפנה.',
+    share: 'שיתוף',
+    shareOwner: 'שיתוף המודעה',
+    shareCopied: 'הקישור הועתק',
+    builtWith: 'נבנה ב{app}',
+    terms: 'תנאי שימוש',
+    privacy: 'פרטיות',
+    accessibility: 'נגישות',
+  },
+
   legal: {
     navTitle: 'מסמכים משפטיים',
     lastUpdated: 'עודכן',

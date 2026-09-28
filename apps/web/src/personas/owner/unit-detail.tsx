@@ -62,6 +62,7 @@ import {
   Users,
   Wrench,
   Pencil,
+  Share2,
 } from 'lucide-react';
 import { PropertyFormDialog } from './property-form';
 import { PhotoManager } from './photo-manager';
@@ -81,6 +82,7 @@ export function OwnerUnitDetail() {
   const { data: expenseData } = useExpenses(id);
   const updateProperty = useUpdateProperty();
   const [editOpen, setEditOpen] = React.useState(false);
+  const pushToast = useStore((s) => s.pushToast);
 
   const owned = property?.scope === 'owner' ? property : undefined;
   const unitTickets = tickets.filter((tk): tk is TicketView & { scope: 'owner' } => tk.scope === 'owner');
@@ -153,6 +155,27 @@ export function OwnerUnitDetail() {
                 <Pencil className="h-3.5 w-3.5" />
                 {t.properties.edit}
               </Button>
+              {owned.listed ? (
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    /* The public page, which previews properly in WhatsApp. */
+                    const url = `${window.location.origin}/l/${owned.id}`;
+                    const text = `${owned.address.street} · ${url}`;
+                    if (navigator.share) {
+                      void navigator.share({ text, url }).catch(() => undefined);
+                    } else {
+                      void navigator.clipboard.writeText(url).then(
+                        () => pushToast(t.publicListing.shareCopied, 'success'),
+                        () => undefined,
+                      );
+                    }
+                  }}
+                >
+                  <Share2 className="h-3.5 w-3.5" />
+                  {t.publicListing.shareOwner}
+                </Button>
+              ) : null}
               <Button variant="secondary" onClick={() => navigate(`/search/${owned.id}`)}>
                 {t.unit.openInSearch}
               </Button>

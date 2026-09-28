@@ -12,6 +12,7 @@ import { AppErrorPage } from './error-page';
 import { Join } from './join';
 import { StartOwner } from './start-owner';
 import { Welcome } from './welcome';
+import { PublicListing } from './public-listing';
 import { Pricing } from './pricing';
 import { OwnerShell, SeekerShell, TenantShell } from './shell';
 import { NotFound } from './not-found';
@@ -56,6 +57,8 @@ export const router = createBrowserRouter([
   { path: '/join/:token', element: <Join /> },
   { path: '/pricing', element: <Pricing /> },
   { path: '/legal/:id', element: <LegalPage /> },
+  /* A listing anyone can open, shared by link. */
+  { path: '/l/:id', element: <PublicListing /> },
   {
     /* Everything below here needs a session. */
     element: <RequireAuth />,
