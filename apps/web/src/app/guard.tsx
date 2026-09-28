@@ -56,7 +56,8 @@ export function Entry() {
 export function homeFor(roles: Role[]): string {
   if (roles.includes('owner')) return '/owner';
   if (roles.includes('tenant')) return '/tenant';
-  return '/search';
+  /* Holds nothing yet: three doors, the first being "add a property". */
+  return '/welcome';
 }
 
 /** Signed in, but the account holds nothing yet. */

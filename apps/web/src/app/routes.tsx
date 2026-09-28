@@ -11,6 +11,7 @@ import { Account } from './account';
 import { AppErrorPage } from './error-page';
 import { Join } from './join';
 import { StartOwner } from './start-owner';
+import { Welcome } from './welcome';
 import { Pricing } from './pricing';
 import { OwnerShell, SeekerShell, TenantShell } from './shell';
 import { NotFound } from './not-found';
@@ -62,6 +63,7 @@ export const router = createBrowserRouter([
       { path: '/account', element: <Account /> },
       /* Any signed-in account: the door into the owner role. */
       { path: '/start/owner', element: <StartOwner /> },
+      { path: '/welcome', element: <Welcome /> },
       {
         path: '/owner',
         element: <OwnerShell />,
