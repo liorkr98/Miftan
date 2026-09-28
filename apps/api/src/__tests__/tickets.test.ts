@@ -107,9 +107,16 @@ describe('the whole flow', () => {
     expect((await act('start')).json().status).toBe('in_progress');
     expect((await act('request_receipt')).json().status).toBe('awaiting_receipt');
 
-    const closed = (
+    /* The tenant's receipt waits for the owner; nothing is booked yet. */
+    const claimed = (
       await req('POST', `/tickets/${id}/receipt`, tenant.token, { amountAgorot: 28_000, file: null })
     ).json();
+    expect(claimed.status).toBe('awaiting_receipt');
+    expect(claimed.receipt.amountAgorot).toBe(28_000);
+    expect((await req('GET', '/expenses', owner.token)).json().expenses).toHaveLength(0);
+
+    /* The owner accepts it by closing the ticket. */
+    const closed = (await act('close')).json();
     expect(closed.status).toBe('closed');
     expect(closed.receipt.amountAgorot).toBe(28_000);
 

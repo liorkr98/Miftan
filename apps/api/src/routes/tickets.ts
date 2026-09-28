@@ -223,7 +223,38 @@ export async function ticketRoutes(app: FastifyInstance) {
         patch.tenantConfirmedSlot = false;
       }
 
-      await db.update(s.tickets).set(patch).where(eq(s.tickets.id, ticket.id));
+      /* Closing a ticket that carries a tenant's receipt is the owner accepting
+         it — and only then does it become an expense on the owner's books. */
+      const bookTenantReceipt =
+        action === 'close' &&
+        ticket.receiptAmountAgorot != null &&
+        ticket.receiptUploadedBy === 'tenant';
+
+      await db.transaction(async (tx) => {
+        await tx.update(s.tickets).set(patch).where(eq(s.tickets.id, ticket.id));
+        if (!bookTenantReceipt) return;
+        const [already] = await tx
+          .select({ id: s.expenses.id })
+          .from(s.expenses)
+          .where(eq(s.expenses.ticketId, ticket.id));
+        if (already) return;
+        const vendor = ticket.vendorId
+          ? (await tx.select().from(s.vendors).where(eq(s.vendors.id, ticket.vendorId)))[0]
+          : null;
+        await tx.insert(s.expenses).values({
+          id: newId('expense'),
+          propertyId: ticket.propertyId,
+          kind: 'maintenance',
+          category: ticket.category,
+          amountAgorot: ticket.receiptAmountAgorot!,
+          vendorId: ticket.vendorId,
+          vendorName: vendor?.name ?? null,
+          date: israelToday(),
+          ticketId: ticket.id,
+          receiptFile: ticket.receiptFile,
+          documentType: 'receipt',
+        });
+      });
       return respondWith(viewer, ticket.id);
     },
   );
@@ -288,6 +319,26 @@ export async function ticketRoutes(app: FastifyInstance) {
       }
 
       const { amountAgorot, file } = request.body;
+
+      /* A tenant's receipt is a claim, not an expense. HUMAN REVIEW: it waits on
+         the ticket for the owner, who books it by closing the ticket. Before,
+         a tenant could put any amount up to ₪1M straight into the owner's
+         books. */
+      if (scope === 'tenant') {
+        await db
+          .update(s.tickets)
+          .set({
+            status: 'awaiting_receipt',
+            receiptAmountAgorot: amountAgorot,
+            receiptFile: file ? toStoredKey(file) : null,
+            receiptUploadedAt: new Date(),
+            receiptUploadedBy: 'tenant',
+            updatedAt: new Date(),
+          })
+          .where(eq(s.tickets.id, ticket.id));
+        return respondWith(viewer, ticket.id);
+      }
+
       const vendor = ticket.vendorId
         ? (await db.select().from(s.vendors).where(eq(s.vendors.id, ticket.vendorId)))[0]
         : null;
