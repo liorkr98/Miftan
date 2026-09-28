@@ -16,6 +16,7 @@ import { db, schema as s } from '../db/client.ts';
 import { newId } from '../lib/ids.ts';
 import { resolveViewer, scopeFor } from '../policy/viewer.ts';
 import { createExtractor } from '../extract/patterns.ts';
+import { fileLinkOrNull, toStoredKey } from '../storage/files.ts';
 
 type ScanRow = typeof s.contractScans.$inferSelect;
 type PropertyRow = typeof s.properties.$inferSelect;
@@ -32,7 +33,7 @@ function project(scan: ScanRow, property: PropertyRow): ContractScanView {
     propertyId: scan.propertyId,
     propertyLabel: `${property.street} ${property.houseNumber}`,
     fileName: scan.fileName,
-    fileUrl: scan.fileUrl,
+    fileUrl: fileLinkOrNull(scan.fileUrl),
     status: scan.status,
     uploadedAt: scan.uploadedAt.toISOString(),
     committedAt: scan.committedAt?.toISOString() ?? null,
@@ -101,7 +102,7 @@ export async function contractRoutes(app: FastifyInstance) {
            error swallowed into an empty list. */
         await db.insert(s.contractScans).values({
           id, ownerId: viewer.userId, propertyId, fileName,
-          fileUrl: fileUrl ?? null, status: 'failed', fields: [], missing: [],
+          fileUrl: fileUrl ? toStoredKey(fileUrl) : null, status: 'failed', fields: [], missing: [],
         });
         throw new ApiError('internal', 'could not read this contract');
       }
@@ -111,7 +112,7 @@ export async function contractRoutes(app: FastifyInstance) {
         ownerId: viewer.userId,
         propertyId,
         fileName,
-        fileUrl: fileUrl ?? null,
+        fileUrl: fileUrl ? toStoredKey(fileUrl) : null,
         /* Never `committed`. Reading a document and changing a lease are two
            different acts and only one of them is the owner's. */
         status: 'review',

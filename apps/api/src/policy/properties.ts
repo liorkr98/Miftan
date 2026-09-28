@@ -10,6 +10,7 @@ import {
 import { db, schema as s } from '../db/client.ts';
 import { OPEN_TICKET_STATUSES } from './constants.ts';
 import { scopeFor, type Viewer } from './viewer.ts';
+import { fileLinks } from '../storage/files.ts';
 
 /**
  * The one place a property row becomes something a caller can see.
@@ -53,7 +54,7 @@ function publicPart(ctx: PropertyContext): Omit<PublicProperty, 'scope'> {
     floor: property.floor,
     totalFloors: property.totalFloors,
     amenities: property.amenities,
-    photos: property.photos,
+    photos: fileLinks(property.photos),
     monthlyRentAgorot: property.monthlyRentAgorot,
     arnonaBimonthlyAgorot: property.arnonaBimonthlyAgorot,
     vaadMonthlyAgorot: property.vaadMonthlyAgorot,

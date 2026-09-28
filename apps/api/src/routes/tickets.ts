@@ -24,6 +24,7 @@ import {
   visiblePropertyIds,
 } from '../policy/tickets.ts';
 import { RECEIPT_ALLOWED_FROM, nextStatus, type TicketAction } from '../policy/ticket-state.ts';
+import { toStoredKey, toStoredKeys } from '../storage/files.ts';
 
 const viewerFor = (request: FastifyRequest): Promise<Viewer> => resolveViewer(request.currentUser!.id);
 
@@ -140,7 +141,7 @@ export async function ticketRoutes(app: FastifyInstance) {
           status: decision.approved ? 'approved' : 'new',
           title,
           description,
-          photos,
+          photos: toStoredKeys(photos),
           tenantAvailability: availability.map((iso) => new Date(iso)),
           estimateAgorot: decision.estimateAgorot,
           autoApprovedAt: decision.approved ? new Date() : null,
@@ -159,7 +160,7 @@ export async function ticketRoutes(app: FastifyInstance) {
           authorUserId: viewer.userId,
           authorName: request.currentUser!.name,
           body: description || title,
-          photos,
+          photos: toStoredKeys(photos),
         });
       });
 
@@ -285,7 +286,7 @@ export async function ticketRoutes(app: FastifyInstance) {
           .set({
             status: 'closed',
             receiptAmountAgorot: amountAgorot,
-            receiptFile: file,
+            receiptFile: file ? toStoredKey(file) : null,
             receiptUploadedAt: new Date(),
             receiptUploadedBy: scope,
             updatedAt: new Date(),
@@ -302,7 +303,7 @@ export async function ticketRoutes(app: FastifyInstance) {
           vendorName: vendor?.name ?? null,
           date: israelToday(),
           ticketId: ticket.id,
-          receiptFile: file,
+          receiptFile: file ? toStoredKey(file) : null,
           documentType: 'receipt',
         });
       });
@@ -332,7 +333,7 @@ export async function ticketRoutes(app: FastifyInstance) {
         authorUserId: viewer.userId,
         authorName: request.currentUser!.name,
         body: request.body.body,
-        photos: request.body.photos,
+        photos: toStoredKeys(request.body.photos),
       });
 
       return respondWith(viewer, ticket.id);

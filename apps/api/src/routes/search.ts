@@ -16,6 +16,7 @@ import {
 import { db, schema as s } from '../db/client.ts';
 import { newId } from '../lib/ids.ts';
 import { searchBurst } from '../lib/rate-limit.ts';
+import { fileLinks } from '../storage/files.ts';
 
 /**
  * Below this, a median is a rumour. The row still reports its demand count —
@@ -121,7 +122,7 @@ export async function searchRoutes(app: FastifyInstance) {
           district: (p.district as District | null) ?? null,
           lat: Number(p.lat), lng: Number(p.lng),
           rooms: Number(p.rooms), sqm: p.sqm, floor: p.floor, totalFloors: p.totalFloors,
-          amenities: p.amenities, photos: p.photos,
+          amenities: p.amenities, photos: fileLinks(p.photos),
           monthlyRentAgorot: p.monthlyRentAgorot,
           availability,
           queueLength: queueByProperty.get(p.id) ?? 0,

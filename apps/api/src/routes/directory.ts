@@ -6,6 +6,7 @@ import { ApiError, createVendorSchema, expenseListSchema, vendorListSchema, vend
 import { db, schema as s } from '../db/client.ts';
 import { newId } from '../lib/ids.ts';
 import { resolveViewer } from '../policy/viewer.ts';
+import { fileLinkOrNull } from '../storage/files.ts';
 
 export async function directoryRoutes(app: FastifyInstance) {
   const r = app.withTypeProvider<ZodTypeProvider>();
@@ -154,7 +155,7 @@ export async function directoryRoutes(app: FastifyInstance) {
         vendorName: e.vendorName,
         date: e.date,
         ticketId: e.ticketId,
-        receiptFile: e.receiptFile,
+        receiptFile: fileLinkOrNull(e.receiptFile),
         documentType: e.documentType,
         note: e.note,
       }));

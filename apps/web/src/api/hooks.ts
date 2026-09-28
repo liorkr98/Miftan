@@ -270,7 +270,7 @@ export async function uploadFile(
 ): Promise<string> {
   const target = await api.request<{ uploadUrl: string; publicUrl: string }>('/uploads/sign', {
     method: 'POST',
-    body: JSON.stringify({ folder, filename: file.name, contentType: file.type }),
+    body: JSON.stringify({ folder, filename: file.name, contentType: file.type, size: file.size }),
   });
 
   const res = await fetch(target.uploadUrl, {

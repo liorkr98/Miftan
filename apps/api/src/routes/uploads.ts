@@ -2,10 +2,10 @@ import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { resolve, sep } from 'node:path';
 import { z } from 'zod';
 import { ApiError } from '@miftan/shared';
-import { MAX_UPLOAD_BYTES, assertUploadable, createStorage, localDriver } from '../storage/index.ts';
+import { MAX_UPLOAD_BYTES, assertSize, assertUploadable, createStorage, localDriver } from '../storage/index.ts';
 import { env } from '../lib/env.ts';
 import { uploadBurst } from '../lib/rate-limit.ts';
 
@@ -13,6 +13,7 @@ const signSchema = z.object({
   folder: z.enum(['tickets', 'receipts', 'protocol', 'properties']),
   filename: z.string().min(1).max(200),
   contentType: z.string().min(1).max(100),
+  size: z.number().int().positive(),
 });
 
 const targetSchema = z.object({
@@ -32,6 +33,7 @@ export async function uploadRoutes(app: FastifyInstance) {
     { onRequest: [uploadBurst, app.authenticate], schema: { body: signSchema, response: { 200: targetSchema } } },
     async (request) => {
       assertUploadable(request.body.contentType);
+      assertSize(request.body.size);
       return storage.createUpload(request.body);
     },
   );
@@ -55,7 +57,7 @@ export async function uploadRoutes(app: FastifyInstance) {
 
   app.get<{ Params: { '*': string } }>('/files/*', async (request, reply) => {
     const target = resolve(localDriver.root, request.params['*']);
-    if (!target.startsWith(localDriver.root)) throw new ApiError('not_found', 'no such file');
+    if (!target.startsWith(localDriver.root + sep)) throw new ApiError('not_found', 'no such file');
     try {
       await stat(target);
     } catch {

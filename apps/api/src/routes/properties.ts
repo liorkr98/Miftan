@@ -17,6 +17,7 @@ import { db, schema as s } from '../db/client.ts';
 import { newId } from '../lib/ids.ts';
 import { ANONYMOUS, resolveViewer, scopeFor, type Viewer } from '../policy/viewer.ts';
 import { loadPropertyContexts, projectProperty } from '../policy/properties.ts';
+import { toStoredKeys } from '../storage/files.ts';
 
 async function viewerFor(request: FastifyRequest): Promise<Viewer> {
   return request.currentUser ? resolveViewer(request.currentUser.id) : ANONYMOUS;
@@ -126,7 +127,7 @@ export async function propertyRoutes(app: FastifyInstance) {
 
       await db
         .update(s.properties)
-        .set({ photos: request.body.photos, updatedAt: new Date() })
+        .set({ photos: toStoredKeys(request.body.photos), updatedAt: new Date() })
         .where(eq(s.properties.id, request.params.id));
 
       const [row] = await db.select().from(s.properties).where(eq(s.properties.id, request.params.id));
