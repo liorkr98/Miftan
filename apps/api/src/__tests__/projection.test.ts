@@ -24,6 +24,7 @@ const viewer: Viewer = {
   userId: 'usr_1',
   ownedPropertyIds: new Set([OWNED]),
   tenantPropertyIds: new Set([RENTED]),
+  tenantWindows: new Map([[RENTED, { startDate: '2020-01-01', endDate: '2099-12-31' }]]),
 };
 
 function context(id: string): PropertyContext {

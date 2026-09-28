@@ -3,7 +3,7 @@ import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { and, eq, gte, inArray, isNotNull, isNull, lt, lte, ne, or, sql } from 'drizzle-orm';
 import { israelMonth, notificationFeedSchema, okSchema, zonedWallTime, type NotificationView } from '@miftan/shared';
 import { db, schema as s } from '../db/client.ts';
-import { resolveViewer } from '../policy/viewer.ts';
+import { isCurrentTenant, resolveViewer } from '../policy/viewer.ts';
 
 /**
  * The notification feed, derived on read.
@@ -184,7 +184,7 @@ export async function notificationRoutes(app: FastifyInstance) {
         });
       }
 
-      const tenanted = [...viewer.tenantPropertyIds];
+      const tenanted = [...viewer.tenantPropertyIds].filter((id) => isCurrentTenant(viewer, id));
       if (tenanted.length > 0) {
         /* The question about their lease — the flat, never the person asking. */
         const questions = await db

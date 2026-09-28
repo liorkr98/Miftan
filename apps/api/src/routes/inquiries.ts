@@ -4,6 +4,7 @@ import { and, desc, eq, inArray, isNull, or } from 'drizzle-orm';
 import { z } from 'zod';
 import {
   ApiError,
+  israelToday,
   askInquirySchema,
   askTenantSchema,
   inquiryListSchema,
@@ -13,7 +14,8 @@ import {
 } from '@miftan/shared';
 import { db, schema as s } from '../db/client.ts';
 import { newId } from '../lib/ids.ts';
-import { resolveViewer, scopeFor } from '../policy/viewer.ts';
+import { isCurrentTenant, resolveViewer, scopeFor } from '../policy/viewer.ts';
+import { pickLease } from '../policy/properties.ts';
 import { loadInquiryContexts, projectInquiry } from '../policy/inquiries.ts';
 
 export async function inquiryRoutes(app: FastifyInstance) {
@@ -26,7 +28,9 @@ export async function inquiryRoutes(app: FastifyInstance) {
     async (request) => {
       const viewer = await resolveViewer(request.currentUser!.id);
       const owned = [...viewer.ownedPropertyIds];
-      const tenanted = [...viewer.tenantPropertyIds];
+      /* Only a tenant already living there is asked about renewal — not the
+         one invited to move in next. */
+      const tenanted = [...viewer.tenantPropertyIds].filter((id) => isCurrentTenant(viewer, id));
 
       const conditions = [eq(s.availabilityInquiries.seekerId, viewer.userId)];
       if (owned.length) conditions.push(inArray(s.availabilityInquiries.propertyId, owned));
@@ -114,13 +118,16 @@ export async function inquiryRoutes(app: FastifyInstance) {
       const viewer = await resolveViewer(request.currentUser!.id);
       const row = await loadOwned(viewer, request.params.id);
 
-      const [tenant] = await db
-        .select({ id: s.leases.tenantId })
+      /* The lease in force today. The next tenant's lease, if one exists, is
+         not the one being asked about. */
+      const leases = await db
+        .select()
         .from(s.leases)
-        .where(and(eq(s.leases.propertyId, row.propertyId), isNull(s.leases.deletedAt)))
-        .orderBy(desc(s.leases.endDate))
-        .limit(1);
-      if (!tenant) throw new ApiError('forbidden', 'this property has no tenant to ask');
+        .where(and(eq(s.leases.propertyId, row.propertyId), isNull(s.leases.deletedAt)));
+      const lease = pickLease(leases, israelToday(), null);
+      if (!lease || lease.startDate > israelToday()) {
+        throw new ApiError('forbidden', 'this property has no tenant to ask');
+      }
 
       await db
         .update(s.availabilityInquiries)
@@ -132,7 +139,7 @@ export async function inquiryRoutes(app: FastifyInstance) {
       await db
         .update(s.leases)
         .set({ renewalAskedAt: new Date() })
-        .where(and(eq(s.leases.propertyId, row.propertyId), isNull(s.leases.deletedAt)));
+        .where(eq(s.leases.id, lease.id));
 
       return reproject(viewer, row.id);
     },
@@ -156,7 +163,7 @@ export async function inquiryRoutes(app: FastifyInstance) {
         .from(s.availabilityInquiries)
         .where(eq(s.availabilityInquiries.id, request.params.id));
 
-      if (!row || scopeFor(viewer, row.propertyId) !== 'tenant') {
+      if (!row || scopeFor(viewer, row.propertyId) !== 'tenant' || !isCurrentTenant(viewer, row.propertyId)) {
         throw new ApiError('not_found', 'no such inquiry');
       }
       /* You cannot answer a question that was never put to you. */
@@ -177,10 +184,18 @@ export async function inquiryRoutes(app: FastifyInstance) {
         /* The lease is where renewal intent lives for every other surface.
            deriveAvailability() reads it from there, so writing it here is what
            makes the seeker-facing signal move. */
+        /* Only this tenant's own lease. It used to write every lease on the
+           flat, including one already signed by the next tenant. */
         await tx
           .update(s.leases)
           .set({ renewalIntent: request.body.answer })
-          .where(and(eq(s.leases.propertyId, row.propertyId), isNull(s.leases.deletedAt)));
+          .where(
+            and(
+              eq(s.leases.propertyId, row.propertyId),
+              eq(s.leases.tenantId, viewer.userId),
+              isNull(s.leases.deletedAt),
+            ),
+          );
       });
 
       return reproject(viewer, row.id);

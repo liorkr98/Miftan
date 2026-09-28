@@ -16,7 +16,7 @@ import {
 import { db, schema as s } from '../db/client.ts';
 import { newId } from '../lib/ids.ts';
 import { decideAutoApproval } from '../policy/budget.ts';
-import { resolveViewer, scopeFor, type Viewer } from '../policy/viewer.ts';
+import { resolveViewer, scopeFor, tenantMaySeeTicket, type Viewer } from '../policy/viewer.ts';
 import {
   loadTicketContexts,
   loadTicketOr404,
@@ -34,6 +34,9 @@ async function ticketFor(viewer: Viewer, ticketId: string) {
   if (!ticket) throw new ApiError('not_found', 'no such ticket');
   const scope = scopeFor(viewer, ticket.propertyId);
   if (scope === 'public') throw new ApiError('not_found', 'no such ticket');
+  if (scope === 'tenant' && !tenantMaySeeTicket(viewer, ticket)) {
+    throw new ApiError('not_found', 'no such ticket');
+  }
   return { ticket, scope };
 }
 
@@ -71,9 +74,14 @@ export async function ticketRoutes(app: FastifyInstance) {
         .where(and(inArray(s.tickets.propertyId, propertyIds), isNull(s.tickets.deletedAt)))
         .orderBy(desc(s.tickets.createdAt));
 
+      /* Owners see every ticket on what they own; a tenant sees only their
+         own period on the flat (tenantMaySeeTicket). */
+      const mine = rows.filter(
+        (t) => scopeFor(viewer, t.propertyId) === 'owner' || tenantMaySeeTicket(viewer, t),
+      );
       const open = request.query.open
-        ? rows.filter((t) => t.status !== 'closed')
-        : rows;
+        ? mine.filter((t) => t.status !== 'closed')
+        : mine;
 
       const contexts = await loadTicketContexts(open);
       return { tickets: contexts.map((ctx) => projectTicket(viewer, ctx)) };

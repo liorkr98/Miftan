@@ -177,7 +177,23 @@ export async function loadPropertyContexts(
       : Promise.resolve([]),
   ]);
 
-  const leaseByProperty = new Map(leases.map((l) => [l.propertyId, l]));
+  /* A unit can hold two live leases at once — the tenant living there and
+     the one invited to follow. Which of them a row shows depends on who is
+     asking: a tenant sees their own lease and never the other person's terms;
+     everyone else sees the lease in force today, or failing that the next. */
+  const leasesByProperty = new Map<string, LeaseRow[]>();
+  for (const l of leases) {
+    const list = leasesByProperty.get(l.propertyId) ?? [];
+    list.push(l);
+    leasesByProperty.set(l.propertyId, list);
+  }
+  const leaseFor = (propertyId: string): LeaseRow | null =>
+    pickLease(leasesByProperty.get(propertyId) ?? [], today, scopeFor(viewer, propertyId) === 'tenant' ? viewer.userId : null);
+  const leaseByProperty = new Map<string, LeaseRow>();
+  for (const id of ids) {
+    const lease = leaseFor(id);
+    if (lease) leaseByProperty.set(id, lease);
+  }
   const queueByProperty = new Map(queueRows.map((r) => [r.propertyId, r.n]));
   const ticketsByProperty = new Map(ticketRows.map((r) => [r.propertyId, r.n]));
 
@@ -212,4 +228,23 @@ export async function loadPropertyContexts(
       openTicketCount: ticketsByProperty.get(property.id) ?? 0,
     };
   });
+}
+
+/**
+ * The lease a row should show. HUMAN REVIEW: for a tenant this decides whose
+ * terms they read.
+ *
+ * With tenantId: only that tenant's leases are candidates. Then: the lease in
+ * force today (latest start wins if several), else the earliest upcoming one.
+ */
+export function pickLease(leases: LeaseRow[], today: string, tenantId: string | null): LeaseRow | null {
+  const candidates = tenantId ? leases.filter((l) => l.tenantId === tenantId) : leases;
+  const current = candidates
+    .filter((l) => l.startDate <= today && l.endDate >= today)
+    .sort((a, b) => b.startDate.localeCompare(a.startDate));
+  if (current[0]) return current[0];
+  const upcoming = candidates
+    .filter((l) => l.startDate > today)
+    .sort((a, b) => a.startDate.localeCompare(b.startDate));
+  return upcoming[0] ?? null;
 }

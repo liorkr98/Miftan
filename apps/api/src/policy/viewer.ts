@@ -14,6 +14,19 @@ export interface Viewer {
   ownedPropertyIds: ReadonlySet<string>;
   /** Properties where this user is the tenant on a lease that has not ended */
   tenantPropertyIds: ReadonlySet<string>;
+  /**
+   * For each of those properties, the dates this user rents it — the span
+   * from their earliest current lease to their latest. A flat outlives its
+   * tenants: what happened there before this person moved in, or after they
+   * leave, belongs to someone else.
+   */
+  tenantWindows: ReadonlyMap<string, TenantWindow>;
+}
+
+export interface TenantWindow {
+  /** yyyy-MM-dd */
+  startDate: string;
+  endDate: string;
 }
 
 /** Nobody signed in. Sees exactly what a stranger on the internet may see. */
@@ -21,6 +34,7 @@ export const ANONYMOUS: Viewer = {
   userId: '',
   ownedPropertyIds: new Set(),
   tenantPropertyIds: new Set(),
+  tenantWindows: new Map(),
 };
 
 export async function resolveViewer(userId: string): Promise<Viewer> {
@@ -32,7 +46,7 @@ export async function resolveViewer(userId: string): Promise<Viewer> {
       .from(s.properties)
       .where(and(eq(s.properties.ownerId, userId), isNull(s.properties.deletedAt))),
     db
-      .select({ id: s.leases.propertyId })
+      .select({ id: s.leases.propertyId, startDate: s.leases.startDate, endDate: s.leases.endDate })
       .from(s.leases)
       .where(
         and(
@@ -43,11 +57,48 @@ export async function resolveViewer(userId: string): Promise<Viewer> {
       ),
   ]);
 
+  const tenantWindows = new Map<string, TenantWindow>();
+  for (const row of tenanted) {
+    const current = tenantWindows.get(row.id);
+    tenantWindows.set(row.id, {
+      startDate: current && current.startDate < row.startDate ? current.startDate : row.startDate,
+      endDate: current && current.endDate > row.endDate ? current.endDate : row.endDate,
+    });
+  }
+
   return {
     userId,
     ownedPropertyIds: new Set(owned.map((r) => r.id)),
     tenantPropertyIds: new Set(tenanted.map((r) => r.id)),
+    tenantWindows,
   };
+}
+
+/** A tenant whose lease has already begun, as opposed to one moving in later. */
+export function isCurrentTenant(viewer: Viewer, propertyId: string, today: string = israelToday()): boolean {
+  const window = viewer.tenantWindows.get(propertyId);
+  return Boolean(window && window.startDate <= today);
+}
+
+/**
+ * Whether a tenant may see a ticket on the flat they rent. HUMAN REVIEW.
+ *
+ * Their own reports, always. Work the owner logged, only if it was logged
+ * while this person rents the flat. Another tenant's report, never — the
+ * previous tenant's leak, and whoever reported it, are not the next
+ * tenant's business, and the reverse holds for a tenant still living there
+ * while their successor is invited.
+ */
+export function tenantMaySeeTicket(
+  viewer: Viewer,
+  ticket: { propertyId: string; tenantId: string | null; createdAt: Date },
+): boolean {
+  if (ticket.tenantId === viewer.userId) return true;
+  if (ticket.tenantId !== null) return false;
+  const window = viewer.tenantWindows.get(ticket.propertyId);
+  if (!window) return false;
+  const created = israelToday(ticket.createdAt);
+  return created >= window.startDate && created <= window.endDate;
 }
 
 /**
