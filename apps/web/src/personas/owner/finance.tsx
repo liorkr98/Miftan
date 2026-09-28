@@ -17,13 +17,23 @@ import {
   formatMoneyShort,
   formatMonthTick,
   formatMonthYear,
+  israelToday,
   t,
   toShekels,
   type ExpenseView,
   type OwnerRentPayment,
   type TicketCategory,
 } from '@miftan/shared';
-import { useBudget, useExpenses, useRentPayments, useUpdateBudget } from '@/api/hooks';
+import { useBudget, useExpenses, useMarkRentPaid, useRentPayments, useUpdateBudget } from '@/api/hooks';
+import {
+  Dialog,
+  DialogBody,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { useStore } from '@/data/store';
 import { Money, PageHeader } from '@/components/shared/typography';
 import { EmptyState } from '@/components/shared/empty-state';
@@ -76,6 +86,7 @@ export function OwnerFinance() {
   const pushToast = useStore((s) => s.pushToast);
 
   const [year, setYear] = React.useState('all');
+  const [marking, setMarking] = React.useState<OwnerRentPayment | null>(null);
   const [enabled, setEnabled] = React.useState(false);
   const [ceiling, setCeiling] = React.useState('500');
   const [cap, setCap] = React.useState('2000');
@@ -267,6 +278,7 @@ export function OwnerFinance() {
                       <th className="p-3 text-start font-bold">{t.finance.collected}</th>
                       <th className="p-3 text-start font-bold">{t.finance.method}</th>
                       <th className="p-3 text-start font-bold">{t.properties.statusCol}</th>
+                      <th className="p-3" />
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-line">
@@ -297,6 +309,11 @@ export function OwnerFinance() {
                               {state === 'paid' ? t.finance.paid : state === 'partial' ? t.finance.partial : t.finance.unpaid}
                             </Badge>
                           </td>
+                          <td className="p-3 text-end">
+                            <Button size="sm" variant={state === 'paid' ? 'quiet' : 'secondary'} onClick={() => setMarking(row)}>
+                              {t.finance.markPaid}
+                            </Button>
+                          </td>
                         </tr>
                       );
                     })}
@@ -309,7 +326,7 @@ export function OwnerFinance() {
                       <td className="p-3">
                         <Money agorot={currentRows.reduce((s, r) => s + r.dueAgorot, 0)} board className="font-bold" />
                       </td>
-                      <td className="p-3" colSpan={3}>
+                      <td className="p-3" colSpan={4}>
                         <div className="flex items-center gap-3">
                           <Money
                             agorot={currentRows.reduce((s, r) => s + r.paidAgorot, 0)}
@@ -331,6 +348,7 @@ export function OwnerFinance() {
               </div>
             )}
           </section>
+          <MarkPaidDialog payment={marking} onClose={() => setMarking(null)} />
         </TabsContent>
 
         <TabsContent value="expenses" className="space-y-5">
@@ -535,5 +553,63 @@ function ExpenseTable({ rows }: { rows: ExpenseView[] }) {
         </tbody>
       </table>
     </div>
+  );
+}
+
+/**
+ * The owner recording what arrived for one month. Defaults to the full amount
+ * today, which is the common case; a smaller amount is a partial payment and
+ * zero clears the mark.
+ */
+function MarkPaidDialog({ payment, onClose }: { payment: OwnerRentPayment | null; onClose: () => void }) {
+  const mark = useMarkRentPaid();
+  const pushToast = useStore((s) => s.pushToast);
+  const [amount, setAmount] = React.useState('');
+  const [date, setDate] = React.useState('');
+
+  React.useEffect(() => {
+    if (!payment) return;
+    setAmount(String(Math.round(toShekels(payment.paidAgorot > 0 ? payment.paidAgorot : payment.dueAgorot))));
+    setDate(payment.paidAt ?? israelToday());
+  }, [payment]);
+
+  const submit = () => {
+    if (!payment) return;
+    mark.mutate(
+      { id: payment.id, paidShekels: Number(amount.replace(/D/g, '')) || 0, paidAt: date },
+      {
+        onSuccess: () => {
+          pushToast(t.finance.saved, 'success');
+          onClose();
+        },
+      },
+    );
+  };
+
+  return (
+    <Dialog open={Boolean(payment)} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>
+            {t.finance.markPaidTitle}
+            {payment ? ` · ${payment.propertyLabel}` : ''}
+          </DialogTitle>
+          <DialogDescription>{t.finance.markPaidHint}</DialogDescription>
+        </DialogHeader>
+        <DialogBody className="grid gap-4 sm:grid-cols-2">
+          <Field label={t.finance.paidAmount} htmlFor="mp-amount">
+            <Input id="mp-amount" dir="ltr" inputMode="numeric" className="num" value={amount} onChange={(e) => setAmount(e.target.value)} />
+          </Field>
+          <Field label={t.finance.paidOn} htmlFor="mp-date">
+            <Input id="mp-date" type="date" dir="ltr" value={date} onChange={(e) => setDate(e.target.value)} />
+          </Field>
+        </DialogBody>
+        <DialogFooter>
+          <Button onClick={submit} loading={mark.isPending} disabled={!date}>
+            {t.finance.markPaid}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

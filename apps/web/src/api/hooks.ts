@@ -31,6 +31,7 @@ import type {
   UpdatePropertyInput,
   CreateInviteInput,
   RecordLeaseInput,
+  MarkRentPaidInput,
   CreatedInvite,
   InvitePreview,
   OwnerInvite,
@@ -139,6 +140,15 @@ export function useExpenses(propertyId?: string) {
   return useQuery({
     queryKey: keys.expenses(propertyId),
     queryFn: () => api.request<{ expenses: ExpenseView[]; totalAgorot: number }>(`/expenses${query}`),
+  });
+}
+
+export function useMarkRentPaid() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...body }: { id: string } & MarkRentPaidInput) =>
+      api.request<RentPaymentView>(`/rent-payments/${id}/paid`, { method: 'POST', body: JSON.stringify(body) }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['rent-payments'] }),
   });
 }
 

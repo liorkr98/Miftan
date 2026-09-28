@@ -30,8 +30,8 @@ afterAll(async () => {
   await app.close();
 });
 
-const req = (method: 'GET' | 'POST', url: string, token: string) =>
-  app.inject({ method, url, headers: { authorization: `Bearer ${token}` } });
+const req = (method: 'GET' | 'POST', url: string, token: string, payload?: object) =>
+  app.inject({ method, url, headers: { authorization: `Bearer ${token}` }, payload });
 
 async function makeUser(name: string, email: string, phone?: string) {
   const id = newId('user');
@@ -93,7 +93,8 @@ beforeEach(async () => {
 
 describe('GET /rent-payments', () => {
   it('gives the owner every unit, with the tenant named', async () => {
-    const res = await req('GET', '/rent-payments', owner.token);
+    /* The months every lease generates are covered below; these two are the seeded ones. */
+    const res = await req('GET', '/rent-payments?from=2026-08&to=2026-09', owner.token);
     expect(res.statusCode).toBe(200);
     const { payments } = res.json();
     expect(payments).toHaveLength(3);
@@ -104,7 +105,7 @@ describe('GET /rent-payments', () => {
   });
 
   it('lets the tenant see only their own months, and never another tenant', async () => {
-    const res = await req('GET', '/rent-payments', tenant.token);
+    const res = await req('GET', '/rent-payments?from=2026-08&to=2026-09', tenant.token);
     expect(res.statusCode).toBe(200);
     const body = JSON.stringify(res.json());
     expect(body).not.toContain('יוסי ברק');
@@ -128,7 +129,7 @@ describe('GET /rent-payments', () => {
       dueAgorot: 980_000, paidAgorot: 490_000, paidAt: '2024-12-03', method: 'post_dated_checks',
     });
 
-    const res = await req('GET', '/rent-payments', tenant.token);
+    const res = await req('GET', '/rent-payments?from=2026-08&to=2026-09', tenant.token);
     const { payments } = res.json();
     expect(payments).toHaveLength(2);
     expect(payments.every((p: { leaseId: string }) => p.leaseId === leaseId)).toBe(true);
@@ -159,5 +160,36 @@ describe('GET /rent-payments', () => {
     const stranger = await makeUser('זר', `stranger-${n}@example.com`);
     const res = await req('GET', `/rent-payments?propertyId=${propertyId}`, stranger.token);
     expect(res.json().payments).toEqual([]);
+  });
+});
+
+describe('the rent roll for a real lease', () => {
+  it('has a row for every month of the lease so far, with nothing paid', async () => {
+    const res = await req('GET', `/rent-payments?propertyId=${propertyId}&from=2025-01&to=2025-12`, owner.token);
+    const { payments } = res.json();
+    expect(payments).toHaveLength(12);
+    expect(payments.every((p: { paidAgorot: number; dueAgorot: number }) => p.paidAgorot === 0 && p.dueAgorot === 1_040_000)).toBe(true);
+  });
+
+  it('never creates a month twice', async () => {
+    await req('GET', '/rent-payments', owner.token);
+    const again = (await req('GET', `/rent-payments?propertyId=${propertyId}&from=2025-03&to=2025-03`, owner.token)).json();
+    expect(again.payments).toHaveLength(1);
+  });
+
+  it('lets the owner mark a month paid, in part or in full', async () => {
+    const [sept] = (await req('GET', `/rent-payments?propertyId=${propertyId}&from=2026-09&to=2026-09`, owner.token)).json().payments;
+    const part = await req('POST', `/rent-payments/${sept.id}/paid`, owner.token, { paidShekels: 5000, paidAt: '2026-09-05' });
+    expect(part.statusCode).toBe(200);
+    expect(part.json().paidAgorot).toBe(500_000);
+
+    const full = await req('POST', `/rent-payments/${sept.id}/paid`, owner.token, { paidShekels: 10400, paidAt: '2026-09-07' });
+    expect(full.json()).toMatchObject({ paidAgorot: 1_040_000, paidAt: '2026-09-07' });
+  });
+
+  it('does not let a tenant mark their own rent paid', async () => {
+    const [sept] = (await req('GET', `/rent-payments?propertyId=${propertyId}&from=2026-09&to=2026-09`, owner.token)).json().payments;
+    const res = await req('POST', `/rent-payments/${sept.id}/paid`, tenant.token, { paidShekels: 10400, paidAt: '2026-09-07' });
+    expect(res.statusCode).toBe(404);
   });
 });

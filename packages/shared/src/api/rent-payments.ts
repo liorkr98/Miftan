@@ -53,6 +53,15 @@ export const rentPaymentListSchema = z.object({
   payments: z.array(rentPaymentViewSchema),
 });
 
+/** The owner recording what arrived. Partial payments are normal. */
+export const markRentPaidSchema = z.object({
+  paidShekels: z.number().int().min(0).max(1_000_000),
+  /** yyyy-MM-dd */
+  paidAt: z.string().regex(/^d{4}-d{2}-d{2}$/),
+  method: paymentMethodSchema.optional(),
+});
+
+export type MarkRentPaidInput = z.infer<typeof markRentPaidSchema>;
 export type RentPaymentView = z.infer<typeof rentPaymentViewSchema>;
 export type OwnerRentPayment = z.infer<typeof ownerRentPaymentSchema>;
 export type TenantRentPayment = z.infer<typeof tenantRentPaymentSchema>;
