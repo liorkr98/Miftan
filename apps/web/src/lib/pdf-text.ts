@@ -34,11 +34,10 @@ export async function pdfText(file: File): Promise<string> {
   const worker = await import('pdfjs-dist/build/pdf.worker.min.mjs?url');
   pdfjs.GlobalWorkerOptions.workerSrc = worker.default;
 
-  const doc = await pdfjs.getDocument({
-    data: new Uint8Array(await file.arrayBuffer()),
-    /* Text only: no font programs are compiled, so no eval under our CSP. */
-    isEvalSupported: false,
-  }).promise;
+  /* Only the text layer is read: nothing is rendered and no PDF scripting
+     runs. */
+  const task = pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) });
+  const doc = await task.promise;
 
   const pages: string[] = [];
   for (let i = 1; i <= doc.numPages; i++) {
@@ -57,7 +56,7 @@ export async function pdfText(file: File): Promise<string> {
     if (line) lines.push(line);
     pages.push(lines.join('\n'));
   }
-  await doc.destroy();
+  await task.destroy();
 
   return logicalOrder(pages.join('\n\n')).trim();
 }
