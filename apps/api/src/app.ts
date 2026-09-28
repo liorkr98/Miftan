@@ -9,6 +9,7 @@ import {
 import { ApiError } from '@miftan/shared';
 import { sql } from './db/client.ts';
 import { env, isProd } from './lib/env.ts';
+import { logSerializers } from './lib/log.ts';
 import { authenticatePlugin } from './plugins/authenticate.ts';
 import { authRoutes } from './routes/auth.ts';
 import { meRoutes } from './routes/me.ts';
@@ -37,13 +38,14 @@ import { contractTemplateRoutes } from './routes/contract-templates.ts';
 export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({
     /* Silent under test — a request log line per assertion buries the results.
-       Structured JSON in production, human-readable in development. */
+       Structured JSON in production, human-readable in development. Either way
+       URLs and errors go through lib/log.ts, which strips tokens and values. */
     logger:
       env.NODE_ENV === 'test'
         ? false
         : isProd
-          ? true
-          : { transport: { target: 'pino-pretty', options: { translateTime: 'HH:MM:ss', ignore: 'pid,hostname' } } },
+          ? { serializers: logSerializers }
+          : { serializers: logSerializers, transport: { target: 'pino-pretty', options: { translateTime: 'HH:MM:ss', ignore: 'pid,hostname' } } },
     /* Do not trust X-Forwarded-For. Fly sets Fly-Client-IP; clientIp() reads
        that header. trustProxy: true would let a caller pick their own IP. */
     trustProxy: false,
