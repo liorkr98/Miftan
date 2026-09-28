@@ -94,7 +94,7 @@ jobs:
           DEMO_DATABASE: 'true'
           JWT_SECRET: seed-only-placeholder-that-is-long-enough-to-validate
 
-      - uses: superfly/flyctl-actions/setup-flyctl@1.5
+      - uses: superfly/flyctl-actions/setup-flyctl@1.6
 
       - name: Set runtime secrets
         run: |
