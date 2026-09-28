@@ -12,14 +12,18 @@ const shared = path.resolve(here, '../../packages/shared/src');
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: {
-    alias: {
-      '@miftan/shared': path.join(shared, 'index.ts'),
-      '@miftan/fixtures': path.resolve(here, '../../packages/fixtures/src/index.ts'),
-      '@': path.resolve(here, './src'),
+    alias: [
+      { find: '@miftan/shared', replacement: path.join(shared, 'index.ts') },
+      { find: '@miftan/fixtures', replacement: path.resolve(here, '../../packages/fixtures/src/index.ts') },
+      { find: '@', replacement: path.resolve(here, './src') },
       /* The RTL text plugin's package exports only its source entry, but
-         MapLibre needs the built file by URL, loaded into its worker. */
-      'rtl-text-plugin': path.resolve(here, '../../node_modules/@mapbox/mapbox-gl-rtl-text/dist/mapbox-gl-rtl-text.js'),
-    },
+         MapLibre needs the built file by URL, loaded into its worker. A regex,
+         so the ?url suffix is carried across. */
+      {
+        find: /^rtl-text-plugin(\?.*)?$/,
+        replacement: `${path.resolve(here, '../../node_modules/@mapbox/mapbox-gl-rtl-text/dist/mapbox-gl-rtl-text.js')}$1`,
+      },
+    ],
   },
   server: {
     /**

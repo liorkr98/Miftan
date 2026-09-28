@@ -65,7 +65,7 @@ jobs:
         run: |
           npm run build > build.log 2>&1 || {
             cat build.log
-            tail -n 25 build.log | sed 's/^/::error::/'
+            grep -iE 'error|fail|could not|cannot' build.log | grep -v '^    at ' | head -n 8 | sed 's/^/::error::/'
             exit 1
           }
           cat build.log
