@@ -107,7 +107,7 @@ function VectorBasemap() {
     void (async () => {
       const [maplibregl, rtl] = await Promise.all([
         import('maplibre-gl'),
-        import('@mapbox/mapbox-gl-rtl-text/dist/mapbox-gl-rtl-text.js?url'),
+        import('rtl-text-plugin?url'),
         import('maplibre-gl/dist/maplibre-gl.css'),
       ]);
       /* The adapter registers L.maplibreGL on the Leaflet instance it imports. */

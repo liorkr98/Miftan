@@ -16,6 +16,9 @@ export default defineConfig({
       '@miftan/shared': path.join(shared, 'index.ts'),
       '@miftan/fixtures': path.resolve(here, '../../packages/fixtures/src/index.ts'),
       '@': path.resolve(here, './src'),
+      /* The RTL text plugin's package exports only its source entry, but
+         MapLibre needs the built file by URL, loaded into its worker. */
+      'rtl-text-plugin': path.resolve(here, '../../node_modules/@mapbox/mapbox-gl-rtl-text/dist/mapbox-gl-rtl-text.js'),
     },
   },
   server: {
