@@ -14,8 +14,8 @@ primary_region = 'fra'
   PORT = '4000'
   NODE_ENV = 'production'
   TZ = 'Asia/Jerusalem'
-  # This file is the demo app. Production uses fly.production.toml and does
-  # not set DEMO_MODE, so seeded ids are not treated as demo accounts there.
+  # One environment for now, shared by the demo accounts and real sign-ups.
+  # DEMO_MODE lets seeded ids (usr_seed_*) be recognised as demo accounts.
   DEMO_MODE = 'true'
   # The API is on its own hostname, so the refresh cookie is scoped to /auth.
   # It is /api/auth only under the Vite dev proxy.
