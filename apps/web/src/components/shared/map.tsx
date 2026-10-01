@@ -143,14 +143,20 @@ function VectorBasemap() {
 
         const glMap = gl.getMaplibreMap();
 
-        /* If the vector map has not drawn its style in ten seconds, show the
-           plain map instead of an empty frame. */
+        /* If the style itself never arrives, show the plain map rather than an
+           empty frame. Only the style counts: tiles and fonts can take a few
+           seconds on a first visit, and the vector map must not be swapped
+           out while it is simply still drawing. */
+        let styled = false;
+        glMap.once('styledata', () => {
+          styled = true;
+        });
         window.setTimeout(() => {
-          if (cancelled || glMap.isStyleLoaded()) return;
-          console.error('vector basemap did not load in time, using raster');
+          if (cancelled || styled) return;
+          console.error('vector basemap style did not load, using raster');
           map.removeLayer(gl);
           layer = rasterFallback().addTo(map);
-        }, 10_000);
+        }, 15_000);
         glMap.once('styledata', () => {
           for (const styleLayer of glMap.getStyle().layers ?? []) {
             if (styleLayer.type !== 'symbol') continue;
