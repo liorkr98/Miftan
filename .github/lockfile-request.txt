@@ -1,2 +1,2 @@
-# GHSA-jrc7-96c5-q579 (critical) in maplibre-gl below 6.4.1.
-install maplibre-gl@^6.4.1 -w apps/web
+# GHSA-58mr-gqgx-xq4g, GHSA-qw65-cvwx-89v3 (high) in fast-uri, pulled in by fastify and ajv.
+update fast-uri
