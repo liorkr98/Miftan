@@ -11,6 +11,8 @@ const shared = path.resolve(here, '../../packages/shared/src');
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  /* MapLibre starts its worker as an ES module. */
+  worker: { format: 'es' },
   resolve: {
     alias: [
       { find: '@miftan/shared', replacement: path.join(shared, 'index.ts') },

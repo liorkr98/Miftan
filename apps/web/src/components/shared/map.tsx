@@ -98,6 +98,14 @@ const STYLE_URL = 'https://tiles.openfreemap.org/styles/positron';
 const ATTRIBUTION =
   '<a href="https://openfreemap.org" target="_blank" rel="noreferrer">OpenFreeMap</a> © <a href="https://www.openmaptiles.org/" target="_blank" rel="noreferrer">OpenMapTiles</a> · נתונים © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">תורמי OpenStreetMap</a>';
 
+/* OpenStreetMap's own tiles: the fallback only, never the main basemap. */
+function rasterFallback() {
+  return L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    maxZoom: 19,
+  });
+}
+
 function VectorBasemap() {
   const map = useMap();
   React.useEffect(() => {
@@ -106,13 +114,19 @@ function VectorBasemap() {
 
     void (async () => {
       try {
-        const [maplibregl, rtl, adapter] = await Promise.all([
+        const [maplibregl, worker, rtl, adapter] = await Promise.all([
           import('maplibre-gl'),
+          /* MapLibre 6 does its tile work in a separate worker file, which a
+             bundler does not emit on its own; without telling MapLibre where
+             the bundled one is, the worker fails to load and the map stays
+             blank. */
+          import('maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'),
           import('rtl-text-plugin?url'),
           import('@maplibre/maplibre-gl-leaflet'),
           import('maplibre-gl/dist/maplibre-gl.css'),
         ]);
         if (cancelled) return;
+        maplibregl.setWorkerUrl(worker.default);
         if (maplibregl.getRTLTextPluginStatus() === 'unavailable') {
           void maplibregl.setRTLTextPlugin(rtl.default, true).catch(() => undefined);
         }
@@ -128,6 +142,15 @@ function VectorBasemap() {
         layer = gl;
 
         const glMap = gl.getMaplibreMap();
+
+        /* If the vector map has not drawn its style in ten seconds, show the
+           plain map instead of an empty frame. */
+        window.setTimeout(() => {
+          if (cancelled || glMap.isStyleLoaded()) return;
+          console.error('vector basemap did not load in time, using raster');
+          map.removeLayer(gl);
+          layer = rasterFallback().addTo(map);
+        }, 10_000);
         glMap.once('styledata', () => {
           for (const styleLayer of glMap.getStyle().layers ?? []) {
             if (styleLayer.type !== 'symbol') continue;
@@ -144,10 +167,7 @@ function VectorBasemap() {
            blank one. OpenStreetMap's tiles are the fallback only. */
         console.error('vector basemap failed, using raster', err);
         if (cancelled) return;
-        layer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-          maxZoom: 19,
-        }).addTo(map);
+        layer = rasterFallback().addTo(map);
       }
     })();
 
