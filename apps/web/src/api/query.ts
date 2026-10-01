@@ -26,6 +26,7 @@ export const keys = {
   properties: ['properties'] as const,
   property: (id: string) => ['properties', id] as const,
   search: ['search'] as const,
+  searchUniverse: ['search', 'universe'] as const,
   tickets: (filters?: { propertyId?: string }) => ['tickets', filters ?? {}] as const,
   ticket: (id: string) => ['tickets', id] as const,
   vendors: ['vendors'] as const,

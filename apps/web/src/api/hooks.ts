@@ -700,6 +700,27 @@ export function useRunSearch() {
   });
 }
 
+/**
+ * Every listing a seeker may see, unfiltered and unrecorded. It is the
+ * comparison set for the price insight: a search that narrows to two flats
+ * still has to be judged against the whole market we hold, and this read is
+ * not a search anyone performed, so it must not write a demand row.
+ */
+export function useSearchUniverse() {
+  return useQuery({
+    queryKey: keys.searchUniverse,
+    queryFn: () =>
+      api.request<{ results: SearchResult[]; total: number; totalIgnoringDate: number }>('/search', {
+        method: 'POST',
+        body: JSON.stringify({
+          filters: { includeOccupied: true, confirmedOnly: false, amenities: [], areas: [], sort: 'date' },
+          record: false,
+        }),
+      }),
+    staleTime: 60_000,
+  });
+}
+
 export function useMarket(district?: string) {
   const query = district ? `?district=${encodeURIComponent(district)}` : '';
   return useQuery({

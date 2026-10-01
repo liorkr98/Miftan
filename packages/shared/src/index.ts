@@ -16,6 +16,9 @@ export * from './lib/time';
 export * from './features';
 export * from './lib/availability';
 export * from './lib/screening';
+export * from './lib/search-insight';
+export * from './lib/search-intent';
+export * from './lib/search-rank';
 
 /* API contract — one definition, used by the server to validate and by the
    client to type itself. */

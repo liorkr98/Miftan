@@ -34,6 +34,8 @@ export const searchFiltersSchema = z.object({
   district: districtSchema.nullish(),
   city: z.string().nullish(),
   neighborhood: z.string().nullish(),
+  /** One or more of the nine Tel Aviv areas. Empty means all of them. */
+  areas: z.array(z.string()).max(9).default([]),
 
   /* Size */
   minRooms: z.number().min(1).max(12).nullish(),
@@ -95,6 +97,7 @@ export const searchResultSchema = z.object({
     confidence: z.enum(['confirmed', 'likely', 'unknown']),
     askable: z.boolean(),
   }),
+  /** How many people are queueing. A count only — never anyone's place in it. */
   queueLength: z.number().int(),
 });
 

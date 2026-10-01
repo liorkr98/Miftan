@@ -115,8 +115,9 @@ export function projectLead(viewer: Viewer, ctx: LeadContext): LeadView {
     return owned;
   }
 
-  /* The seeker's own row. Everyone else in the queue is a number, not a name —
-     the people ahead of you are not your business. */
+  /* The seeker's own row. No other applicant, and no position among them: the
+     queue is the owner's tool, and a seeker who could see "you are fifth" is
+     being handed a number to game rather than a fact to decide with. */
   const mine: SeekerLead = {
     scope: 'seeker',
     id: ctx.lead.id,
@@ -124,8 +125,6 @@ export function projectLead(viewer: Viewer, ctx: LeadContext): LeadView {
     propertyLabel: label,
     stage: ctx.lead.stage,
     desiredMoveIn: ctx.lead.desiredMoveIn,
-    queuePosition: ctx.lead.queuePosition,
-    queueLength: ctx.queueLength,
     watchOnly: ctx.lead.watchOnly,
     createdAt: ctx.lead.createdAt.toISOString(),
 

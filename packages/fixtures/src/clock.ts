@@ -89,3 +89,31 @@ export function monthKey(offset: number): string {
 export function photo(seed: string, w = 800, h = 600): string {
   return `https://picsum.photos/seed/${seed}/${w}/${h}`;
 }
+
+/**
+ * Listing photos: real apartment interiors and residential buildings, every one
+ * checked by eye. A listing's first picture is what a seeker judges the flat by,
+ * so the cover is always a living space; kitchen, bedroom and the building
+ * follow. Rotated by unit number so neighbouring cards do not look identical.
+ *
+ * Source: Pexels (free licence, no attribution required).
+ */
+const pexels = (id: number) =>
+  `https://images.pexels.com/photos/${id}/pexels-photo-${id}.jpeg?auto=compress&cs=tinysrgb&w=800`;
+
+const LIVING = [
+  6934189, 6588599, 6312353, 6265837, 5998120, 5825398, 5998040, 6510974, 6438762, 8082559, 4208390, 28843334,
+];
+const KITCHEN = [6969870, 6436742, 6447384];
+const BEDROOM = [6636262, 6636298, 15667603, 1543439, 33837741];
+const EXTERIOR = [129494, 27307397, 18348585];
+
+export function apartmentPhotos(n: number, count = 3): string[] {
+  const set = [
+    LIVING[n % LIVING.length]!,
+    KITCHEN[(n * 2) % KITCHEN.length]!,
+    BEDROOM[(n * 3) % BEDROOM.length]!,
+    EXTERIOR[(n * 5) % EXTERIOR.length]!,
+  ];
+  return set.slice(0, Math.min(count, set.length)).map(pexels);
+}

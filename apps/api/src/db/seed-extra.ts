@@ -1,5 +1,5 @@
 import { districtOf, toAgorot } from '@miftan/shared';
-import { daysAgo, hoursAgo, monthKey, monthsOut, photo, slotAt } from '@miftan/fixtures';
+import { apartmentPhotos, daysAgo, hoursAgo, monthKey, monthsOut, photo, slotAt } from '@miftan/fixtures';
 import { schema as s } from './client.ts';
 import { seedId } from '../lib/ids.ts';
 
@@ -103,7 +103,7 @@ export async function seedExtraDemo(tx: Tx, passwordHash: string) {
       district: districtOf(f.city) ?? null, lat: f.lat, lng: f.lng,
       rooms: f.rooms, sqm: f.sqm, floor: f.floor, totalFloors: f.total,
       amenities: f.amenities,
-      photos: [photo(`miftan-demo-${f.key}1`), photo(`miftan-demo-${f.key}2`)],
+      photos: apartmentPhotos(40 + FLATS.indexOf(f), 2),
       monthlyRentAgorot: money(f.rent),
       arnonaBimonthlyAgorot: money(Math.round(f.sqm * 11)),
       vaadMonthlyAgorot: money(f.floor > 2 ? 220 : 140),

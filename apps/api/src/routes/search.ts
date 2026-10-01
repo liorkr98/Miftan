@@ -8,6 +8,8 @@ import {
   marketResponseSchema,
   searchRequestSchema,
   searchResponseSchema,
+  TEL_AVIV,
+  TEL_AVIV_AREA_NAMES,
   toAgorot,
   type District,
   type SearchFilters,
@@ -29,8 +31,15 @@ const MINIMUM_SAMPLE = 5;
 function conditions(f: SearchFilters): SQL[] {
   const where: SQL[] = [eq(s.properties.listed, true), isNull(s.properties.deletedAt)];
 
-  if (f.district) where.push(eq(s.properties.district, f.district));
-  if (f.city) where.push(eq(s.properties.city, f.city));
+  /* Tel Aviv only, whatever the client sends. The product searches one city in
+     this version; the owner's other cities stay in their own portfolio views
+     and simply never appear to a seeker. */
+  where.push(eq(s.properties.city, TEL_AVIV));
+  if (f.areas.length) {
+    const known = f.areas.filter((a) => TEL_AVIV_AREA_NAMES.includes(a));
+    /* An unrecognised area matches nothing rather than everything. */
+    where.push(known.length ? inArray(s.properties.neighborhood, known) : sql`false`);
+  }
   if (f.neighborhood) where.push(eq(s.properties.neighborhood, f.neighborhood));
 
   if (f.minRooms != null) where.push(gte(s.properties.rooms, String(f.minRooms)));
