@@ -105,35 +105,50 @@ function VectorBasemap() {
     let cancelled = false;
 
     void (async () => {
-      const [maplibregl, rtl] = await Promise.all([
-        import('maplibre-gl'),
-        import('rtl-text-plugin?url'),
-        import('maplibre-gl/dist/maplibre-gl.css'),
-      ]);
-      /* The adapter registers L.maplibreGL on the Leaflet instance it imports. */
-      await import('@maplibre/maplibre-gl-leaflet');
-      if (maplibregl.getRTLTextPluginStatus() === 'unavailable') {
-        void maplibregl.setRTLTextPlugin(rtl.default, true);
-      }
-      if (cancelled) return;
-
-      const factory = (L as unknown as { maplibreGL: (o: object) => L.Layer & { getMaplibreMap(): import('maplibre-gl').Map } }).maplibreGL;
-      const gl = factory({ style: STYLE_URL, attribution: ATTRIBUTION, interactive: false });
-      gl.addTo(map);
-      layer = gl;
-
-      const glMap = gl.getMaplibreMap();
-      glMap.once('styledata', () => {
-        for (const styleLayer of glMap.getStyle().layers ?? []) {
-          if (styleLayer.type !== 'symbol') continue;
-          if (!glMap.getLayoutProperty(styleLayer.id, 'text-field')) continue;
-          glMap.setLayoutProperty(styleLayer.id, 'text-field', [
-            'coalesce',
-            ['get', 'name:he'],
-            ['get', 'name'],
-          ]);
+      try {
+        const [maplibregl, rtl, adapter] = await Promise.all([
+          import('maplibre-gl'),
+          import('rtl-text-plugin?url'),
+          import('@maplibre/maplibre-gl-leaflet'),
+          import('maplibre-gl/dist/maplibre-gl.css'),
+        ]);
+        if (cancelled) return;
+        if (maplibregl.getRTLTextPluginStatus() === 'unavailable') {
+          void maplibregl.setRTLTextPlugin(rtl.default, true).catch(() => undefined);
         }
-      });
+
+        /* The adapter's own export, not L.maplibreGL: it only attaches itself
+           to Leaflet when the bundled Leaflet object allows it, and in this
+           build it did not — the layer was never created and the map stayed
+           blank. */
+        type GlLayer = L.Layer & { getMaplibreMap(): import('maplibre-gl').Map };
+        const factory = (adapter.maplibreGL ?? adapter.default) as (o: object) => GlLayer;
+        const gl = factory({ style: STYLE_URL, attribution: ATTRIBUTION, interactive: false });
+        gl.addTo(map);
+        layer = gl;
+
+        const glMap = gl.getMaplibreMap();
+        glMap.once('styledata', () => {
+          for (const styleLayer of glMap.getStyle().layers ?? []) {
+            if (styleLayer.type !== 'symbol') continue;
+            if (!glMap.getLayoutProperty(styleLayer.id, 'text-field')) continue;
+            glMap.setLayoutProperty(styleLayer.id, 'text-field', [
+              'coalesce',
+              ['get', 'name:he'],
+              ['get', 'name'],
+            ]);
+          }
+        });
+      } catch (err) {
+        /* No WebGL, a blocked worker, a failed download: a plain map beats a
+           blank one. OpenStreetMap's tiles are the fallback only. */
+        console.error('vector basemap failed, using raster', err);
+        if (cancelled) return;
+        layer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+          maxZoom: 19,
+        }).addTo(map);
+      }
     })();
 
     return () => {
