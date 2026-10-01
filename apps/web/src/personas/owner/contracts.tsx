@@ -93,27 +93,38 @@ export function OwnerContracts() {
         .replace('{number}', property?.address.number ?? '');
     /* The lease file itself is kept (it is the signed document), and its
        text is read in the browser to fill the lease. */
-    let text = '';
-    let fileUrl: string | null = null;
-    try {
-      const isPdf = file.type === 'application/pdf' || /.pdf$/i.test(file.name);
-      const [read, stored] = await Promise.all([
-        isPdf ? pdfText(file) : file.text(),
-        isPdf ? uploadFile(file, 'contracts') : Promise.resolve(null),
-      ]);
-      text = read;
-      fileUrl = stored;
-    } catch {
+    const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+    /* Reading and keeping the file are separate: a failed upload must not
+       stop the scan, and a failed read must not lose the file. */
+    const [read, stored] = await Promise.allSettled([
+      isPdf ? pdfText(file) : file.text(),
+      isPdf ? uploadFile(file, 'contracts') : Promise.resolve(null),
+    ]);
+    if (read.status === 'rejected') {
+      console.error('contract read failed', read.reason);
       pushToast(t.contracts.readFailed, 'alert');
       return;
     }
+    if (stored.status === 'rejected') {
+      console.error('contract upload failed', stored.reason);
+      pushToast(t.contracts.uploadFailed, 'alert');
+    }
+    const text = read.value;
+    const fileUrl = stored.status === 'fulfilled' ? stored.value : null;
     if (!text) {
       pushToast(t.contracts.noText, 'alert');
       return;
     }
     scanContract.mutate(
       { propertyId: unitId, fileName: name, fileUrl, text },
-      { onSuccess: (scan) => setActiveScanId(scan.id) },
+      {
+        onSuccess: (scan) => setActiveScanId(scan.id),
+        /* It used to fail silently: nothing happened and nothing said why. */
+        onError: (err) => {
+          console.error('contract scan failed', err);
+          pushToast(t.contracts.scanFailed, 'alert');
+        },
+      },
     );
   };
 

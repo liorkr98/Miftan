@@ -90,7 +90,11 @@ export async function contractRoutes(app: FastifyInstance) {
     },
     async (request, reply) => {
       const viewer = await resolveViewer(request.currentUser!.id);
-      const { propertyId, fileName, fileUrl, text } = request.body;
+      const { propertyId, fileName, fileUrl } = request.body;
+      /* Text pulled out of a PDF often carries NUL and other control
+         characters. Postgres refuses NUL in text and JSON, so a scan of an
+         ordinary lease used to fail with a 500. */
+      const text = request.body.text.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '');
       if (scopeFor(viewer, propertyId) !== 'owner') throw new ApiError('not_found', 'no such property');
 
       const id = newId('contractScan');

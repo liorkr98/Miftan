@@ -30,8 +30,10 @@ function logicalOrder(text: string): string {
 }
 
 export async function pdfText(file: File): Promise<string> {
-  const pdfjs = await import('pdfjs-dist');
-  const worker = await import('pdfjs-dist/build/pdf.worker.min.mjs?url');
+  /* The legacy build: the modern one relies on JavaScript features only the
+     newest browsers have, and fails outright on many landlords' phones. */
+  const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
+  const worker = await import('pdfjs-dist/legacy/build/pdf.worker.min.mjs?url');
   pdfjs.GlobalWorkerOptions.workerSrc = worker.default;
 
   /* Only the text layer is read: nothing is rendered and no PDF scripting
@@ -58,5 +60,8 @@ export async function pdfText(file: File): Promise<string> {
   }
   await task.destroy();
 
-  return logicalOrder(pages.join('\n\n')).trim();
+  /* PDF text often carries NUL and other control characters, which Postgres
+     refuses to store; the API strips them too. Capped at what the API takes. */
+  const clean = pages.join('\n\n').replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '');
+  return logicalOrder(clean).trim().slice(0, 400_000);
 }

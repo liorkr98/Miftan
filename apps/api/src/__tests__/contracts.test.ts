@@ -214,3 +214,12 @@ describe('who can scan', () => {
     }
   });
 });
+
+describe('text as it comes out of a real PDF', () => {
+  it('reads a contract whose text carries NUL and control characters', async () => {
+    const dirty = CONTRACT.split(' ').join(String.fromCharCode(0) + ' ' + String.fromCharCode(7));
+    const res = await req('POST', '/contracts', owner.token, { propertyId, fileName: 'lease.pdf', text: dirty });
+    expect(res.statusCode).toBe(201);
+    expect(res.json().status).toBe('review');
+  });
+});
