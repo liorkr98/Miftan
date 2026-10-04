@@ -336,3 +336,95 @@ export function parseSearchIntent(input: string, ctx: IntentContext): SearchInte
   if (out.sort === undefined && out.recognized > 0) out.sort = 'recommended';
   return out;
 }
+
+/* ── Model output, made safe ───────────────────────────── */
+
+const AMENITY_KEYS = AMENITY_WORDS.map(([a]) => a);
+const SMART_KEYS: SmartFilter[] = ['below_market', 'soon', 'low_competition'];
+const SORT_KEYS: IntentSort[] = ['date', 'price_asc', 'price_desc', 'rooms', 'sqm', 'recommended', 'best_match', 'ppsqm'];
+const UNSUPPORTED_KEYS: UnsupportedConcept[] = ['quiet', 'transit', 'schools', 'view', 'garden', 'similar', 'other_city'];
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+function pickNumber(v: unknown, min: number, max: number): number | undefined {
+  const n = typeof v === 'string' ? Number(v.replace(/,/g, '')) : v;
+  return typeof n === 'number' && Number.isFinite(n) && n >= min && n <= max ? n : undefined;
+}
+
+function pickList<T extends string>(v: unknown, allowed: readonly T[]): T[] {
+  if (!Array.isArray(v)) return [];
+  return [...new Set(v.filter((x): x is T => typeof x === 'string' && (allowed as readonly string[]).includes(x)))];
+}
+
+/**
+ * A language model's answer, reduced to what the search can actually use.
+ *
+ * The model is asked for this exact shape, but its output is untrusted input
+ * like any other: an area that is not one of the nine, an amenity we do not
+ * store, a price of minus four — each is dropped here rather than allowed to
+ * reach a filter. `recognized` is recounted from what survived, so a reply
+ * that was all noise comes back as zero and the screen says so.
+ */
+export function normalizeModelIntent(raw: unknown): SearchIntent {
+  const o = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+  const areaNames = TEL_AVIV_AREAS.map((a) => a.name) as string[];
+  const aliasToName = new Map<string, string>(
+    TEL_AVIV_AREAS.flatMap((a) => a.aliases.map((alias) => [alias, a.name] as [string, string])),
+  );
+  const areas = Array.isArray(o.areas)
+    ? [
+        ...new Set(
+          o.areas
+            .filter((x): x is string => typeof x === 'string')
+            .map((x) => aliasToName.get(x.trim()) ?? x.trim())
+            .filter((x) => areaNames.includes(x)),
+        ),
+      ]
+    : [];
+
+  let minRooms = pickNumber(o.minRooms, 1, 12);
+  let maxRooms = pickNumber(o.maxRooms, 1, 12);
+  if (minRooms !== undefined && maxRooms !== undefined && minRooms > maxRooms) [minRooms, maxRooms] = [maxRooms, minRooms];
+  let minPrice = pickNumber(o.minPrice, 500, 200_000);
+  let maxPrice = pickNumber(o.maxPrice, 500, 200_000);
+  if (minPrice !== undefined && maxPrice !== undefined && minPrice > maxPrice) [minPrice, maxPrice] = [maxPrice, minPrice];
+  const minSqm = pickNumber(o.minSqm, 10, 600);
+  const maxSqm = pickNumber(o.maxSqm, 10, 600);
+  const availableFrom = typeof o.availableFrom === 'string' && ISO_DAY.test(o.availableFrom) ? o.availableFrom : undefined;
+  const availableBy = typeof o.availableBy === 'string' && ISO_DAY.test(o.availableBy) ? o.availableBy : undefined;
+
+  const required = pickList(o.required, AMENITY_KEYS);
+  const preferred = pickList(o.preferred, AMENITY_KEYS).filter((a) => !required.includes(a));
+  const smart = pickList(o.smart, SMART_KEYS);
+  const unsupported = pickList(o.unsupported, UNSUPPORTED_KEYS);
+  const sortValue = typeof o.sort === 'string' && (SORT_KEYS as string[]).includes(o.sort) ? (o.sort as IntentSort) : undefined;
+
+  const recognized =
+    areas.length +
+    (minRooms !== undefined || maxRooms !== undefined ? 1 : 0) +
+    (minPrice !== undefined || maxPrice !== undefined ? 1 : 0) +
+    (minSqm !== undefined ? 1 : 0) +
+    (maxSqm !== undefined ? 1 : 0) +
+    (availableFrom || availableBy ? 1 : 0) +
+    required.length +
+    preferred.length +
+    smart.length +
+    (sortValue && sortValue !== 'recommended' ? 1 : 0);
+
+  return {
+    areas,
+    minRooms: minRooms !== undefined ? Math.round(minRooms * 2) / 2 : undefined,
+    maxRooms: maxRooms !== undefined ? Math.round(maxRooms * 2) / 2 : undefined,
+    minSqm: minSqm !== undefined ? Math.round(minSqm) : undefined,
+    maxSqm: maxSqm !== undefined ? Math.round(maxSqm) : undefined,
+    minPrice: minPrice !== undefined ? Math.round(minPrice) : undefined,
+    maxPrice: maxPrice !== undefined ? Math.round(maxPrice) : undefined,
+    availableFrom,
+    availableBy,
+    required,
+    preferred,
+    smart,
+    sort: sortValue ?? (recognized > 0 ? 'recommended' : undefined),
+    unsupported,
+    recognized,
+  };
+}

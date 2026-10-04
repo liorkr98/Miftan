@@ -21,6 +21,7 @@ import {
   useLeads,
   useLeaveQueue,
   useProperty,
+  useRecordListingView,
   useReserveQueue,
   useViewingAction,
   useViewings,
@@ -57,6 +58,7 @@ import {
 } from 'lucide-react';
 import { Field, Input, Textarea } from '@/components/ui/field';
 import { OfferRail } from '@/components/shared/revenue';
+import { ListingStats } from '@/components/shared/listing-stats';
 
 function amenityLabel(key: string): string {
   return key in t.amenity ? t.amenity[key as Amenity] : key;
@@ -72,6 +74,7 @@ export function SeekerListing() {
   const pushToast = useStore((s) => s.pushToast);
 
   const { data: property, isLoading, isError, error, refetch } = useProperty(id);
+  useRecordListingView(id, property?.scope === 'public');
   const { data: leads = [] } = useLeads();
   const { data: inquiries = [] } = useInquiries();
   const { data: viewing } = useViewings(id);
@@ -213,6 +216,8 @@ export function SeekerListing() {
           withCountdown
         />
       </div>
+
+      <ListingStats viewCount={property.viewCount} watchCount={property.watchCount} className="mt-3" />
 
       <section className="mt-5">
         <SectionTitle aside={<span className="text-2xs text-muted">{t.track.axisHint}</span>}>

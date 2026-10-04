@@ -33,6 +33,8 @@ export interface PropertyContext {
   tenant?: Pick<UserRow, 'id' | 'name' | 'phone'> | null;
   owner?: Pick<UserRow, 'id' | 'name' | 'phone'> | null;
   queueCount: number;
+  viewCount: number;
+  watchCount: number;
   openTicketCount: number;
 }
 
@@ -68,6 +70,8 @@ function publicPart(ctx: PropertyContext): Omit<PublicProperty, 'scope'> {
       renewalIntent: lease?.renewalIntent ?? null,
     }),
     queueCount: ctx.queueCount,
+    viewCount: ctx.viewCount,
+    watchCount: ctx.watchCount,
   };
 }
 
@@ -152,7 +156,7 @@ export async function loadPropertyContexts(
 
   const privileged = properties.filter((p) => scopeFor(viewer, p.id) !== 'public').map((p) => p.id);
 
-  const [leases, queueRows, ticketRows] = await Promise.all([
+  const [leases, queueRows, ticketRows, viewRows, watchRows] = await Promise.all([
     /* Leases are needed for every scope — the availability signal depends on
        renewal intent — but only the privileged scopes ever see the row. */
     db
@@ -183,6 +187,16 @@ export async function loadPropertyContexts(
           )
           .groupBy(s.tickets.propertyId)
       : Promise.resolve([]),
+    db
+      .select({ propertyId: s.listingViews.propertyId, n: count() })
+      .from(s.listingViews)
+      .where(inArray(s.listingViews.propertyId, ids))
+      .groupBy(s.listingViews.propertyId),
+    db
+      .select({ propertyId: s.leads.propertyId, n: count() })
+      .from(s.leads)
+      .where(and(inArray(s.leads.propertyId, ids), isNull(s.leads.deletedAt), eq(s.leads.watchOnly, true)))
+      .groupBy(s.leads.propertyId),
   ]);
 
   /* A unit can hold two live leases at once — the tenant living there and
@@ -204,6 +218,8 @@ export async function loadPropertyContexts(
   }
   const queueByProperty = new Map(queueRows.map((r) => [r.propertyId, r.n]));
   const ticketsByProperty = new Map(ticketRows.map((r) => [r.propertyId, r.n]));
+  const viewsByProperty = new Map(viewRows.map((r) => [r.propertyId, r.n]));
+  const watchByProperty = new Map(watchRows.map((r) => [r.propertyId, r.n]));
 
   /* Identities are fetched only for properties where somebody is entitled to
      see them. A public request performs no query against users at all. */
@@ -233,6 +249,8 @@ export async function loadPropertyContexts(
       tenant: scope === 'owner' && lease ? identityById.get(lease.tenantId) ?? null : null,
       owner: scope === 'tenant' ? identityById.get(property.ownerId) ?? null : null,
       queueCount: queueByProperty.get(property.id) ?? 0,
+      viewCount: viewsByProperty.get(property.id) ?? 0,
+      watchCount: watchByProperty.get(property.id) ?? 0,
       openTicketCount: ticketsByProperty.get(property.id) ?? 0,
     };
   });

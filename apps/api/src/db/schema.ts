@@ -707,6 +707,32 @@ export const searchEvents = pgTable(
   ],
 );
 
+/**
+ * Who looked at a listing, coarsely. One row per viewer per day, so a refresh
+ * or a second visit the same day is not a second view, and the count means
+ * "people-days", not page loads.
+ *
+ * The viewer is a key, never a person: a signed-in user is keyed by id, an
+ * anonymous visitor by a salted hash of address and browser that cannot be
+ * reversed back to an IP. Nothing here is shown per viewer — only the count.
+ */
+export const listingViews = pgTable(
+  'listing_views',
+  {
+    id: text('id').primaryKey(),
+    propertyId: text('property_id')
+      .notNull()
+      .references(() => properties.id, { onDelete: 'cascade' }),
+    viewerKey: text('viewer_key').notNull(),
+    day: date('day').notNull(),
+    at: timestamp('at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('listing_views_property_viewer_day_key').on(t.propertyId, t.viewerKey, t.day),
+    index('listing_views_property_idx').on(t.propertyId),
+  ],
+);
+
 export const budgetPolicies = pgTable('budget_policies', {
   ownerId: text('owner_id').primaryKey().references(() => users.id, { onDelete: 'cascade' }),
   enabled: boolean('enabled').notNull().default(false),

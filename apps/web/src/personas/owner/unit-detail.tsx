@@ -51,6 +51,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Field, Input, Switch } from '@/components/ui/field';
 import { Meter } from '@/components/shared/meter';
+import { ListingStats } from '@/components/shared/listing-stats';
 import { cn } from '@/lib/utils';
 import { parseISO, subDays } from 'date-fns';
 import {
@@ -197,6 +198,8 @@ export function OwnerUnitDetail() {
         <Money agorot={owned.monthlyRentAgorot} board className="text-lg font-bold text-ink" />
         <span className="text-xs text-muted">{t.ui.perMonth}</span>
       </div>
+
+      {owned.listed ? <ListingStats viewCount={owned.viewCount} watchCount={owned.watchCount} /> : null}
 
       {trackRows.length > 0 ? (
         <DepartureTrack

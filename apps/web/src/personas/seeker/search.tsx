@@ -13,11 +13,19 @@ import {
   type AreaStats,
   type Amenity,
   type IntentSort,
+  type SearchIntent,
   type SearchResult,
   type SmartFilter,
   type UnsupportedConcept,
 } from '@miftan/shared';
-import { useInquiries, useLeads, useRenterProfile, useRunSearch, useSearchUniverse } from '@/api/hooks';
+import {
+  useInquiries,
+  useInterpretSearch,
+  useLeads,
+  useRenterProfile,
+  useRunSearch,
+  useSearchUniverse,
+} from '@/api/hooks';
 import { Onboarding } from '@/components/shared/onboarding';
 import { ResultsMap } from '@/components/shared/map';
 import { AVAILABILITY_COLOR, AVAILABILITY_LABEL } from '@/components/shared/status';
@@ -89,6 +97,7 @@ export function SeekerSearch() {
   const navigate = useNavigate();
   const runSearch = useRunSearch();
   const universeQuery = useSearchUniverse();
+  const interpret = useInterpretSearch();
   const { data: leads = [] } = useLeads();
   const { data: inquiries = [] } = useInquiries();
   const { data: renterProfile } = useRenterProfile();
@@ -174,16 +183,25 @@ export function SeekerSearch() {
     setAiNote(null);
   };
 
-  const submitAi = (text: string) => {
-    const trimmed = text.trim();
-    if (!trimmed) return;
-    const intent = parseSearchIntent(trimmed, { now });
+  const applyResult = (intent: SearchIntent) => {
     if (intent.recognized === 0) {
       setAiNote({ kind: 'nothing', count: 0, unsupported: intent.unsupported });
       return;
     }
     setForm(applyIntent(intent));
     setAiNote({ kind: 'ok', count: intent.recognized, unsupported: intent.unsupported });
+  };
+
+  /* The server reads the text (with the language model when one is
+     configured). If the request fails, the same rules run here instead, so
+     the box never goes dead. */
+  const submitAi = (text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed || interpret.isPending) return;
+    interpret.mutate(trimmed, {
+      onSuccess: (res) => applyResult(res.intent),
+      onError: () => applyResult(parseSearchIntent(trimmed, { now })),
+    });
   };
 
   const findSimilar = (item: EnrichedResult) => {
@@ -380,8 +398,14 @@ export function SeekerSearch() {
                 placeholder={s.aiPlaceholder}
                 className="min-h-14 flex-1 resize-none rounded-[var(--radius-control)] border border-line bg-bg px-3 py-2 text-base text-ink placeholder:text-muted focus:border-ink focus:outline-none"
               />
-              <Button type="submit" size="lg" disabled={!aiText.trim()} className="max-sm:w-full">
-                {s.aiSubmit}
+              <Button
+                type="submit"
+                size="lg"
+                disabled={!aiText.trim()}
+                loading={interpret.isPending}
+                className="max-sm:w-full"
+              >
+                {interpret.isPending ? s.aiWorking : s.aiSubmit}
               </Button>
             </div>
             <div className="mt-2.5 flex flex-wrap items-center gap-1.5">

@@ -45,6 +45,10 @@ export const publicPropertySchema = z.object({
   availability: availabilitySignalSchema,
   /** Aggregate only — never who is queueing */
   queueCount: z.number().int(),
+  /** People-days that opened the listing. A count, never who. */
+  viewCount: z.number().int(),
+  /** People waiting for a notification when the flat frees up. A count, never who. */
+  watchCount: z.number().int(),
 });
 
 export const leaseTermsSchema = z.object({

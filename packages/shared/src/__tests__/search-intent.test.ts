@@ -140,3 +140,38 @@ describe('search-rank', () => {
     expect(reasons).toEqual(['now', 'low']);
   });
 });
+
+import { normalizeModelIntent } from '../lib/search-intent';
+
+describe('normalizeModelIntent', () => {
+  it('keeps what the search can use and drops everything else', () => {
+    const r = normalizeModelIntent({
+      areas: ['פלורנטין', 'נווה צדק', 'רמת אביב', 42],
+      minRooms: 4, maxRooms: 3,
+      maxPrice: '8,500',
+      required: ['balcony', 'jacuzzi'],
+      preferred: ['balcony', 'elevator'],
+      smart: ['below_market', 'cheap'],
+      unsupported: ['transit', 'aliens'],
+      availableBy: '2026-11-30',
+      availableFrom: 'next month',
+      sort: 'whatever',
+    });
+    expect(r.areas).toEqual(['פלורנטין', 'כרם התימנים ונווה צדק']);
+    expect([r.minRooms, r.maxRooms]).toEqual([3, 4]);
+    expect(r.maxPrice).toBe(8500);
+    expect(r.required).toEqual(['balcony']);
+    expect(r.preferred).toEqual(['elevator']);
+    expect(r.smart).toEqual(['below_market']);
+    expect(r.unsupported).toEqual(['transit']);
+    expect(r.availableBy).toBe('2026-11-30');
+    expect(r.availableFrom).toBeUndefined();
+    expect(r.sort).toBe('recommended');
+  });
+
+  it('turns garbage into an honest zero', () => {
+    const r = normalizeModelIntent('not json at all');
+    expect(r.recognized).toBe(0);
+    expect(r.sort).toBeUndefined();
+  });
+});

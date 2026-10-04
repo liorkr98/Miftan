@@ -1,3 +1,4 @@
+import * as React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   AuditEntryView,
@@ -18,6 +19,7 @@ import type {
   ScreeningCriterion,
   ScreeningPresetView,
   SearchFilters,
+  SearchIntent,
   SearchResult,
   SeasonalTaskView,
   SlotView,
@@ -719,6 +721,32 @@ export function useSearchUniverse() {
       }),
     staleTime: 60_000,
   });
+}
+
+/** Free text → filters, read on the server. The caller falls back to the local parser if this fails. */
+export function useInterpretSearch() {
+  return useMutation({
+    mutationFn: (text: string) =>
+      api.request<{ intent: SearchIntent; source: 'model' | 'rules' }>('/search/interpret', {
+        method: 'POST',
+        body: JSON.stringify({ text }),
+      }),
+  });
+}
+
+/**
+ * Records that this listing was opened. The server counts each viewer once a
+ * day and ignores the owner, so firing it on every mount is safe.
+ */
+export function useRecordListingView(propertyId: string, enabled: boolean) {
+  const qc = useQueryClient();
+  React.useEffect(() => {
+    if (!enabled || !propertyId) return;
+    api
+      .request<void>(`/properties/${propertyId}/views`, { method: 'POST' })
+      .then(() => qc.invalidateQueries({ queryKey: keys.property(propertyId) }))
+      .catch(() => undefined);
+  }, [propertyId, enabled, qc]);
 }
 
 export function useMarket(district?: string) {

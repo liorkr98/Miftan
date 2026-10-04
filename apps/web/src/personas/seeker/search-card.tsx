@@ -105,68 +105,74 @@ export function ResultCard({
         type="button"
         onFocus={onHover}
         onClick={onOpen}
-        className="flex w-full gap-3 p-2.5 text-start"
+        className="flex w-full flex-col gap-2 p-2.5 text-start"
       >
-        {row.photos[0] ? (
-          <img
-            src={row.photos[0]}
-            alt=""
-            loading="lazy"
-            className="h-24 w-28 shrink-0 rounded-[8px] object-cover sm:h-28 sm:w-36"
-          />
-        ) : (
-          <span className="h-24 w-28 shrink-0 rounded-[8px] bg-surface sm:h-28 sm:w-36" />
-        )}
-        <span className="min-w-0 flex-1">
-          <span className="flex items-start justify-between gap-2">
-            <span className="min-w-0">
-              <span className="block truncate text-sm font-bold text-ink">
-                {row.street}
-                {row.houseNumber ? ` ${row.houseNumber}` : ''}
-              </span>
-              <span className="block truncate text-2xs text-muted">{row.neighborhood} · {row.city}</span>
-            </span>
-            <Money agorot={row.monthlyRentAgorot} board className="shrink-0 text-base font-bold text-ink" />
-          </span>
-
-          <span className="mt-1.5 block text-2xs text-muted">
-            {formatRooms(row.rooms)} · {formatSqm(row.sqm)} · {formatFloor(row.floor, row.totalFloors)}
-            {shownAmenities.length > 0
-              ? ` · ${shownAmenities.map((a) => t.amenity[a as keyof typeof t.amenity] ?? a).join(' · ')}`
-              : ''}
-          </span>
-
-          <span className="mt-2 flex flex-wrap items-center gap-1.5">
-            <AvailabilityChip
-              kind={row.availability.kind}
-              date={row.availability.date ?? undefined}
-              confidence={row.availability.confidence}
-              size="sm"
-              withCountdown
+        <span className="flex w-full gap-3">
+          {row.photos[0] ? (
+            <img
+              src={row.photos[0]}
+              alt=""
+              loading="lazy"
+              className="h-24 w-28 shrink-0 rounded-[8px] object-cover sm:h-28 sm:w-36"
             />
-            {row.queueLength > 0 ? (
-              <Badge tone="outline" size="sm">
-                <Users className="h-3 w-3" />
-                <Num board>{row.queueLength}</Num> {s.inQueue}
-              </Badge>
-            ) : null}
-            {queued ? (
-              <Badge tone="openSoft" size="sm">
-                {t.seeker.listing.reserved}
-              </Badge>
-            ) : null}
-            {askable ? (
-              <Badge tone="liveSoft" size="sm">
-                <MessageCircleQuestion className="h-3 w-3" />
-                {t.inquiries.seeker.ask}
-              </Badge>
-            ) : null}
-            {asked ? (
-              <Badge tone="neutral" size="sm">
-                {t.inquiries.seeker.pending}
-              </Badge>
-            ) : null}
+          ) : (
+            <span className="h-24 w-28 shrink-0 rounded-[8px] bg-surface sm:h-28 sm:w-36" />
+          )}
+          <span className="min-w-0 flex-1">
+            <span className="flex items-start justify-between gap-2">
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-bold text-ink">
+                  {row.street}
+                  {row.houseNumber ? ` ${row.houseNumber}` : ''}
+                </span>
+                <span className="block truncate text-2xs text-muted">
+                  {row.neighborhood} · {row.city}
+                </span>
+              </span>
+              <Money agorot={row.monthlyRentAgorot} board className="shrink-0 text-base font-bold text-ink" />
+            </span>
+
+            <span className="mt-1.5 block text-2xs text-muted">
+              {formatRooms(row.rooms)} · {formatSqm(row.sqm)} · {formatFloor(row.floor, row.totalFloors)}
+              {shownAmenities.length > 0
+                ? ` · ${shownAmenities.map((a) => t.amenity[a as keyof typeof t.amenity] ?? a).join(' · ')}`
+                : ''}
+            </span>
           </span>
+        </span>
+
+        {/* Below the photo row rather than beside it: a dated chip with its
+            countdown is wider than the text column on a phone. */}
+        <span className="flex w-full flex-wrap items-center gap-1.5">
+          <AvailabilityChip
+            kind={row.availability.kind}
+            date={row.availability.date ?? undefined}
+            confidence={row.availability.confidence}
+            size="sm"
+            withCountdown
+          />
+          {row.queueLength > 0 ? (
+            <Badge tone="outline" size="sm">
+              <Users className="h-3 w-3" />
+              <Num board>{row.queueLength}</Num> {s.inQueue}
+            </Badge>
+          ) : null}
+          {queued ? (
+            <Badge tone="openSoft" size="sm">
+              {t.seeker.listing.reserved}
+            </Badge>
+          ) : null}
+          {askable ? (
+            <Badge tone="liveSoft" size="sm">
+              <MessageCircleQuestion className="h-3 w-3" />
+              {t.inquiries.seeker.ask}
+            </Badge>
+          ) : null}
+          {asked ? (
+            <Badge tone="neutral" size="sm">
+              {t.inquiries.seeker.pending}
+            </Badge>
+          ) : null}
         </span>
       </button>
 

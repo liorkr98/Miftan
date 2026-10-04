@@ -31,6 +31,13 @@ const schema = z.object({
   /** Resend. Unset = console adapter (dev, tests, demo). Never commit the key. */
   RESEND_API_KEY: z.string().optional(),
   EMAIL_FROM: z.string().default('בעל הבית <noreply@baalabait.co.il>'),
+  /**
+   * DeepSeek, for reading free-text search requests. Unset = the built-in
+   * rule parser answers instead. Server-side only; never commit the key.
+   */
+  DEEPSEEK_API_KEY: z.string().optional(),
+  DEEPSEEK_BASE_URL: z.string().default('https://api.deepseek.com'),
+  DEEPSEEK_MODEL: z.string().default('deepseek-chat'),
 
   /* ── Object storage (Cloudflare R2, S3 API) ──────────────
      Optional in development, required in production — the check lives in

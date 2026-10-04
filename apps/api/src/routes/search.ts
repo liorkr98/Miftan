@@ -5,6 +5,10 @@ import { z } from 'zod';
 import {
   deriveAvailability,
   districtOf,
+  interpretRequestSchema,
+  interpretResponseSchema,
+  normalizeModelIntent,
+  parseSearchIntent,
   marketResponseSchema,
   searchRequestSchema,
   searchResponseSchema,
@@ -17,7 +21,9 @@ import {
 } from '@miftan/shared';
 import { db, schema as s } from '../db/client.ts';
 import { newId } from '../lib/ids.ts';
-import { searchBurst } from '../lib/rate-limit.ts';
+import { interpretBurst, searchBurst } from '../lib/rate-limit.ts';
+import { env } from '../lib/env.ts';
+import { interpretWithModel } from '../lib/deepseek.ts';
 import { fileLinks } from '../storage/files.ts';
 import { publicLocation } from '../policy/address.ts';
 
@@ -169,6 +175,38 @@ export async function searchRoutes(app: FastifyInstance) {
            "nothing in October, four in November" is more useful than "nothing". */
         totalIgnoringDate: projected.length,
       };
+    },
+  );
+
+  /**
+   * Free text → filters. The language model answers when it is configured
+   * and behaves; the rule parser answers otherwise. The text itself is not
+   * stored or logged — a search event records filters, not sentences.
+   */
+  r.post(
+    '/search/interpret',
+    {
+      onRequest: [interpretBurst, app.optionalAuth],
+      schema: { body: interpretRequestSchema, response: { 200: interpretResponseSchema } },
+    },
+    async (request) => {
+      const { text } = request.body;
+      if (env.DEEPSEEK_API_KEY) {
+        try {
+          const raw = await interpretWithModel(text, {
+            apiKey: env.DEEPSEEK_API_KEY,
+            baseUrl: env.DEEPSEEK_BASE_URL,
+            model: env.DEEPSEEK_MODEL,
+          });
+          const intent = normalizeModelIntent(raw);
+          if (intent.recognized > 0 || intent.unsupported.length > 0) {
+            return { intent, source: 'model' as const };
+          }
+        } catch (err) {
+          request.log.warn({ err: (err as Error).message }, 'search interpret fell back to rules');
+        }
+      }
+      return { intent: parseSearchIntent(text, {}), source: 'rules' as const };
     },
   );
 
