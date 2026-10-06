@@ -1,16 +1,25 @@
-# One environment for now: the Fly app `miftan` and the Neon database that
-# exists today. The API deploys automatically after verify is green on main,
-# so it no longer lags the web app (Cloudflare deploys the web on every push).
-# It can also be run by hand from the Actions tab.
+# The API on Google Cloud Run (service `miftan-api`, Frankfurt, next to the
+# Neon database). It deploys automatically after verify is green on main, and
+# can be run by hand from the Actions tab. Cloud Run scales to zero when
+# nobody is using it, so at this traffic it stays inside the free tier.
 #
 # reset-demo erases the database and reloads the demo data. It needs the
 # typed confirmation, and the seed guard still refuses a database that holds
 # real sign-ups (apps/api/src/db/demo-guard.ts).
 #
-# Secrets: FLY_API_TOKEN, NEON_DATABASE_URL (pooled), NEON_DIRECT_URL.
-# RESEND_API_KEY is set on the Fly app directly.
+# Secrets (Settings → Secrets and variables → Actions):
+#   GCP_PROJECT_ID        the Google Cloud project id
+#   GCP_SA_KEY            JSON key of the deploy service account
+#   NEON_DATABASE_URL     pooled database URL (the app's)
+#   NEON_DIRECT_URL       direct database URL (migrations)
+#   JWT_SECRET            32+ random characters
+#   R2_ACCOUNT_ID, R2_BUCKET, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY
+#   R2_PUBLIC_URL         optional: the old public bucket address, so photos
+#                         saved before the bucket went private still show
+#   RESEND_API_KEY        optional until email is set up
 #
-# A separate production environment will come back later as its own job.
+# Until GCP_PROJECT_ID and GCP_SA_KEY exist, the job explains what is missing
+# and stops without failing.
 
 name: deploy
 
@@ -44,27 +53,47 @@ concurrency:
   group: deploy
   cancel-in-progress: false
 
+env:
+  SERVICE: miftan-api
+  REGION: europe-west3
+
 jobs:
   deploy:
     if: >-
       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
       || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v7
+      - name: Check that Google Cloud is configured
+        id: configured
+        env:
+          PROJECT: ${{ secrets.GCP_PROJECT_ID }}
+          KEY: ${{ secrets.GCP_SA_KEY }}
+        run: |
+          if [ -z "$PROJECT" ] || [ -z "$KEY" ]; then
+            echo "::notice::Deploy skipped: add GCP_PROJECT_ID and GCP_SA_KEY to the repository secrets."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.configured.outputs.ready == 'true'
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@v4
+        if: steps.configured.outputs.ready == 'true'
         with:
           node-version: 24
           cache: npm
 
-      - run: npm ci
+      - if: steps.configured.outputs.ready == 'true'
+        run: npm ci
 
       - name: Refuse a reset that was not typed out
-        if: ${{ inputs.data == 'reset-demo' }}
+        if: steps.configured.outputs.ready == 'true' && inputs.data == 'reset-demo'
         run: |
           if [ "$CONFIRM" != "erase-demo-database" ]; then
             echo "reset-demo requires confirm=erase-demo-database" >&2
@@ -74,43 +103,105 @@ jobs:
           CONFIRM: ${{ inputs.confirm }}
 
       - name: Reset database
-        if: ${{ inputs.data == 'reset-demo' }}
+        if: steps.configured.outputs.ready == 'true' && inputs.data == 'reset-demo'
         run: npm run db:reset -w @miftan/api
         env:
           DATABASE_URL: ${{ secrets.NEON_DIRECT_URL }}
           DEMO_DATABASE: 'true'
           CONFIRM_RESET: erase-demo-database
 
+      # Migrations run here, once, over the direct URL — before the new
+      # version takes traffic. They only ever add.
       - name: Migrate
+        if: steps.configured.outputs.ready == 'true'
         run: npm run db:migrate -w @miftan/api
         env:
           DATABASE_URL: ${{ secrets.NEON_DIRECT_URL }}
 
       - name: Seed demo data
-        if: ${{ inputs.data == 'reset-demo' }}
+        if: steps.configured.outputs.ready == 'true' && inputs.data == 'reset-demo'
         run: npm run db:seed -w @miftan/api
         env:
           DATABASE_URL: ${{ secrets.NEON_DIRECT_URL }}
           DEMO_DATABASE: 'true'
           JWT_SECRET: seed-only-placeholder-that-is-long-enough-to-validate
 
-      - uses: superfly/flyctl-actions/setup-flyctl@1.6
+      - uses: google-github-actions/auth@v2
+        if: steps.configured.outputs.ready == 'true'
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-      - name: Set runtime secrets
-        run: |
-          case "$WEB_ORIGIN" in http://*|https://*) ;; *) WEB_ORIGIN="https://$WEB_ORIGIN" ;; esac
-          WEB_ORIGIN="${WEB_ORIGIN%/}"
-          echo "WEB_ORIGIN=$WEB_ORIGIN"
-          flyctl secrets set --stage -a miftan \
-            DATABASE_URL="$DATABASE_URL" \
-            WEB_ORIGIN="$WEB_ORIGIN" \
-            DEMO_MODE=true
+      - uses: google-github-actions/setup-gcloud@v2
+        if: steps.configured.outputs.ready == 'true'
+
+      # Written as a file rather than --set-env-vars: database URLs carry
+      # characters (commas, ampersands) that the flag would split on. JSON is
+      # valid YAML, so every value is quoted correctly.
+      - name: Write runtime environment
+        if: steps.configured.outputs.ready == 'true'
         env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
           DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
-          WEB_ORIGIN: ${{ inputs.web_origin || 'https://miftan.liorkr98.workers.dev' }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_PUBLIC_URL: ${{ secrets.R2_PUBLIC_URL }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          WEB_ORIGIN_INPUT: ${{ inputs.web_origin }}
+        run: |
+          node -e '
+            let origin = process.env.WEB_ORIGIN_INPUT || "https://miftan.liorkr98.workers.dev";
+            if (!/^https?:\/\//.test(origin)) origin = "https://" + origin;
+            origin = origin.replace(/\/$/, "");
+            const env = {
+              DATABASE_URL: process.env.DATABASE_URL,
+              JWT_SECRET: process.env.JWT_SECRET,
+              WEB_ORIGIN: origin,
+              COOKIE_PATH: "/auth",
+              DEMO_MODE: "true",
+              TZ: "Asia/Jerusalem",
+            };
+            for (const k of ["R2_ACCOUNT_ID", "R2_BUCKET", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_PUBLIC_URL", "RESEND_API_KEY"]) {
+              if (process.env[k]) env[k] = process.env[k];
+            }
+            const missing = ["DATABASE_URL", "JWT_SECRET", "R2_ACCOUNT_ID", "R2_BUCKET", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY"].filter((k) => !env[k]);
+            if (missing.length) { console.error("Missing secrets: " + missing.join(", ")); process.exit(1); }
+            require("fs").writeFileSync(process.env.RUNNER_TEMP + "/env.yaml", JSON.stringify(env));
+            console.log("WEB_ORIGIN=" + origin);
+          '
 
-      - name: Deploy API
-        run: flyctl deploy --remote-only -a miftan --config fly.toml
+      - name: Deploy to Cloud Run
+        if: steps.configured.outputs.ready == 'true'
         env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          PROJECT: ${{ secrets.GCP_PROJECT_ID }}
+        run: |
+          gcloud run deploy "$SERVICE" \
+            --project "$PROJECT" \
+            --region "$REGION" \
+            --source . \
+            --allow-unauthenticated \
+            --env-vars-file "$RUNNER_TEMP/env.yaml" \
+            --min-instances 0 \
+            --max-instances 3 \
+            --memory 512Mi \
+            --cpu 1 \
+            --cpu-boost \
+            --concurrency 40 \
+            --timeout 60 \
+            --quiet
+
+      - name: Health check
+        if: steps.configured.outputs.ready == 'true'
+        env:
+          PROJECT: ${{ secrets.GCP_PROJECT_ID }}
+        run: |
+          URL=$(gcloud run services describe "$SERVICE" --project "$PROJECT" --region "$REGION" --format 'value(status.url)')
+          echo "::notice::API address: $URL"
+          echo "API address: $URL" >> "$GITHUB_STEP_SUMMARY"
+          for i in $(seq 1 20); do
+            if curl -fsS "$URL/ready"; then echo; exit 0; fi
+            sleep 6
+          done
+          echo "::error::$URL/ready did not answer"
+          exit 1
