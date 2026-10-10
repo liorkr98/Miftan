@@ -1,0 +1,13 @@
+# What Cloud Run's build (gcloud run deploy --source .) does not need to upload.
+.git
+.github
+node_modules
+**/node_modules
+apps/web/dist
+apps/web/src
+apps/web/public
+apps/web/worker
+apps/api/uploads
+*.log
+.env
+.env.*

@@ -46,8 +46,9 @@ export async function buildApp(): Promise<FastifyInstance> {
         : isProd
           ? { serializers: logSerializers }
           : { serializers: logSerializers, transport: { target: 'pino-pretty', options: { translateTime: 'HH:MM:ss', ignore: 'pid,hostname' } } },
-    /* Do not trust X-Forwarded-For. Fly sets Fly-Client-IP; clientIp() reads
-       that header. trustProxy: true would let a caller pick their own IP. */
+    /* Fastify does not interpret X-Forwarded-For; clientIp() reads the one
+       entry the platform wrote and a caller cannot forge. trustProxy: true
+       would let a caller pick their own IP. */
     trustProxy: false,
   });
 

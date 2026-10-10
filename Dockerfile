@@ -29,7 +29,7 @@ COPY packages/shared ./packages/shared
 COPY packages/fixtures ./packages/fixtures
 COPY apps/api ./apps/api
 
-# The process does not need to be root to listen on 4000.
+# The process does not need to be root to listen on its port.
 RUN chown -R node:node /app
 USER node
 
@@ -37,5 +37,9 @@ WORKDIR /app/apps/api
 
 # The source is TypeScript and stays that way: tsx strips the types at load.
 # There is no build artifact to drift from the source that produced it.
-EXPOSE 4000
-CMD ["npx", "tsx", "src/index.ts"]
+# node --import tsx rather than npx: on Cloud Run the server starts on the
+# first request after an idle spell, and npx's lookup adds to that wait.
+# Cloud Run sets PORT (8080); env.ts reads it.
+ENV TZ=Asia/Jerusalem
+EXPOSE 8080
+CMD ["node", "--import", "tsx", "src/index.ts"]

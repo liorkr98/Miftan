@@ -30,12 +30,21 @@ export function readRefreshCookie(request: FastifyRequest): string {
 }
 
 /**
- * Fly's own header, not X-Forwarded-For. Anyone can send X-Forwarded-For;
- * only Fly can set Fly-Client-IP on the public service.
+ * The caller's address, as the hosting platform saw it.
+ *
+ * Google Cloud Run's front end appends the address it received the request
+ * from to X-Forwarded-For, so the LAST entry is the one a caller cannot
+ * forge; anything before it was written by the caller. (Taking the first
+ * entry, as many examples do, lets anyone pick their own IP and walk around
+ * the rate limits.)
  */
 export function clientIp(request: FastifyRequest): string {
-  const fly = request.headers['fly-client-ip'];
-  if (typeof fly === 'string' && fly.length > 0) return fly.split(',')[0]!.trim();
+  const forwarded = request.headers['x-forwarded-for'];
+  const value = Array.isArray(forwarded) ? forwarded.join(',') : forwarded;
+  if (typeof value === 'string' && value.length > 0) {
+    const last = value.split(',').pop()!.trim();
+    if (last) return last;
+  }
   return request.socket.remoteAddress ?? '0.0.0.0';
 }
 
