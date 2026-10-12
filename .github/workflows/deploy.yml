@@ -126,7 +126,7 @@ jobs:
           DEMO_DATABASE: 'true'
           JWT_SECRET: seed-only-placeholder-that-is-long-enough-to-validate
 
-      - uses: google-github-actions/auth@v2
+      - uses: google-github-actions/auth@v3
         if: steps.configured.outputs.ready == 'true'
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
