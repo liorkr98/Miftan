@@ -44,6 +44,7 @@ function context(id: string): PropertyContext {
       listed: true,
       showExactAddress: false,
       notes: 'PRIVATE-OWNER-NOTE',
+      smokingAllowed: null, maxOccupants: null, minLeaseMonths: null,
       createdAt: new Date(), updatedAt: new Date(), deletedAt: null,
     },
     lease: {

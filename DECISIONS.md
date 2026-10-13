@@ -341,3 +341,40 @@ watching.
 - **Recharts clipped the Hebrew category labels** on a right-oriented axis down
   to one character each — and on a revenue-mix chart the label *is* the point.
   Replaced with a plain CSS bar list: same information, no library RTL quirks.
+
+## Lease turnover: renewal or a new tenant
+
+- **One record per lease, everything else derived.** A `renewal_cycles` row holds
+  only what people said and when (questions, answers, decision, deadline,
+  confirmations). Stage, whose turn it is, reminders and "overdue" are computed
+  on read by `nextStep()` in `packages/shared/src/lib/renewal.ts`, so the
+  tenant card, the owner panel, the dashboard and the bell can never disagree.
+- **No cron.** Reading `/renewals` or the notification feed materialises cycles
+  that are due and applies the timed transitions (the 48-hour auto-open). Every
+  screen that could show the state is also what advances it.
+- **When it opens:** `end − max(90 days, notice + 30)`. A long notice period
+  still leaves a month to talk before the contractual deadline. With no notice
+  period in the contract, the deadline is 30 days before the end.
+- **The tenant decides; the owner waits until the deadline.** The owner can only
+  answer "leaving" for an overdue tenant, or bring back a tenant who left.
+  The tenant can change their mind until applicants are opened. After that the
+  card says so in words instead of hiding the button.
+- **"Leaving" doesn't wait for the owner.** After 48 hours without a
+  requirements review, the search opens with the existing requirements. The
+  review sheet's main action is "no changes — start". Requirements live on the
+  apartment (`smoking_allowed`, `max_occupants`, `min_lease_months`) and are
+  layered over the owner's preset by `effectiveCriteria()`.
+- **Watchers apply in one tap.** Their saved profile is re-snapshotted as the
+  application, so nothing is re-typed.
+- **Applicants are ranked, never hidden.** Strong matches first. Partial matches
+  sit behind one disclosure, with every met or missed requirement shown with an
+  icon and words.
+- **"Real-time" booking is an atomic claim plus polling.** `UPDATE … WHERE
+  status = 'open'` decides races; screens with slots poll every 6–10s. A taken
+  time stays in the grid, struck through and locked, so the list never jumps.
+  Losing a race is a toast and a refetch, not an error page. Moving to another
+  time gives the old one back first and re-books it if the new one is gone.
+- **The owner never types times.** A day plus a range is split into 30-minute
+  meeting slots or 15-minute viewing slots.
+- **A seeker's pending availability question is answered by the tenant's
+  decision**, so no tenant is asked the same thing twice.

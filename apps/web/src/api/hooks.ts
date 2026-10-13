@@ -21,6 +21,9 @@ import type {
   SearchFilters,
   SearchIntent,
   SearchResult,
+  RenewalView,
+  TimeWindow,
+  ListingRequirements,
   SeasonalTaskView,
   SlotView,
   ThreadView,
@@ -757,9 +760,82 @@ export function useMarket(district?: string) {
   });
 }
 
+/* ── Lease turnover ──────────────────────────────────── */
+
+/** Every lease ending that this account is a party to, as owner or tenant. */
+export function useRenewals(opts: { live?: boolean } = {}) {
+  return useQuery({
+    queryKey: keys.renewals,
+    queryFn: () => api.request<{ renewals: RenewalView[] }>('/renewals').then((r) => r.renewals),
+    refetchInterval: opts.live ? 10_000 : false,
+  });
+}
+
+type RenewalWrite =
+  | { leaseId: string; action: 'open' }
+  | { leaseId: string; action: 'decision'; body: { decision: 'stay' | 'leave' } }
+  | { leaseId: string; action: 'questions'; body: { topics: string[]; text?: string | null } }
+  | { leaseId: string; action: 'answers'; body: { answers: { topic: string; answer: string }[]; deadline: string } }
+  | { leaseId: string; action: 'deadline'; body: { days: number } }
+  | { leaseId: string; action: 'meeting-slots'; body: { windows: TimeWindow[] } }
+  | { leaseId: string; action: 'requirements'; body: ListingRequirements }
+  | { leaseId: string; action: 'complete'; body: { newEndDate: string; monthlyRent: number } };
+
+/**
+ * One mutation for every step: they all change the same view, and the
+ * consequences reach the property, the search and the bell.
+ */
+export function useRenewalAction() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (w: RenewalWrite) =>
+      api.request<RenewalView>(`/renewals/${w.leaseId}/${w.action}`, {
+        method: 'POST',
+        body: 'body' in w ? JSON.stringify(w.body) : undefined,
+      }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: keys.renewals });
+      void qc.invalidateQueries({ queryKey: keys.properties });
+      void qc.invalidateQueries({ queryKey: keys.leads });
+      void qc.invalidateQueries({ queryKey: keys.notifications });
+    },
+  });
+}
+
+export function useMeetingSlotAction() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, action }: { id: string; action: 'book' | 'cancel' }) =>
+      api.request<RenewalView>(`/renewals/meeting-slots/${id}/${action}`, { method: 'POST' }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: keys.renewals });
+      void qc.invalidateQueries({ queryKey: keys.notifications });
+    },
+    /* A time that went while we looked: show the fresh list. */
+    onError: () => void qc.invalidateQueries({ queryKey: keys.renewals }),
+  });
+}
+
+/** A follower applying, with the profile they already have. */
+export function useApplyFromWatch() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (leadId: string) => api.request<LeadView>(`/leads/${leadId}/apply`, { method: 'POST' }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: keys.leads });
+      void qc.invalidateQueries({ queryKey: ['viewings'] });
+      void qc.invalidateQueries({ queryKey: keys.notifications });
+    },
+  });
+}
+
 /* ── Viewings ─────────────────────────────────────────── */
 
-export function useViewings(propertyId: string) {
+/**
+ * `live` polls while a booking screen is open, so a time somebody else just
+ * took disappears within seconds instead of failing on tap.
+ */
+export function useViewings(propertyId: string, opts: { live?: boolean } = {}) {
   return useQuery({
     queryKey: keys.viewings(propertyId),
     queryFn: () =>
@@ -767,6 +843,19 @@ export function useViewings(propertyId: string) {
         `/viewings/${propertyId}`,
       ),
     enabled: Boolean(propertyId),
+    refetchInterval: opts.live ? 6000 : false,
+  });
+}
+
+export function usePublishWindows() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { propertyId: string; windows: TimeWindow[] }) =>
+      api.request<{ slots: SlotView[] }>('/viewings/windows', { method: 'POST', body: JSON.stringify(body) }),
+    onSuccess: (_d, v) => {
+      void qc.invalidateQueries({ queryKey: keys.viewings(v.propertyId) });
+      void qc.invalidateQueries({ queryKey: keys.renewals });
+    },
   });
 }
 
@@ -808,7 +897,10 @@ export function useViewingAction() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['viewings'] });
       void qc.invalidateQueries({ queryKey: keys.leads });
+      void qc.invalidateQueries({ queryKey: keys.renewals });
     },
+    /* Somebody took it first: show what is actually left. */
+    onError: () => void qc.invalidateQueries({ queryKey: ['viewings'] }),
   });
 }
 

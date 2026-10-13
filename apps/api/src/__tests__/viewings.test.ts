@@ -246,9 +246,11 @@ describe('changing your mind', () => {
   });
 });
 
+/* Viewings tomorrow late evening: always inside the 48-hour briefing window
+   and never already past, whatever time of day the suite runs. */
 describe('the briefing before the viewing', () => {
   it('hands the owner the person they are about to meet', async () => {
-    const slots = (await publish({ date: soon(0), from: '23:00', until: '23:30' })).json().slots;
+    const slots = (await publish({ date: soon(1), from: '23:00', until: '23:30' })).json().slots;
     await req('POST', `/viewings/${slots[0].id}/invite`, owner.token, { leadId: strongLead });
 
     const { briefings } = (await req('GET', '/viewings/upcoming/briefings?withinHours=48', owner.token)).json();
@@ -267,7 +269,7 @@ describe('the briefing before the viewing', () => {
   });
 
   it('does not brief an owner on somebody else’s viewing', async () => {
-    const slots = (await publish({ date: soon(0), from: '23:00', until: '23:30' })).json().slots;
+    const slots = (await publish({ date: soon(1), from: '23:00', until: '23:30' })).json().slots;
     await req('POST', `/viewings/${slots[0].id}/invite`, owner.token, { leadId: strongLead });
 
     const other = await makeUser('אורן שגב', `oth-${Date.now()}@example.com`, '0501112233');

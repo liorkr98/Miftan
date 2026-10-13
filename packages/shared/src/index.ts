@@ -19,6 +19,7 @@ export * from './lib/screening';
 export * from './lib/search-insight';
 export * from './lib/search-intent';
 export * from './lib/search-rank';
+export * from './lib/renewal';
 
 /* API contract — one definition, used by the server to validate and by the
    client to type itself. */
@@ -53,4 +54,5 @@ export * from './api/renter-profile';
 export * from './api/properties-write';
 export * from './api/invites';
 export * from './api/notifications';
+export * from './api/renewals';
 export * from './api/client';

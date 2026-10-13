@@ -1,6 +1,7 @@
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 import {
   deriveAvailability,
+  effectiveCriteria,
   evaluateLead,
   leadScore,
   type LeadView,
@@ -59,7 +60,12 @@ export function evaluate(ctx: LeadContext) {
     rooms: Number(ctx.property.rooms),
     amenities: ctx.property.amenities,
     available_from: ctx.property.availableFrom ?? undefined,
+    smoking_allowed: ctx.property.smokingAllowed,
+    max_occupants: ctx.property.maxOccupants,
+    min_lease_months: ctx.property.minLeaseMonths,
   } as unknown as Property;
+  /* The owner's preset, adjusted by what they set for this flat. */
+  const criteria = effectiveCriteria(ctx.criteria, property);
 
   const flags = evaluateLead(
     {
@@ -83,10 +89,10 @@ export function evaluate(ctx: LeadContext) {
       screening_flags: [],
     },
     property,
-    ctx.criteria,
+    criteria,
   );
 
-  return { flags, score: leadScore(flags, ctx.criteria) };
+  return { flags, score: leadScore(flags, criteria) };
 }
 
 export function projectLead(viewer: Viewer, ctx: LeadContext): LeadView {

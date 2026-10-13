@@ -9,14 +9,19 @@ import {
   markAttendanceSchema,
   passesScreening,
   publishSlotsSchema,
+  publishWindowsSchema,
+  splitWindow,
+  VIEWING_MINUTES,
   slotListSchema,
   slotViewSchema,
   upcomingBriefingsSchema,
   type OwnerSlot,
   type SeekerSlot,
   type SlotView,
+  t,
   zonedWallTime,
 } from '@miftan/shared';
+import { mailUser } from '../email/notify.ts';
 import { db, schema as s } from '../db/client.ts';
 import { newId } from '../lib/ids.ts';
 import { resolveViewer, scopeFor, type Viewer } from '../policy/viewer.ts';
@@ -180,6 +185,51 @@ export async function viewingRoutes(app: FastifyInstance) {
     },
   );
 
+  /**
+   * Availability, the way an owner thinks about it: "Tuesday 17:00–19:00,
+   * Friday 10:00–12:00". Each window becomes back-to-back 15-minute viewings.
+   */
+  r.post(
+    '/viewings/windows',
+    {
+      onRequest: [app.authenticate],
+      schema: { body: publishWindowsSchema, response: { 201: slotListSchema } },
+    },
+    async (request, reply) => {
+      const viewer = await resolveViewer(request.currentUser!.id);
+      const { propertyId, windows } = request.body;
+      if (scopeFor(viewer, propertyId) !== 'owner') throw new ApiError('not_found', 'no such property');
+
+      const now = new Date();
+      const wanted = windows
+        .flatMap((w) => splitWindow(w.from, w.until, VIEWING_MINUTES).map((hhmm) => zonedWallTime(w.date, hhmm)))
+        .filter((d) => d > now);
+      if (wanted.length === 0) {
+        throw new ApiError('validation_failed', 'none of these times are in the future', { windows: ['pick a future time'] });
+      }
+
+      const existing = await db
+        .select({ startsAt: s.viewingSlots.startsAt })
+        .from(s.viewingSlots)
+        .where(and(eq(s.viewingSlots.propertyId, propertyId), inArray(s.viewingSlots.startsAt, wanted)));
+      const taken = new Set(existing.map((e) => e.startsAt.getTime()));
+      const fresh = wanted.filter((d) => !taken.has(d.getTime()));
+      if (fresh.length) {
+        await db.insert(s.viewingSlots).values(
+          fresh.map((startsAt) => ({ id: newId('viewingSlot'), propertyId, ownerId: viewer.userId, startsAt, durationMinutes: VIEWING_MINUTES })),
+        );
+      }
+
+      const [property] = await db.select().from(s.properties).where(eq(s.properties.id, propertyId));
+      const rows = await db
+        .select()
+        .from(s.viewingSlots)
+        .where(eq(s.viewingSlots.propertyId, propertyId))
+        .orderBy(asc(s.viewingSlots.startsAt));
+      return reply.code(201).send({ slots: await projectForOwner(rows, property), eligible: null, ineligibleReason: null });
+    },
+  );
+
   /** An applicant taking a time. */
   r.post(
     '/viewings/:id/book',
@@ -209,6 +259,12 @@ export async function viewingRoutes(app: FastifyInstance) {
       if (!eligible) throw new ApiError('forbidden', reason);
 
       await claim(slot.id, lead.id, { invitedByOwner: false, note: null });
+
+      /* Both sides hear about it; neither has to message the other. */
+      const label = `${property.street} ${property.houseNumber}`.trim();
+      const [me] = await db.select({ name: s.users.name }).from(s.users).where(eq(s.users.id, viewer.userId));
+      await mailUser(property.ownerId, t.turnoverMail.viewingBooked, `/owner/properties/${property.id}?tab=viewings`, { name: me?.name ?? '', label });
+      await mailUser(viewer.userId, t.turnoverMail.viewingConfirmed, `/search/${property.id}`, { label });
       return oneForViewer(viewer, slot.id);
     },
   );
@@ -438,9 +494,8 @@ async function eligibilityOf(
   property: PropertyRow,
 ): Promise<{ eligible: boolean; reason: string }> {
   const { criteria } = await activeCriteria(property.ownerId);
-  /* No criteria configured means no filter to fail. */
-  if (criteria.length === 0) return { eligible: true, reason: '' };
-
+  /* evaluate() layers this flat's own requirements over the preset; with
+     neither, there are no flags and nothing to fail. */
   const [ctx] = await loadLeadContexts([lead], { criteria, withIdentities: false });
   const { flags } = evaluate(ctx);
   if (passesScreening(flags)) return { eligible: true, reason: '' };

@@ -123,7 +123,9 @@ export async function seedDemoAccount(tx: Tx, passwordHash: string) {
       /* Dana's own tenancy. This row is the whole reason the account has a
          דייר tab at all. */
       id: lid('demo-home'), propertyId: pid('demo-home'), tenantId: dana,
-      startDate: monthsOut(-8, 1), endDate: monthsOut(16, 1),
+      /* Ends inside the renewal window, so her tenant side shows the
+         "stay or leave?" question the first time she opens it. */
+      startDate: monthsOut(-21, 25), endDate: monthsOut(2, 25),
       monthlyRentAgorot: money(11800), depositAgorot: money(23600),
       paymentMethod: 'bank_transfer', hasExtensionOption: true, extensionMonths: 12, noticePeriodDays: 60,
     },

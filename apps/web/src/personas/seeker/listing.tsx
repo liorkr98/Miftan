@@ -4,6 +4,7 @@ import { useStore } from '@/data/store';
 import {
   ApiError,
   t,
+  formatDate,
   formatDateTime,
   formatFloor,
   formatRooms,
@@ -16,6 +17,7 @@ import {
 } from '@miftan/shared';
 import { AVAILABILITY_TONE } from '@/data/selectors';
 import {
+  useApplyFromWatch,
   useAskAvailability,
   useInquiries,
   useLeads,
@@ -58,6 +60,7 @@ import {
 } from 'lucide-react';
 import { Field, Input, Textarea } from '@/components/ui/field';
 import { OfferRail } from '@/components/shared/revenue';
+import { SlotGrid } from '@/components/shared/scheduling';
 import { ListingStats } from '@/components/shared/listing-stats';
 
 function amenityLabel(key: string): string {
@@ -77,7 +80,9 @@ export function SeekerListing() {
   useRecordListingView(id, property?.scope === 'public');
   const { data: leads = [] } = useLeads();
   const { data: inquiries = [] } = useInquiries();
-  const { data: viewing } = useViewings(id);
+  const { data: viewing } = useViewings(id, { live: true });
+  const applyFromWatch = useApplyFromWatch();
+  const [changingViewing, setChangingViewing] = React.useState(false);
   const reserveQueue = useReserveQueue();
   const leaveQueue = useLeaveQueue();
   const askAvailability = useAskAvailability();
@@ -151,6 +156,9 @@ export function SeekerListing() {
   ];
 
   const seekerSlots = (viewing?.slots ?? []).filter((s): s is SeekerSlot => s.scope === 'seeker');
+  const myViewing = seekerSlots.find((s) => s.mine) ?? null;
+  /* Someone following this flat, now that it has a date: one tap to apply. */
+  const canApplyFromWatch = watching && mine && (kind === 'now' || kind === 'dated');
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-4 sm:px-6">
@@ -283,6 +291,29 @@ export function SeekerListing() {
         </section>
       ) : null}
 
+      {canApplyFromWatch ? (
+        <section className="mt-5 flex flex-col gap-3 rounded-[var(--radius-card)] border border-ink p-4 motion-safe:animate-[fade-up_240ms_var(--ease-out)_both]">
+          <h2 className="text-lg font-extrabold text-ink">{t.turnover.seeker.applyTitle}</h2>
+          <p className="text-sm leading-6 text-ink-soft">
+            {t.turnover.seeker.applyBody.replace('{date}', property.availability.date ? formatDate(property.availability.date) : t.availability.now)}
+          </p>
+          <Button
+            size="lg"
+            className="self-start max-sm:w-full"
+            loading={applyFromWatch.isPending}
+            onClick={() =>
+              applyFromWatch.mutate(mine!.id, {
+                onSuccess: () => pushToast(t.turnover.seeker.applied, 'success'),
+                onError: onReserveError,
+              })
+            }
+          >
+            <Send className="h-4 w-4" />
+            {t.turnover.seeker.apply}
+          </Button>
+        </section>
+      ) : null}
+
       <section className="mt-5 rounded-[var(--radius-card)] border border-line p-4">
         <SectionTitle>{t.seeker.listing.queueTitle}</SectionTitle>
 
@@ -334,74 +365,86 @@ export function SeekerListing() {
       </section>
 
       <section className="mt-5 rounded-[var(--radius-card)] border border-line p-4">
-        <SectionTitle>{t.seeker.listing.viewings}</SectionTitle>
-        <p className="mb-3 text-xs text-muted">{t.seeker.listing.viewingsHint}</p>
+        <SectionTitle aside={reserved && seekerSlots.length ? <span className="text-2xs text-muted">{t.turnover.slots.live}</span> : null}>
+          {myViewing
+            ? changingViewing
+              ? t.turnover.seeker.changeTitle
+              : t.turnover.seeker.confirmedTitle
+            : t.turnover.seeker.viewingsTitle}
+        </SectionTitle>
 
         {viewing && viewing.eligible === false ? (
-          <p className="rounded-[var(--radius-control)] bg-surface p-3 text-xs leading-5 text-ink-soft">
+          <p className="rounded-[var(--radius-control)] bg-surface p-3 text-sm leading-6 text-ink-soft">
             {viewing.ineligibleReason}
           </p>
         ) : !reserved ? (
-          <p className="text-xs text-muted">{t.seeker.listing.bookNeedQueue}</p>
-        ) : seekerSlots.length === 0 ? (
-          <EmptyState
-            icon={Clock3}
-            compact
-            title={t.seeker.listing.viewingsEmpty}
-            hint={t.seeker.listing.viewingsEmptyHint}
-          />
-        ) : (
-          <ul className="space-y-2">
-            {seekerSlots.map((slot) => (
-              <li
-                key={slot.id}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-[var(--radius-control)] border border-line px-3 py-2"
+          <p className="text-sm text-muted">{t.seeker.listing.bookNeedQueue}</p>
+        ) : myViewing && !changingViewing ? (
+          <div className="flex flex-col gap-3">
+            <p className="text-xl font-bold text-ink"><Num board>{formatDateTime(myViewing.startsAt)}</Num></p>
+            <p className="text-sm text-ink-soft">{t.turnover.seeker.confirmedBody.replace('{label}', property.address.street)}</p>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="secondary" onClick={() => setChangingViewing(true)}>{t.turnover.seeker.change}</Button>
+              <Button
+                variant="quiet"
+                loading={viewingAction.isPending}
+                onClick={() =>
+                  viewingAction.mutate(
+                    { id: myViewing.id, action: 'cancel' },
+                    { onSuccess: () => pushToast(t.turnover.seeker.cancelled, 'success') },
+                  )
+                }
               >
-                <span className="text-sm font-semibold text-ink">
-                  <Num board>{formatDateTime(slot.startsAt)}</Num>
-                </span>
-                {slot.mine ? (
-                  <span className="flex items-center gap-2">
-                    <Badge tone="openSoft" size="sm">
-                      {t.seeker.listing.slotMine}
-                    </Badge>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      loading={viewingAction.isPending}
-                      onClick={() =>
-                        viewingAction.mutate(
-                          { id: slot.id, action: 'cancel' },
-                          { onSuccess: () => pushToast(t.seeker.listing.cancelled, 'success') },
-                        )
-                      }
-                    >
-                      {t.seeker.listing.cancelSlot}
-                    </Button>
-                  </span>
-                ) : slot.taken ? (
-                  <Badge tone="neutral" size="sm">
-                    {t.seeker.listing.slotTaken}
-                  </Badge>
-                ) : (
-                  <Button
-                    size="sm"
-                    loading={viewingAction.isPending}
-                    disabled={!mine}
-                    onClick={() => {
-                      if (!mine) return;
-                      viewingAction.mutate(
-                        { id: slot.id, action: 'book', body: { leadId: mine.id } },
-                        { onSuccess: () => pushToast(t.seeker.listing.booked, 'success') },
-                      );
-                    }}
-                  >
-                    {t.seeker.listing.bookSlot}
-                  </Button>
-                )}
-              </li>
-            ))}
-          </ul>
+                {t.turnover.seeker.cancel}
+              </Button>
+            </div>
+          </div>
+        ) : seekerSlots.length === 0 ? (
+          <EmptyState icon={Clock3} compact title={t.seeker.listing.viewingsEmpty} hint={t.seeker.listing.viewingsEmptyHint} />
+        ) : (
+          <>
+            <p className="mb-3 text-xs text-muted">
+              {myViewing ? t.turnover.seeker.changeHint : t.turnover.seeker.viewingsHint}
+            </p>
+            <SlotGrid
+              slots={seekerSlots.map((slot) => ({
+                id: slot.id,
+                startsAt: slot.startsAt,
+                state: slot.mine ? 'mine' : slot.taken ? 'taken' : 'open',
+              }))}
+              pendingId={viewingAction.isPending ? (viewingAction.variables?.id ?? null) : null}
+              onPick={(slotId) => {
+                if (!mine) return;
+                /* Moving to another time: give the current one back first. */
+                const swap = myViewing
+                  ? new Promise<void>((resolve) =>
+                      viewingAction.mutate({ id: myViewing.id, action: 'cancel' }, { onSettled: () => resolve() }),
+                    )
+                  : Promise.resolve();
+                void swap.then(() =>
+                  viewingAction.mutate(
+                    { id: slotId, action: 'book', body: { leadId: mine.id } },
+                    {
+                      onSuccess: () => {
+                        setChangingViewing(false);
+                        pushToast(t.seeker.listing.booked, 'success');
+                      },
+                      onError: () => {
+                        pushToast(t.turnover.slots.gone, 'alert');
+                        /* Taken in the meantime: put them back in the time they had. */
+                        if (myViewing) viewingAction.mutate({ id: myViewing.id, action: 'book', body: { leadId: mine.id } });
+                      },
+                    },
+                  ),
+                );
+              }}
+            />
+            {myViewing ? (
+              <Button variant="quiet" className="mt-3" onClick={() => setChangingViewing(false)}>
+                {t.turnover.seeker.keep}
+              </Button>
+            ) : null}
+          </>
         )}
       </section>
 

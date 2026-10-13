@@ -7,16 +7,13 @@ import {
   expenseCategoryLabel,
   formatAge,
   formatDate,
-  formatDateTime,
   formatFloor,
   formatRooms,
   formatSqm,
-  formatUntil,
   type Amenity,
   type ExpenseView,
   type OwnerLead,
   type OwnerProperty,
-  type OwnerSlot,
   type TicketView,
   type TrackRow,
 } from '@miftan/shared';
@@ -25,12 +22,12 @@ import {
   useExpenses,
   useLeads,
   useProperty,
-  usePublishSlots,
+  useRenewals,
   useTickets,
   useUpdateProperty,
-  useViewingAction,
-  useViewings,
 } from '@/api/hooks';
+import { TurnoverPanel } from './turnover';
+import { ApplicantsTab, ViewingsSchedule } from './applicants';
 import { DepartureTrack } from '@/components/shared/departure-track';
 import { ProtocolPanel } from '@/components/shared/protocol';
 import { OfferRail } from '@/components/shared/revenue';
@@ -41,7 +38,6 @@ import { ErrorState } from '@/components/shared/error-state';
 import { ListSkeleton } from '@/components/shared/skeleton';
 import {
   AvailabilityChip,
-  LeadStageBadge,
   SeverityBadge,
   TicketStatusBadge,
   UnitStatusBadge,
@@ -49,7 +45,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Field, Input, Switch } from '@/components/ui/field';
+import { Switch } from '@/components/ui/field';
 import { Meter } from '@/components/shared/meter';
 import { ListingStats } from '@/components/shared/listing-stats';
 import { cn } from '@/lib/utils';
@@ -60,7 +56,6 @@ import {
   FileText,
   MapPin,
   Receipt,
-  Users,
   Wrench,
   Pencil,
   Share2,
@@ -80,6 +75,8 @@ export function OwnerUnitDetail() {
   const { data: property, isLoading, isError, refetch } = useProperty(id);
   const { data: tickets = [] } = useTickets({ propertyId: id });
   const { data: leads = [] } = useLeads(id);
+  const { data: renewals = [] } = useRenewals();
+  const [tab, setTab] = React.useState(searchParams.get('tab') ?? 'details');
   const { data: expenseData } = useExpenses(id);
   const updateProperty = useUpdateProperty();
   const [editOpen, setEditOpen] = React.useState(false);
@@ -187,6 +184,22 @@ export function OwnerUnitDetail() {
 
       <PropertyFormDialog open={editOpen} onOpenChange={setEditOpen} property={owned} />
 
+      {/* The lease ending: what is happening, and the one thing to do next. */}
+      {renewals
+        .filter((r) => r.role === 'owner' && r.propertyId === owned.id)
+        .filter((r) => r.stage !== 'upcoming' || daysUntil(r.opensOn) <= 30)
+        .map((r) => (
+          <TurnoverPanel
+            key={r.leaseId}
+            view={r}
+            property={owned}
+            onShowApplicants={() => {
+              setTab('leads');
+              document.getElementById('unit-tabs')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }}
+          />
+        ))}
+
       <div className="flex flex-wrap items-center gap-2">
         <UnitStatusBadge status={owned.status} />
         <AvailabilityChip
@@ -209,7 +222,7 @@ export function OwnerUnitDetail() {
         />
       ) : null}
 
-      <Tabs defaultValue={searchParams.get('tab') ?? 'details'}>
+      <Tabs value={tab} onValueChange={setTab} id="unit-tabs">
         <TabsList>
           <TabsTrigger value="details">{t.unit.tabs.details}</TabsTrigger>
           <TabsTrigger value="lease">{t.unit.tabs.lease}</TabsTrigger>
@@ -245,10 +258,10 @@ export function OwnerUnitDetail() {
           <ExpensesTab expenses={unitExpenses} />
         </TabsContent>
         <TabsContent value="viewings">
-          <ViewingsTab propertyId={owned.id} />
+          <ViewingsSchedule propertyId={owned.id} />
         </TabsContent>
         <TabsContent value="leads">
-          <LeadsTab property={owned} leads={unitLeads} />
+          <ApplicantsTab property={owned} leads={unitLeads} />
         </TabsContent>
       </Tabs>
     </div>
@@ -513,159 +526,6 @@ function ExpensesTab({ expenses }: { expenses: ExpenseView[] }) {
           ))}
         </tbody>
       </table>
-    </div>
-  );
-}
-
-function LeadsTab({ property, leads }: { property: OwnerProperty; leads: OwnerLead[] }) {
-  const navigate = useNavigate();
-  if (leads.length === 0) {
-    return <EmptyState icon={Users} title={t.crm.noLeadsOnUnit} hint={t.crm.noLeadsOnUnitHint} />;
-  }
-  return (
-    <>
-      <p className="mb-3 text-xs text-muted">
-        <Num board className="font-bold text-ink">
-          {leads.length}
-        </Num>{' '}
-        {t.crm.leadsOnUnit}
-        {property.availability.date ? ` · ${formatUntil(property.availability.date)}` : ''}
-      </p>
-      <ul className="divide-y divide-line overflow-hidden rounded-[var(--radius-card)] border border-line">
-        {leads.map((lead) => {
-          const failed = lead.flags.filter((f) => !f.passed);
-          return (
-            <li key={lead.id}>
-              <button
-                type="button"
-                onClick={() => navigate(`/owner/crm?lead=${lead.id}`)}
-                className="flex w-full items-center gap-3 px-3.5 py-3 text-start transition-colors duration-150 hover:bg-surface"
-              >
-                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-surface-sunk">
-                  <Num board className="text-xs font-bold text-ink-soft">
-                    {lead.score}
-                  </Num>
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-bold text-ink">{lead.seeker.name}</span>
-                  <span className="block truncate text-2xs text-muted">
-                    {t.crm.moveIn} {formatDate(lead.desiredMoveIn)} ·{' '}
-                    {failed.length === 0 ? t.crm.flagsPassed : `${failed.length} ${t.crm.flagsFailed}`}
-                  </span>
-                </span>
-                <LeadStageBadge stage={lead.stage} size="sm" />
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-    </>
-  );
-}
-
-function ViewingsTab({ propertyId }: { propertyId: string }) {
-  const pushToast = useStore((s) => s.pushToast);
-  const { data, isLoading, isError, refetch } = useViewings(propertyId);
-  const publish = usePublishSlots();
-  const action = useViewingAction();
-  const [date, setDate] = React.useState('');
-  const [from, setFrom] = React.useState('16:00');
-  const [until, setUntil] = React.useState('18:00');
-
-  const slots = (data?.slots ?? []).filter((s): s is OwnerSlot => s.scope === 'owner');
-
-  if (isError) return <ErrorState onRetry={() => void refetch()} />;
-  if (isLoading) return <ListSkeleton rows={4} />;
-
-  return (
-    <div className="space-y-4">
-      <section className="rounded-[var(--radius-card)] border border-line p-4">
-        <SectionTitle>{t.viewings.publish}</SectionTitle>
-        <div className="grid gap-3 sm:grid-cols-3">
-          <Field label={t.viewings.date} htmlFor="slot-date">
-            <Input
-              id="slot-date"
-              type="date"
-              dir="ltr"
-              className="num"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-            />
-          </Field>
-          <Field label={t.viewings.from} htmlFor="slot-from">
-            <Input
-              id="slot-from"
-              type="time"
-              dir="ltr"
-              className="num"
-              value={from}
-              onChange={(e) => setFrom(e.target.value)}
-            />
-          </Field>
-          <Field label={t.viewings.until} htmlFor="slot-until">
-            <Input
-              id="slot-until"
-              type="time"
-              dir="ltr"
-              className="num"
-              value={until}
-              onChange={(e) => setUntil(e.target.value)}
-            />
-          </Field>
-        </div>
-        <Button
-          className="mt-3"
-          loading={publish.isPending}
-          disabled={!date}
-          onClick={() =>
-            publish.mutate(
-              { propertyId, date, from, until, durationMinutes: 15, gapMinutes: 5 },
-              { onSuccess: () => pushToast(t.viewings.published, 'success') },
-            )
-          }
-        >
-          {t.viewings.publish}
-        </Button>
-      </section>
-
-      {slots.length === 0 ? (
-        <EmptyState icon={CalendarClock} title={t.viewings.empty} hint={t.viewings.emptyHint} />
-      ) : (
-        <ul className="divide-y divide-line overflow-hidden rounded-[var(--radius-card)] border border-line">
-          {slots.map((slot) => (
-            <li key={slot.id} className="flex flex-wrap items-center gap-3 px-3.5 py-3">
-              <span className="min-w-0 flex-1">
-                <span className="block text-sm font-bold text-ink">
-                  <Num board>{formatDateTime(slot.startsAt)}</Num>
-                </span>
-                <span className="block text-2xs text-muted">
-                  {slot.applicant
-                    ? `${t.viewings.applicant}: ${slot.applicant.name}`
-                    : t.viewings.status.open}
-                </span>
-              </span>
-              <Badge tone={slot.status === 'open' ? 'openSoft' : slot.status === 'cancelled' ? 'neutral' : 'liveSoft'} size="sm">
-                {t.viewings.status[slot.status]}
-              </Badge>
-              {slot.status === 'open' || slot.status === 'booked' ? (
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  loading={action.isPending}
-                  onClick={() =>
-                    action.mutate(
-                      { id: slot.id, action: 'cancel' },
-                      { onSuccess: () => pushToast(t.viewings.cancelled, 'success') },
-                    )
-                  }
-                >
-                  {t.ui.cancel}
-                </Button>
-              ) : null}
-            </li>
-          ))}
-        </ul>
-      )}
     </div>
   );
 }

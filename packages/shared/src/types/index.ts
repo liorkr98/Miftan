@@ -99,6 +99,11 @@ export interface Property {
   /** Owner has published this unit to the seeker-facing search */
   listed: boolean;
   notes?: string;
+  /* Requirements set for this apartment, on top of the owner's general
+     preset. Null means "use the preset". */
+  smoking_allowed?: boolean | null;
+  max_occupants?: number | null;
+  min_lease_months?: number | null;
 }
 
 export interface Guarantor {

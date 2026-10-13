@@ -29,6 +29,7 @@ import { contractRoutes } from './routes/contracts.ts';
 import { budgetRoutes } from './routes/budget.ts';
 import { searchRoutes } from './routes/search.ts';
 import { viewingRoutes } from './routes/viewings.ts';
+import { renewalRoutes } from './routes/renewals.ts';
 import { reviewRoutes } from './routes/reviews.ts';
 import { contractTemplateRoutes } from './routes/contract-templates.ts';
 
@@ -168,6 +169,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(budgetRoutes);
   await app.register(searchRoutes);
   await app.register(viewingRoutes);
+  await app.register(renewalRoutes);
   await app.register(reviewRoutes);
   await app.register(contractTemplateRoutes);
 

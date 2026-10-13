@@ -24,7 +24,20 @@ import {
   type TicketView,
   type TrackRow,
 } from '@miftan/shared';
-import { useBriefings, useExpenses, useInquiries, useLeads, useMarket, useProperties, useRentPayments, useScreeningPresets, useSeasonal, useTickets } from '@/api/hooks';
+import {
+  useBriefings,
+  useExpenses,
+  useInquiries,
+  useLeads,
+  useMarket,
+  useProperties,
+  useRenewals,
+  useRentPayments,
+  useScreeningPresets,
+  useSeasonal,
+  useTickets,
+} from '@/api/hooks';
+import { NeedsYou } from './turnover';
 import { Onboarding } from '@/components/shared/onboarding';
 import { AVAILABILITY_TONE } from '@/data/selectors';
 import { DepartureTrack } from '@/components/shared/departure-track';
@@ -68,6 +81,7 @@ export function OwnerDashboard() {
   const { data: payments = [] } = useRentPayments();
   const { data: briefings = [] } = useBriefings();
   const { data: market } = useMarket();
+  const { data: renewals = [] } = useRenewals();
 
   const owned = React.useMemo(
     () => (properties ?? []).filter((p): p is OwnerProperty => p.scope === 'owner'),
@@ -196,6 +210,8 @@ export function OwnerDashboard() {
           { key: 'screening', done: presets.length > 0, to: '/owner/leads/filters' },
         ]}
       />
+
+      <NeedsYou renewals={renewals} />
 
       <div className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-[var(--radius-card)] border border-line bg-surface px-4 py-3">
         <span className="flex items-baseline gap-1.5">

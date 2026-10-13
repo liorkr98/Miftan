@@ -85,6 +85,10 @@ export const ownerPropertySchema = publicPropertySchema.extend({
   listed: z.boolean(),
   showExactAddress: z.boolean(),
   notes: z.string().nullable(),
+  /** This flat's own requirements; null = the owner's general preset decides */
+  smokingAllowed: z.boolean().nullable(),
+  maxOccupants: z.number().int().nullable(),
+  minLeaseMonths: z.number().int().nullable(),
   lease: leaseTermsSchema.nullable(),
   tenant: contactSchema.nullable(),
   openTicketCount: z.number().int(),

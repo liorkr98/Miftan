@@ -57,4 +57,5 @@ export const keys = {
   invites: (propertyId: string) => ['invites', propertyId] as const,
   invitePreview: (token: string) => ['invite-preview', token] as const,
   notifications: ['notifications'] as const,
+  renewals: ['renewals'] as const,
 };

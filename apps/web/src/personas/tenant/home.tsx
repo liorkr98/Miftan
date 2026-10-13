@@ -10,7 +10,8 @@ import {
   type TenantProperty,
   type TrackRow,
 } from '@miftan/shared';
-import { useProperties, useTickets } from '@/api/hooks';
+import { useProperties, useRenewals, useTickets } from '@/api/hooks';
+import { TenantTurnoverNudge } from './turnover';
 import { Onboarding } from '@/components/shared/onboarding';
 import { DepartureTrack } from '@/components/shared/departure-track';
 import { OfferRail } from '@/components/shared/revenue';
@@ -31,6 +32,7 @@ export function TenantHome() {
   const navigate = useNavigate();
   const { data: properties, isLoading, isError, refetch } = useProperties();
   const { data: tickets = [] } = useTickets();
+  const { data: renewals = [] } = useRenewals();
 
   if (isLoading) return <HomeSkeleton />;
   if (isError) return <ErrorState onRetry={() => void refetch()} />;
@@ -101,6 +103,13 @@ export function TenantHome() {
         title={`${address.street} ${address.number}`}
         subtitle={`${address.neighborhood} · ${address.city}`}
       />
+
+      {/* The one thing that needs the tenant, above everything else. */}
+      {renewals
+        .filter((r) => r.role === 'tenant' && r.leaseId === lease.id)
+        .map((r) => (
+          <TenantTurnoverNudge key={r.leaseId} view={r} />
+        ))}
 
       <Onboarding
         role="tenant"

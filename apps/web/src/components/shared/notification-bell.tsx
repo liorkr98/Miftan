@@ -1,7 +1,7 @@
 import * as React from 'react';
 import * as Popover from '@radix-ui/react-popover';
 import { useNavigate } from 'react-router-dom';
-import { t, formatAge, formatDateTime, type NotificationView } from '@miftan/shared';
+import { t, formatAge, formatDate, formatDateTime, type NotificationView } from '@miftan/shared';
 import { useMarkNotificationsSeen, useNotifications } from '@/api/hooks';
 import { cn } from '@/lib/utils';
 import { Num } from './typography';
@@ -119,7 +119,12 @@ function textFor(item: NotificationView): string {
        be reordered by the bidi algorithm. */
     detail = `${detail} · \u2068${formatDateTime(item.date)}\u2069`;
   }
+  /* A date with a time is shown with it; a plain day is just the day. */
+  const date = item.date
+    ? `\u2068${item.date.length > 10 ? formatDateTime(item.date) : formatDate(item.date)}\u2069`
+    : '';
   return t.notifications.kinds[item.kind]
     .replace('{label}', item.propertyLabel)
-    .replace('{detail}', detail);
+    .replace('{detail}', detail)
+    .replace('{date}', date);
 }

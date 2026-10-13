@@ -129,6 +129,21 @@ export async function seedExtraDemo(tx: Tx, passwordHash: string) {
     })),
   );
 
+  /* One tenant asked questions before deciding — the owner's "answer" step. */
+  await tx.insert(s.renewalCycles).values({
+    id: seedId('renewalCycle', 'demo-e'),
+    leaseId: lid('demo-e'),
+    propertyId: pid('demo-e'),
+    stage: 'questions',
+    openedAt: new Date(daysAgo(6)),
+    questions: [
+      { topic: 'rent_same', text: null },
+      { topic: 'extend_year', text: null },
+      { topic: 'other', text: 'אפשר לתקן את התריס בסלון לפני שחותמים?' },
+    ],
+    questionsAt: new Date(daysAgo(1)),
+  });
+
   /* ── A year of rent, with a late payer on ביאליק ────────── */
   await tx.insert(s.rentPayments).values(
     leased.flatMap((f) =>

@@ -47,9 +47,31 @@ function employmentLabel(key: string): string {
   return map[key] ?? key;
 }
 
-/** Permitted occupancy: a rough, apartment-based heuristic — rooms + 1. */
+/** Permitted occupancy: the owner's number for this apartment, or rooms + 1. */
 export function permittedOccupancy(property: Property): number {
-  return Math.floor(property.rooms) + 1;
+  return property.max_occupants ?? Math.floor(property.rooms) + 1;
+}
+
+/**
+ * The owner's general preset, adjusted by what they set for this apartment.
+ *
+ * "No smoking here" turns the smoking criterion on even if the preset leaves
+ * it off; "smoking is fine" turns it off. A minimum lease length or a cap on
+ * occupants does the same for theirs. Still soft: these change the ranking and
+ * the reasons shown, never who appears.
+ */
+export function effectiveCriteria(criteria: ScreeningCriterion[], property: Property): ScreeningCriterion[] {
+  const out = criteria.map((c) => ({ ...c }));
+  const set = (id: ScreeningCriterionId, patch: Partial<ScreeningCriterion>) => {
+    const existing = out.find((c) => c.id === id);
+    if (existing) Object.assign(existing, patch);
+    else out.push({ id, enabled: true, weight: 2, ...patch });
+  };
+  if (property.smoking_allowed === false) set('smoking', { enabled: true });
+  if (property.smoking_allowed === true) set('smoking', { enabled: false });
+  if (property.min_lease_months) set('lease_length', { enabled: true, value: property.min_lease_months });
+  if (property.max_occupants) set('occupancy', { enabled: true });
+  return out;
 }
 
 export function evaluateLead(
