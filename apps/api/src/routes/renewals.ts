@@ -4,10 +4,13 @@ import { and, eq, isNull, ne } from 'drizzle-orm';
 import { z } from 'zod';
 import {
   ApiError,
+  cancelSlotSchema,
   completeRenewalSchema,
   extendDeadlineSchema,
+  formatDateTime,
   listingRequirementsSchema,
   MEETING_MINUTES,
+  moveSlotSchema,
   nextMoveIn,
   offerMeetingSchema,
   renewalAnswersSchema,
@@ -324,21 +327,68 @@ export async function renewalRoutes(app: FastifyInstance) {
     },
   );
 
-  /** The tenant gives a time back (it reopens); the owner withdraws one. */
+  /**
+   * The tenant gives a time back (it reopens). The owner withdraws a time, or
+   * — `reopen` — cancels the meeting but leaves the time free to pick again.
+   * Either way, a tenant whose meeting the owner called off is told.
+   */
   r.post(
     '/renewals/meeting-slots/:id/cancel',
-    { onRequest: [app.authenticate], schema: { params: slotParams, response: { 200: renewalViewSchema } } },
+    { onRequest: [app.authenticate], schema: { params: slotParams, body: cancelSlotSchema, response: { 200: renewalViewSchema } } },
     async (request) => {
       const viewer = await resolveViewer(request.currentUser!.id);
       const [slot] = await db.select().from(s.renewalMeetingSlots).where(eq(s.renewalMeetingSlots.id, request.params.id));
       if (!slot) throw new ApiError('not_found', 'no such time');
       const [cycle] = await db.select().from(s.renewalCycles).where(eq(s.renewalCycles.id, slot.cycleId));
       const access = await cycleForWrite(viewer, cycle.leaseId);
+      const reopen = access.role === 'tenant' || Boolean(request.body?.reopen);
 
       await db
         .update(s.renewalMeetingSlots)
-        .set(access.role === 'tenant' ? { status: 'open', bookedAt: null, updatedAt: new Date() } : { status: 'cancelled', updatedAt: new Date() })
+        .set(reopen ? { status: 'open', bookedAt: null, updatedAt: new Date() } : { status: 'cancelled', updatedAt: new Date() })
         .where(eq(s.renewalMeetingSlots.id, slot.id));
+
+      if (access.role === 'owner' && slot.status === 'booked') {
+        await mailUser(access.lease.tenantId, t.turnoverMail.meetingCancelled, '/tenant/renewal', {});
+      }
+      return viewOf(viewer, access.lease.id);
+    },
+  );
+
+  /** The owner moving a booked meeting to another free time, in one step. */
+  r.post(
+    '/renewals/meeting-slots/:id/move',
+    { onRequest: [app.authenticate], schema: { params: slotParams, body: moveSlotSchema, response: { 200: renewalViewSchema } } },
+    async (request) => {
+      const viewer = await resolveViewer(request.currentUser!.id);
+      const [slot] = await db.select().from(s.renewalMeetingSlots).where(eq(s.renewalMeetingSlots.id, request.params.id));
+      if (!slot) throw new ApiError('not_found', 'no such time');
+      const [cycle] = await db.select().from(s.renewalCycles).where(eq(s.renewalCycles.id, slot.cycleId));
+      const access = await cycleForWrite(viewer, cycle.leaseId);
+      requireRole(access, 'owner');
+      requireStage(access, ['staying']);
+      if (slot.status !== 'booked') throw new ApiError('forbidden', 'nobody is booked into that time');
+
+      const [to] = await db.select().from(s.renewalMeetingSlots).where(eq(s.renewalMeetingSlots.id, request.body.toSlotId));
+      if (!to || to.cycleId !== cycle.id) throw new ApiError('not_found', 'no such time');
+      if (to.startsAt < new Date()) throw new ApiError('forbidden', 'that time has passed');
+
+      await db.transaction(async (tx) => {
+        const took = await tx
+          .update(s.renewalMeetingSlots)
+          .set({ status: 'booked', bookedAt: new Date(), updatedAt: new Date() })
+          .where(and(eq(s.renewalMeetingSlots.id, to.id), eq(s.renewalMeetingSlots.status, 'open')))
+          .returning({ id: s.renewalMeetingSlots.id });
+        if (took.length === 0) throw new ApiError('forbidden', 'that time is no longer available');
+        await tx
+          .update(s.renewalMeetingSlots)
+          .set({ status: 'open', bookedAt: null, updatedAt: new Date() })
+          .where(eq(s.renewalMeetingSlots.id, slot.id));
+      });
+
+      await mailUser(access.lease.tenantId, t.turnoverMail.meetingMoved, '/tenant/renewal', {
+        date: formatDateTime(to.startsAt.toISOString()),
+      });
       return viewOf(viewer, access.lease.id);
     },
   );

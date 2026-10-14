@@ -1,6 +1,8 @@
 import * as React from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
+  PortfolioAnalytics,
+  PortfolioSnapshot,
   AuditEntryView,
   BriefingView,
   BudgetPolicyView,
@@ -797,6 +799,7 @@ export function useRenewalAction() {
       void qc.invalidateQueries({ queryKey: keys.renewals });
       void qc.invalidateQueries({ queryKey: keys.properties });
       void qc.invalidateQueries({ queryKey: keys.leads });
+      void qc.invalidateQueries({ queryKey: keys.portfolio });
       void qc.invalidateQueries({ queryKey: keys.notifications });
     },
   });
@@ -805,10 +808,14 @@ export function useRenewalAction() {
 export function useMeetingSlotAction() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, action }: { id: string; action: 'book' | 'cancel' }) =>
-      api.request<RenewalView>(`/renewals/meeting-slots/${id}/${action}`, { method: 'POST' }),
+    mutationFn: ({ id, action, body }: { id: string; action: 'book' | 'cancel' | 'move'; body?: { reopen?: boolean } | { toSlotId: string } }) =>
+      api.request<RenewalView>(`/renewals/meeting-slots/${id}/${action}`, {
+        method: 'POST',
+        body: body ? JSON.stringify(body) : undefined,
+      }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: keys.renewals });
+      void qc.invalidateQueries({ queryKey: keys.portfolio });
       void qc.invalidateQueries({ queryKey: keys.notifications });
     },
     /* A time that went while we looked: show the fresh list. */
@@ -855,6 +862,7 @@ export function usePublishWindows() {
     onSuccess: (_d, v) => {
       void qc.invalidateQueries({ queryKey: keys.viewings(v.propertyId) });
       void qc.invalidateQueries({ queryKey: keys.renewals });
+      void qc.invalidateQueries({ queryKey: keys.portfolio });
     },
   });
 }
@@ -886,7 +894,7 @@ export function useViewingAction() {
       body,
     }: {
       id: string;
-      action: 'book' | 'invite' | 'cancel' | 'attendance';
+      action: 'book' | 'invite' | 'cancel' | 'attendance' | 'move';
       body?: unknown;
     }) =>
       api.request<SlotView>(`/viewings/${id}/${action}`, {
@@ -898,9 +906,31 @@ export function useViewingAction() {
       void qc.invalidateQueries({ queryKey: ['viewings'] });
       void qc.invalidateQueries({ queryKey: keys.leads });
       void qc.invalidateQueries({ queryKey: keys.renewals });
+      void qc.invalidateQueries({ queryKey: keys.portfolio });
     },
     /* Somebody took it first: show what is actually left. */
     onError: () => void qc.invalidateQueries({ queryKey: ['viewings'] }),
+  });
+}
+
+/* ── Portfolio ────────────────────────────────────────── */
+
+/** What is happening across the owner's flats right now. */
+export function usePortfolioSnapshot(opts: { live?: boolean } = {}) {
+  return useQuery({
+    queryKey: keys.portfolio,
+    queryFn: () => api.request<PortfolioSnapshot>('/portfolio/snapshot'),
+    refetchInterval: opts.live ? 15_000 : false,
+  });
+}
+
+/** Views and the funnel over a period. Keeps the last answer on screen while a new range loads. */
+export function usePortfolioAnalytics(from: string, to: string) {
+  return useQuery({
+    queryKey: keys.portfolioAnalytics(from, to),
+    queryFn: () => api.request<PortfolioAnalytics>(`/portfolio/analytics?from=${from}&to=${to}`),
+    placeholderData: keepPreviousData,
+    enabled: Boolean(from && to && from <= to),
   });
 }
 

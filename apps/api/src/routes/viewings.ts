@@ -5,8 +5,10 @@ import { z } from 'zod';
 import {
   ApiError,
   bookSlotSchema,
+  cancelSlotSchema,
   inviteToSlotSchema,
   markAttendanceSchema,
+  moveSlotSchema,
   passesScreening,
   publishSlotsSchema,
   publishWindowsSchema,
@@ -19,6 +21,7 @@ import {
   type SeekerSlot,
   type SlotView,
   t,
+  formatDateTime,
   zonedWallTime,
 } from '@miftan/shared';
 import { mailUser } from '../email/notify.ts';
@@ -317,7 +320,7 @@ export async function viewingRoutes(app: FastifyInstance) {
     '/viewings/:id/cancel',
     {
       onRequest: [app.authenticate],
-      schema: { params: z.object({ id: z.string() }), response: { 200: slotViewSchema } },
+      schema: { params: z.object({ id: z.string() }), body: cancelSlotSchema, response: { 200: slotViewSchema } },
     },
     async (request) => {
       const viewer = await resolveViewer(request.currentUser!.id);
@@ -331,18 +334,85 @@ export async function viewingRoutes(app: FastifyInstance) {
       const isMine = holder?.seekerId === viewer.userId;
       if (!isOwner && !isMine) throw new ApiError('not_found', 'no such slot');
 
-      /* An applicant giving a slot back reopens it for somebody else; an owner
-         cancelling withdraws the time entirely. */
+      /* An applicant giving a slot back reopens it for somebody else. An owner
+         either withdraws the time entirely, or — `reopen` — cancels the
+         booking but keeps the time free on the calendar. */
+      const withdraw = isOwner && !isMine && !request.body?.reopen;
       await db
         .update(s.viewingSlots)
         .set(
-          isOwner && !isMine
+          withdraw
             ? { status: 'cancelled', updatedAt: new Date() }
-            : { status: 'open', leadId: null, bookedAt: null, invitedByOwner: false, updatedAt: new Date() },
+            : { status: 'open', leadId: null, bookedAt: null, invitedByOwner: false, note: null, updatedAt: new Date() },
         )
         .where(eq(s.viewingSlots.id, slot.id));
 
+      /* The owner called it off: the applicant hears, and is asked to pick again. */
+      if (isOwner && !isMine && holder && slot.status === 'booked') {
+        const [property] = await db.select().from(s.properties).where(eq(s.properties.id, slot.propertyId));
+        await mailUser(holder.seekerId, t.turnoverMail.viewingCancelled, `/search/${slot.propertyId}`, { label: label(property) });
+      }
+
       return oneForViewer(viewer, slot.id);
+    },
+  );
+
+  /**
+   * The owner moving a booked viewing to another free time.
+   *
+   * One step, not "cancel then hope they rebook": the old time frees up for
+   * somebody else and the applicant is told the new one. Atomic, so a seeker
+   * booking the target time at the same moment cannot end up sharing it.
+   */
+  r.post(
+    '/viewings/:id/move',
+    {
+      onRequest: [app.authenticate],
+      schema: { params: z.object({ id: z.string() }), body: moveSlotSchema, response: { 200: slotViewSchema } },
+    },
+    async (request) => {
+      const viewer = await resolveViewer(request.currentUser!.id);
+      const from = await ownedSlot(viewer, request.params.id);
+      if (from.status !== 'booked' || !from.leadId) throw new ApiError('forbidden', 'nobody is booked into that time');
+      const [to] = await db.select().from(s.viewingSlots).where(eq(s.viewingSlots.id, request.body.toSlotId));
+      if (!to || to.propertyId !== from.propertyId) throw new ApiError('not_found', 'no such slot');
+      if (to.startsAt < new Date()) throw new ApiError('forbidden', 'that time has passed');
+
+      const moved = await db.transaction(async (tx) => {
+        const claimed = await tx
+          .update(s.viewingSlots)
+          .set({ status: 'open', leadId: null, bookedAt: null, invitedByOwner: false, note: null, updatedAt: new Date() })
+          .where(and(eq(s.viewingSlots.id, from.id), eq(s.viewingSlots.status, 'booked')))
+          .returning({ id: s.viewingSlots.id });
+        if (claimed.length === 0) return false;
+        const took = await tx
+          .update(s.viewingSlots)
+          .set({
+            status: 'booked',
+            leadId: from.leadId,
+            bookedAt: new Date(),
+            invitedByOwner: from.invitedByOwner,
+            note: from.note,
+            updatedAt: new Date(),
+          })
+          .where(and(eq(s.viewingSlots.id, to.id), eq(s.viewingSlots.status, 'open')))
+          .returning({ id: s.viewingSlots.id });
+        if (took.length === 0) {
+          tx.rollback();
+        }
+        return true;
+      }).catch(() => false);
+      if (!moved) throw new ApiError('forbidden', 'that time has been taken');
+
+      const [lead] = await db.select().from(s.leads).where(eq(s.leads.id, from.leadId));
+      const [property] = await db.select().from(s.properties).where(eq(s.properties.id, from.propertyId));
+      if (lead) {
+        await mailUser(lead.seekerId, t.turnoverMail.viewingMoved, `/search/${property.id}`, {
+          label: label(property),
+          date: formatDateTime(to.startsAt.toISOString()),
+        });
+      }
+      return oneForViewer(viewer, to.id);
     },
   );
 

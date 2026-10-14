@@ -3,25 +3,16 @@ import { useNavigate } from 'react-router-dom';
 import {
   formatDate,
   formatDateTime,
-  formatTime,
-  israelToday,
   t,
-  VIEWING_MINUTES,
   type OwnerLead,
   type OwnerProperty,
   type OwnerSlot,
-  type TimeWindow,
 } from '@miftan/shared';
-import { usePublishWindows, useViewingAction, useViewings } from '@/api/hooks';
-import { useStore } from '@/data/store';
+import { useViewings } from '@/api/hooks';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/shared/empty-state';
-import { ErrorState } from '@/components/shared/error-state';
-import { ListSkeleton } from '@/components/shared/skeleton';
 import { LeadStageBadge } from '@/components/shared/status';
-import { Num, Phone, SectionTitle } from '@/components/shared/typography';
-import { AvailabilityPicker, dayLabel, slotsIn } from '@/components/shared/scheduling';
+import { Num, Phone } from '@/components/shared/typography';
 import { cn } from '@/lib/utils';
 import { CalendarClock, Check, ChevronDown, Users, X } from 'lucide-react';
 
@@ -185,101 +176,5 @@ function ApplicantCard({ lead, viewingAt }: { lead: OwnerLead; viewingAt?: strin
         </div>
       ) : null}
     </li>
-  );
-}
-
-/** Availability in, 15-minute viewings out; then the schedule, by day. */
-export function ViewingsSchedule({ propertyId }: { propertyId: string }) {
-  const pushToast = useStore((s) => s.pushToast);
-  const { data, isLoading, isError, refetch } = useViewings(propertyId, { live: true });
-  const publish = usePublishWindows();
-  const action = useViewingAction();
-  const [windows, setWindows] = React.useState<TimeWindow[]>([]);
-  const S = t.turnover.times;
-  const total = windows.reduce((n, w) => n + slotsIn(w, VIEWING_MINUTES), 0);
-
-  if (isError) return <ErrorState onRetry={() => void refetch()} />;
-  if (isLoading) return <ListSkeleton rows={4} />;
-
-  const slots = (data?.slots ?? [])
-    .filter((s): s is OwnerSlot => s.scope === 'owner' && s.status !== 'cancelled' && new Date(s.startsAt) > new Date());
-  const byDay = new Map<string, OwnerSlot[]>();
-  for (const s of slots) {
-    const d = israelToday(new Date(s.startsAt));
-    byDay.set(d, [...(byDay.get(d) ?? []), s]);
-  }
-
-  return (
-    <div className="space-y-5">
-      <section className="rounded-[var(--radius-card)] border border-line p-4">
-        <SectionTitle>{S.viewingsTitle}</SectionTitle>
-        <p className="mb-3 text-sm text-ink-soft">{S.viewingsHint}</p>
-        <AvailabilityPicker minutes={VIEWING_MINUTES} value={windows} onChange={setWindows} />
-        <Button
-          size="lg"
-          className="mt-4 max-sm:w-full"
-          disabled={total === 0}
-          loading={publish.isPending}
-          onClick={() =>
-            publish.mutate({ propertyId, windows }, {
-              onSuccess: () => {
-                setWindows([]);
-                pushToast(S.sentViewings, 'success');
-              },
-            })
-          }
-        >
-          {fill(S.submitViewings, { n: total })}
-        </Button>
-      </section>
-
-      {slots.length === 0 ? (
-        <EmptyState icon={CalendarClock} title={t.viewings.empty} hint={t.viewings.emptyHint} />
-      ) : (
-        [...byDay.entries()].map(([day, list]) => {
-          const { top, bottom } = dayLabel(day);
-          const booked = list.filter((s) => s.status === 'booked');
-          const open = list.filter((s) => s.status === 'open');
-          return (
-            <section key={day} className="rounded-[var(--radius-card)] border border-line p-4">
-              <h3 className="mb-3 flex flex-wrap items-baseline gap-2 text-base font-bold text-ink">
-                {top} <span className="num text-sm font-semibold text-muted">{bottom}</span>
-                <span className="text-xs font-semibold text-muted">
-                  · {booked.length} {t.viewings.status.booked} · {open.length} {t.viewings.status.open}
-                </span>
-              </h3>
-              {booked.length ? (
-                <ul className="mb-3 space-y-1.5">
-                  {booked.map((s) => (
-                    <li key={s.id} className="flex items-center gap-3 rounded-[var(--radius-control)] bg-surface px-3 py-2">
-                      <Num board className="text-base font-bold text-ink">{formatTime(s.startsAt)}</Num>
-                      <span className="min-w-0 flex-1 truncate text-sm font-semibold text-ink">{s.applicant?.name}</span>
-                      <Badge tone="liveSoft" size="sm"><Check className="h-3 w-3" />{t.viewings.status.booked}</Badge>
-                      <Button size="sm" variant="quiet" loading={action.isPending && action.variables?.id === s.id}
-                        onClick={() => action.mutate({ id: s.id, action: 'cancel' }, { onSuccess: () => pushToast(t.viewings.cancelled, 'success') })}>
-                        {t.ui.cancel}
-                      </Button>
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-              {open.length ? (
-                <div className="flex flex-wrap gap-1.5">
-                  {open.map((s) => (
-                    <span key={s.id} className="inline-flex items-center rounded-full border border-line px-2.5 py-1 text-xs">
-                      <Num board className="font-semibold text-ink">{formatTime(s.startsAt)}</Num>
-                      <button type="button" aria-label={`${t.ui.cancel} ${formatTime(s.startsAt)}`} className="ms-1 grid h-5 w-5 place-items-center rounded-full text-muted hover:text-ink"
-                        onClick={() => action.mutate({ id: s.id, action: 'cancel' })}>
-                        <X className="h-3 w-3" />
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              ) : null}
-            </section>
-          );
-        })
-      )}
-    </div>
   );
 }

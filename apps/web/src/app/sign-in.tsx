@@ -27,6 +27,19 @@ const DEMO_ACCOUNTS = [
 ];
 const DEMO_PASSWORD = 'miftan-dev-2026';
 
+/**
+ * The people on the other side of דנה's scenarios (see the API's
+ * seed-scenarios.ts), so each flow can be walked from both ends.
+ */
+const SCENARIO_ACCOUNTS = [
+  { email: 'daniel.cohen@demo.baalabait.invalid', name: 'דניאל כהן', hint: t.auth.scenarios.daniel },
+  { email: 'alon.mizrahi@demo.baalabait.invalid', name: 'אלון מזרחי', hint: t.auth.scenarios.alon },
+  { email: 'michal.rosen@demo.baalabait.invalid', name: 'מיכל רוזן', hint: t.auth.scenarios.michal },
+  { email: 'omri.katz@demo.baalabait.invalid', name: 'עמרי כץ', hint: t.auth.scenarios.omri },
+  { email: 's3@demo.baalabait.invalid', name: 'מאיה דהן', hint: t.auth.scenarios.maya },
+  { email: 'p07@demo.baalabait.invalid', name: 'אור עמר', hint: t.auth.scenarios.watcher },
+];
+
 export function SignIn() {
   const { signIn, user, capabilities, restoring } = useAuth();
   const location = useLocation();
@@ -165,6 +178,29 @@ export function SignIn() {
                 </button>
               ))}
             </div>
+
+            <details className="mt-3 rounded-[var(--radius-control)] border border-line bg-bg">
+              <summary className="cursor-pointer px-3 py-2 text-xs font-bold text-ink">{t.auth.scenariosTitle}</summary>
+              <p className="px-3 text-2xs leading-5 text-muted">{t.auth.scenariosHint}</p>
+              <div className="grid gap-1 p-2">
+                {SCENARIO_ACCOUNTS.map((account) => (
+                  <button
+                    key={account.email}
+                    type="button"
+                    disabled={busy}
+                    onClick={() => {
+                      setEmail(account.email);
+                      setPassword(DEMO_PASSWORD);
+                      void submit(account.email, DEMO_PASSWORD);
+                    }}
+                    className="press-sm flex flex-col gap-0.5 rounded-[var(--radius-control)] px-2.5 py-2 text-start hover:bg-surface"
+                  >
+                    <span className="text-xs font-bold text-ink">{account.name}</span>
+                    <span className="text-2xs text-muted">{account.hint}</span>
+                  </button>
+                ))}
+              </div>
+            </details>
           </section>
         ) : null}
       </div>

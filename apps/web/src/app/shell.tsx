@@ -3,7 +3,6 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useStore } from '@/data/store';
 import { useIsPro } from '@/components/shared/premium-gate';
 import {
-  useInquiries,
   useLeads,
   useProperties,
   useSeasonal,
@@ -53,9 +52,11 @@ import {
   Lock,
   Star,
   Tag,
+  Activity,
 } from 'lucide-react';
 import { Wordmark } from '@/components/shared/wordmark';
 import { useIsDemo } from '@/lib/demo';
+import { usePortfolio } from '@/personas/owner/portfolio-model';
 
 interface NavItem {
   to: string;
@@ -330,8 +331,6 @@ export function OwnerShell() {
    */
   const { data: properties = [] } = useProperties();
   const { data: tickets = [] } = useTickets();
-  const { data: leads = [] } = useLeads();
-  const { data: inquiries = [] } = useInquiries();
   const { data: seasonal } = useSeasonal();
   const { data: threads } = useThreads();
 
@@ -339,27 +338,21 @@ export function OwnerShell() {
   const openTickets = tickets.filter(
     (tk) => tk.scope === 'owner' && OPEN_TICKET_STATUSES.includes(tk.status),
   ).length;
-  const ownedLeads = leads.filter((l) => l.scope === 'owner').length;
   const unread = threads?.totalUnread ?? 0;
-  /* The ones actually waiting on the owner: a new question, or a tenant's
-     answer that has not been passed on yet. */
-  const waitingInquiries = inquiries.filter(
-    (x) => x.scope === 'owner' && (x.status === 'new' || x.status === 'answered'),
-  ).length;
   const dueSoon = (seasonal?.tasks ?? []).filter(
     (x) => x.status === 'due' && daysUntil(x.dueDate) <= 45,
   ).length;
 
-  /* Leads, inquiries and messages merged into one screen (tabs), so one
-     badge has to speak for all three — nothing that used to be counted
-     separately should quietly stop being counted. */
-  const leadsHubCount = ownedLeads + waitingInquiries + unread;
+  /* The activity area's badge is what is waiting on the owner — the same
+     list its overview opens with — plus unread messages, which live there too. */
+  const { attention } = usePortfolio();
+  const activityCount = attention.length + unread;
 
   const items: NavItem[] = [
     { to: '/owner', label: t.ownerNav.dashboard, Icon: Gauge, end: true },
     { to: '/owner/properties', label: t.ownerNav.properties, Icon: Home, count: owned },
     { to: '/owner/tickets', label: t.ownerNav.tickets, Icon: Wrench, count: openTickets },
-    { to: '/owner/leads', label: t.ownerNav.leads, Icon: Users, count: leadsHubCount },
+    { to: '/owner/activity', label: t.ownerNav.leads, Icon: Activity, count: activityCount },
     {
       to: '/owner/maintenance',
       label: t.ownerNav.maintenance,
@@ -384,7 +377,7 @@ export function OwnerShell() {
       '/owner',
       '/owner/properties',
       '/owner/tickets',
-      '/owner/leads',
+      '/owner/activity',
       '/owner/maintenance',
     ].includes(i.to),
   );

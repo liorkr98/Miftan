@@ -24,7 +24,7 @@ import { OwnerScreening } from '@/personas/owner/screening';
 import { OwnerFinance } from '@/personas/owner/finance';
 import { OwnerMarket } from '@/personas/owner/market';
 import { OwnerContracts } from '@/personas/owner/contracts';
-import { OwnerLeadsHub } from '@/personas/owner/leads-hub';
+import { OwnerActivity } from '@/personas/owner/activity';
 import { OwnerMaintenanceHub } from '@/personas/owner/maintenance-hub';
 import { OwnerRevenue } from '@/personas/owner/revenue';
 import { PremiumGate } from '@/components/shared/premium-gate';
@@ -77,10 +77,13 @@ export const router = createBrowserRouter([
           { path: 'tickets', element: <OwnerTickets /> },
           /* Combined hubs. Old bookmarks to the pages folded into them still
              land somewhere sensible rather than 404ing. */
-          { path: 'leads', element: <OwnerLeadsHub /> },
-          { path: 'crm', element: <OwnerLeadsHub /> },
-          { path: 'inquiries', element: <OwnerLeadsHub /> },
-          { path: 'messages', element: <OwnerLeadsHub /> },
+          /* The portfolio activity area. It grew out of "leads & inquiries",
+             which still live inside it as tabs — so their old paths stay. */
+          { path: 'activity', element: <OwnerActivity /> },
+          { path: 'leads', element: <OwnerActivity /> },
+          { path: 'crm', element: <OwnerActivity /> },
+          { path: 'inquiries', element: <OwnerActivity /> },
+          { path: 'messages', element: <OwnerActivity /> },
           { path: 'maintenance', element: <OwnerMaintenanceHub /> },
           { path: 'vendors', element: <OwnerMaintenanceHub /> },
           { path: 'contracts', element: <OwnerContracts /> },

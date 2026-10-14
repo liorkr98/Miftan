@@ -1,5 +1,4 @@
 import * as React from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
   defaultRenewedEnd,
   formatAgorot,
@@ -64,14 +63,25 @@ export function TurnoverPanel({
   view,
   property,
   onShowApplicants,
+  autoOpen = null,
 }: {
   view: RenewalView;
   property: OwnerProperty;
   onShowApplicants: () => void;
+  /** Arriving from "Respond" or "Prepare listing": open that step straight away. */
+  autoOpen?: string | null;
 }) {
   const action = useRenewalAction();
   const pushToast = useStore((s) => s.pushToast);
-  const [sheet, setSheet] = React.useState<Sheet>(null);
+  const [sheet, setSheet] = React.useState<Sheet>(() => {
+    const wanted = autoOpen as Sheet;
+    const fits =
+      (wanted === 'answers' && view.ownerStep === 'answer_questions') ||
+      (wanted === 'requirements' && view.ownerStep === 'review_requirements') ||
+      (wanted === 'meeting' && view.ownerStep === 'offer_meeting_times') ||
+      (wanted === 'complete' && view.stage === 'staying');
+    return fits ? wanted : null;
+  });
   const tenant = view.counterpartName;
   const r = view.replacement;
 
@@ -383,7 +393,8 @@ function AnswersSheet({ open, onClose, view }: { open: boolean; onClose: () => v
   );
 }
 
-function TimesSheet({
+/** Offering times: meeting slots for a renewal, or viewing slots for a search. Shared with the calendar. */
+export function TimesSheet({
   open,
   onClose,
   view,
@@ -392,7 +403,8 @@ function TimesSheet({
 }: {
   open: boolean;
   onClose: () => void;
-  view: RenewalView;
+  /** Needed for meetings; a search on an empty flat has no renewal. */
+  view?: RenewalView | null;
   mode: 'meeting' | 'viewings';
   propertyId: string;
 }) {
@@ -409,7 +421,7 @@ function TimesSheet({
       pushToast(mode === 'meeting' ? S.sentMeeting : S.sentViewings, 'success');
       onClose();
     };
-    if (mode === 'meeting') {
+    if (mode === 'meeting' && view) {
       action.mutate({ leaseId: view.leaseId, action: 'meeting-slots', body: { windows } }, { onSuccess: done });
     } else {
       publish.mutate({ propertyId, windows }, { onSuccess: done });
@@ -424,13 +436,13 @@ function TimesSheet({
         </DialogHeader>
         <DialogBody className="space-y-4">
           <p className="text-sm leading-6 text-ink-soft">
-            {fill(mode === 'meeting' ? S.meetingHint : S.viewingsHint, { tenant: view.counterpartName })}
+            {fill(mode === 'meeting' ? S.meetingHint : S.viewingsHint, { tenant: view?.counterpartName ?? '' })}
           </p>
           <AvailabilityPicker minutes={minutes} value={windows} onChange={setWindows} />
         </DialogBody>
         <DialogFooter>
           <Button size="lg" disabled={total === 0} loading={action.isPending || publish.isPending} onClick={submit}>
-            {mode === 'meeting' ? fill(S.submitMeeting, { tenant: view.counterpartName }) : fill(S.submitViewings, { n: total })}
+            {mode === 'meeting' ? fill(S.submitMeeting, { tenant: view?.counterpartName ?? '' }) : fill(S.submitViewings, { n: total })}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -624,35 +636,4 @@ function CompleteSheet({ open, onClose, view }: { open: boolean; onClose: () => 
 /* ── Dashboard ───────────────────────────────────────── */
 
 /** Everything across the portfolio that is the owner's turn — one row, one button each. */
-export function NeedsYou({ renewals }: { renewals: RenewalView[] }) {
-  const navigate = useNavigate();
-  const due = renewals.filter((r) => r.role === 'owner' && r.ownerStep);
-  if (due.length === 0) return null;
-  return (
-    <section className="rounded-[var(--radius-card)] border border-ink p-4" aria-label={O.dashboardTitle}>
-      <h2 className="text-base font-extrabold text-ink">{O.dashboardTitle}</h2>
-      <p className="mb-3 text-xs text-muted">{O.dashboardHint}</p>
-      <ul className="divide-y divide-line">
-        {due.map((r) => (
-          <li key={r.leaseId}>
-            <button
-              type="button"
-              onClick={() => navigate(`/owner/properties/${r.propertyId}`)}
-              className="flex w-full items-center gap-3 py-3 text-start"
-            >
-              <span className="min-w-0 flex-1">
-                <span className="block text-sm font-bold text-ink">{fill(O.steps2[r.ownerStep!], { tenant: r.counterpartName })}</span>
-                <span className="block text-xs text-muted">{r.propertyLabel}</span>
-              </span>
-              <span className="flex shrink-0 items-center gap-1 rounded-[var(--radius-control)] bg-ink px-3 py-2 text-sm font-bold text-on-ink">
-                {O.go}
-                <ArrowLeft className="h-3.5 w-3.5" />
-              </span>
-            </button>
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
 

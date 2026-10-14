@@ -35,6 +35,9 @@ export const keys = {
     ['rent-payments', filters ?? {}] as const,
   renterProfile: ['me', 'renter-profile'] as const,
 
+  portfolio: ['portfolio'] as const,
+  portfolioAnalytics: (from: string, to: string) => ['portfolio', 'analytics', from, to] as const,
+
   leads: ['leads'] as const,
   lead: (id: string) => ['leads', id] as const,
   presets: ['screening', 'presets'] as const,

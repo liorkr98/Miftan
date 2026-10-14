@@ -125,6 +125,15 @@ export const briefingSchema = z.object({
 
 export const upcomingBriefingsSchema = z.object({ briefings: z.array(briefingSchema) });
 
+/**
+ * Giving a time back. An owner can either withdraw the time (default) or
+ * free it for somebody else — the slot stays on the calendar as available.
+ */
+export const cancelSlotSchema = z.object({ reopen: z.boolean().optional() }).nullish();
+
+/** The owner moving a booked appointment to another free time. */
+export const moveSlotSchema = z.object({ toSlotId: z.string() });
+
 export type OwnerSlot = z.infer<typeof ownerSlotSchema>;
 export type SeekerSlot = z.infer<typeof seekerSlotSchema>;
 export type SlotView = z.infer<typeof slotViewSchema>;

@@ -31,13 +31,13 @@ import {
   useLeads,
   useMarket,
   useProperties,
-  useRenewals,
   useRentPayments,
   useScreeningPresets,
   useSeasonal,
   useTickets,
 } from '@/api/hooks';
-import { NeedsYou } from './turnover';
+import { AttentionList } from './attention';
+import { usePortfolio } from './portfolio-model';
 import { Onboarding } from '@/components/shared/onboarding';
 import { AVAILABILITY_TONE } from '@/data/selectors';
 import { DepartureTrack } from '@/components/shared/departure-track';
@@ -81,7 +81,7 @@ export function OwnerDashboard() {
   const { data: payments = [] } = useRentPayments();
   const { data: briefings = [] } = useBriefings();
   const { data: market } = useMarket();
-  const { data: renewals = [] } = useRenewals();
+  const { attention: needsYou } = usePortfolio();
 
   const owned = React.useMemo(
     () => (properties ?? []).filter((p): p is OwnerProperty => p.scope === 'owner'),
@@ -211,7 +211,24 @@ export function OwnerDashboard() {
         ]}
       />
 
-      <NeedsYou renewals={renewals} />
+      {/* The same list the activity page opens with, cut to the top three. */}
+      <AttentionList
+        items={needsYou}
+        limit={3}
+        from="dashboard"
+        footer={
+          needsYou.length > 3 ? (
+            <button
+              type="button"
+              onClick={() => navigate('/owner/activity')}
+              className="mt-2 flex items-center gap-1 text-xs font-bold text-ink underline-offset-2 hover:underline"
+            >
+              {t.activity.attention.more.replace('{n}', String(needsYou.length - 3))}
+              <ChevronLeft className="h-3.5 w-3.5" />
+            </button>
+          ) : null
+        }
+      />
 
       <div className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-[var(--radius-card)] border border-line bg-surface px-4 py-3">
         <span className="flex items-baseline gap-1.5">

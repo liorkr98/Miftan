@@ -378,3 +378,49 @@ watching.
   meeting slots or 15-minute viewing slots.
 - **A seeker's pending availability question is answered by the tenant's
   decision**, so no tenant is asked the same thing twice.
+
+## The landlord's portfolio: activity, the property as control centre, the calendar
+
+- **"Leads & inquiries" became "Activity" (פעילות).** It is now the portfolio
+  level: five headline numbers, what is waiting on you (by urgency), your week,
+  every flat with its phase, and performance. Applicants, availability
+  questions and messages are still there as tabs, unchanged. "Portfolio" and
+  "My properties" were rejected because they collide with the existing
+  "Properties" (נכסים) inventory tab. Old paths (`/owner/leads`, `/crm`,
+  `/inquiries`, `/messages`) still land here.
+- **Portfolio → property → action.** Every number, row and attention item opens
+  the property it is about, and the action happens on the property page. Attention
+  items deep-link to the exact step (`?do=answers`, `?do=requirements`,
+  `?tab=schedule&add=1`). The back link names the level you came from.
+- **Phase and turn are two facts, computed once.** `propertyPhase()` (shared)
+  says what is happening (active lease, renewal approaching, renewal, meeting
+  booked, leaving, searching, viewings, vacant, renovating) and whose move it is
+  (you / tenant / applicants). The list, the property page, the attention list
+  and the nav badge all read it, so they cannot disagree. Every phase and turn
+  carries an icon and a word; colour only repeats them.
+- **The property page adapts.** A fact strip (status, tenant, lease end, rent),
+  then one action card (the turnover panel, or a status card that still says
+  what is happening and what comes next), then tabs chosen by phase: a search
+  opens on the calendar or applicants; a quiet lease keeps to details and lease.
+- **One calendar per property, two kinds of time.** Booked appointments are
+  solid cards with a person and a type (viewing / renewal meeting) and a
+  "booked" badge; free times are dashed outlines that say "free". Owners can add,
+  remove, clear a day, open, move (one atomic step — `POST /viewings/:id/move`,
+  `/renewals/meeting-slots/:id/move`) and cancel either keeping the time free
+  (`reopen: true`) or withdrawing it. The applicant or tenant is emailed on every
+  owner-side change. It polls, like the rest of the live booking.
+- **Analytics answer two questions.** "Is interest rising?" — one line of views
+  for the chosen flat or all flats, over 7/30/90 days or a custom range, with the
+  change against the previous period in words. "Where do people stop?" — a
+  funnel where each bar is the share of the stage before; the weakest step from
+  applications onward is marked with a suggestion (view → alert is skipped: most
+  viewers of an occupied flat never ask for an alert, and that is normal). A
+  table view sits under the chart. `GET /portfolio/snapshot` is "now";
+  `GET /portfolio/analytics?from&to` is "over a period".
+- **Demo scenarios are data, not mockups.** `seed-scenarios.ts` parks each of
+  דנה's flats at a different moment of the lifecycle — normal, renewal soon,
+  question waiting on you, answered with 3 days left, meeting booked, tenant just
+  leaving, search with real demand and viewings, vacant search, renovation — plus
+  three months of listing views. Every screen reads it through the normal API;
+  removing the call is the whole migration to real data. The sign-in page lists
+  the tenants and seekers on the other side of each scenario.
