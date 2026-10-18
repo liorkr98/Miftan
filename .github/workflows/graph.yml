@@ -48,6 +48,13 @@ jobs:
           GRAPHIFY_BACKEND: none
         run: graphify extract . --code-only
 
+      # extract writes graph.json; clustering writes graph.html and the report.
+      # Communities are named by their central file, not by a model.
+      - name: Cluster, report and draw
+        env:
+          GRAPHIFY_BACKEND: none
+        run: graphify cluster-only .
+
       - name: Publish to the graph branch
         run: |
           set -euo pipefail
