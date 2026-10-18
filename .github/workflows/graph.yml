@@ -1,0 +1,64 @@
+# A map of the codebase with graphify (github.com/Graphify-Labs/graphify).
+#
+# graphify needs Python, which the development machine does not have, so the
+# graph is built here. Code only, parsed locally with tree-sitter: no model,
+# no API key, nothing leaves the runner (GRAPHIFY_BACKEND=none, --code-only).
+#
+# The result is force-pushed to the `graph` branch, never to main:
+#   graphify-out/graph.html       interactive graph, open in any browser
+#   graphify-out/GRAPH_REPORT.md  summary: central files, clusters, surprises
+#   graphify-out/graph.json       the full graph, for queries
+#
+# Runs by hand, and on pushes to main that touch code.
+
+name: graph
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/**'
+      - 'packages/**'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: graph
+  cancel-in-progress: true
+
+jobs:
+  graph:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install graphify
+        run: pip install 'graphifyy>=0.9.92,<1'
+
+      - name: Build the graph (code only, offline)
+        env:
+          GRAPHIFY_BACKEND: none
+        run: graphify extract . --code-only
+
+      - name: Publish to the graph branch
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/graph"
+          cp -r graphify-out/graph.html graphify-out/GRAPH_REPORT.md graphify-out/graph.json "$RUNNER_TEMP/graph/"
+          git config user.name "graph-bot"
+          git config user.email "graph-bot@users.noreply.github.com"
+          git checkout --orphan graph
+          git rm -rq --cached .
+          find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          mkdir graphify-out
+          cp "$RUNNER_TEMP"/graph/* graphify-out/
+          git add graphify-out
+          git commit -qm "Code graph for ${GITHUB_SHA::7}"
+          git push -f origin graph
