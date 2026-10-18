@@ -51,15 +51,20 @@ jobs:
       - name: Publish to the graph branch
         run: |
           set -euo pipefail
+          ls -la graphify-out | sed "s/^/::notice::/" | head -20
           mkdir -p "$RUNNER_TEMP/graph"
-          cp -r graphify-out/graph.html graphify-out/GRAPH_REPORT.md graphify-out/graph.json "$RUNNER_TEMP/graph/"
+          # Everything graphify wrote except its cache.
+          for f in graphify-out/*; do
+            [ "$(basename "$f")" = cache ] && continue
+            cp -r "$f" "$RUNNER_TEMP/graph/"
+          done
           git config user.name "graph-bot"
           git config user.email "graph-bot@users.noreply.github.com"
           git checkout --orphan graph
           git rm -rq --cached .
           find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
           mkdir graphify-out
-          cp "$RUNNER_TEMP"/graph/* graphify-out/
+          cp -r "$RUNNER_TEMP"/graph/. graphify-out/
           git add graphify-out
           git commit -qm "Code graph for ${GITHUB_SHA::7}"
           git push -f origin graph
