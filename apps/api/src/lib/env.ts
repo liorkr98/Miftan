@@ -24,6 +24,33 @@ const schema = z.object({
    */
   COOKIE_PATH: z.string().default('/auth'),
   /**
+   * SameSite for the refresh cookie.
+   *
+   * `lax` is right when the web app and the API share a site — locally they do,
+   * through the Vite proxy. They do not once deployed: the app is on
+   * workers.dev and the API on run.app, separate registrable domains, so every
+   * call between them is cross-site and a `lax` cookie is never sent back. That
+   * fails exactly like a wrong COOKIE_PATH — login appears to work, then the
+   * first refresh returns 401 and every reload looks signed out.
+   *
+   * `none` is the cross-site value, and browsers accept it only on a Secure
+   * cookie, so it is set by the deploy workflow, where NODE_ENV=production also
+   * makes `secure` true. Setting it in development would be rejected.
+   */
+  COOKIE_SAMESITE: z.enum(['lax', 'strict', 'none']).default('lax'),
+  /**
+   * Supabase Auth's public signing keys, e.g.
+   * https://<ref>.supabase.co/auth/v1/.well-known/jwks.json
+   *
+   * Unset means the Supabase sign-in path is simply off and only this API's
+   * own tokens are accepted, which is how development and the tests run. An
+   * empty string counts as unset: a GitHub Actions secret that was never
+   * added arrives as `''`, and refusing to boot over that would turn a feature
+   * nobody configured into a dead API.
+   */
+  SUPABASE_JWKS_URL: z
+    .preprocess((v) => (v === '' ? undefined : v), z.string().url().optional()),
+  /**
    * Set only on the demo API. Production leaves it unset, and seeded account
    * ids are then ordinary users — the demo badge and the revenue lens stay off.
    */

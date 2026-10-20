@@ -71,9 +71,9 @@ database password filled in (URL-encode any special characters) and
   (`postgresql://postgres.kpyzuzlgdfbkacoqmqtb:<password>@aws-0-ap-southeast-2.pooler.supabase.com:5432/postgres?sslmode=require`).
   Migrations and seeding use it. The direct `db.<ref>.supabase.co` host is
   IPv6-only and GitHub's runners cannot reach it.
-- `DATABASE_URL` — the **transaction pooler**: the same address on port **6543**.
-  The running app uses it; `db/client.ts` recognises it and turns off prepared
-  statements.
+- `DATABASE_POOLED_URL` — the **transaction pooler**: the same address on port
+  **6543**. The running app uses it; `db/client.ts` recognises it and turns off
+  prepared statements.
 
 The `database` job in `deploy.yml` applies every migration on main to it after
 each green build, so a table anyone adds reaches the shared database without

@@ -3,24 +3,29 @@
 #
 #   database  Brings the hosted database up to date: every migration on main —
 #             anyone's — is applied, so a new table reaches the shared database
-#             without anybody connecting to it by hand. Runs whenever the
-#             database secret exists, whether or not Google Cloud is set up.
+#             without anybody connecting to it by hand. Runs whenever
+#             DATABASE_DIRECT_URL exists, whether or not Google Cloud is set up.
 #   deploy    The API on Google Cloud Run (service `miftan-api`, Frankfurt).
 #             Scales to zero when nobody is using it, so at this traffic it
-#             stays inside the free tier. Runs after the database is migrated.
+#             stays inside the free tier. Runs after the database job.
 #
 # reset-demo erases the database and reloads the demo data. It needs the
 # typed confirmation, and the seed guard still refuses a database that holds
 # real sign-ups (apps/api/src/db/demo-guard.ts).
 #
 # Secrets (Settings → Secrets and variables → Actions):
-#   DATABASE_DIRECT_URL   database URL for migrations and seeding. On Supabase:
-#                         the session pooler, port 5432, ?sslmode=require
-#   DATABASE_URL          database URL the running app uses. On Supabase: the
-#                         transaction pooler, port 6543, ?sslmode=require
-#                         (NEON_DIRECT_URL / NEON_DATABASE_URL still work)
 #   GCP_PROJECT_ID        the Google Cloud project id
 #   GCP_SA_KEY            JSON key of the deploy service account
+#   DATABASE_POOLED_URL   pooled database URL (the app's). Named for the role,
+#                         not the vendor: Supabase and Neon both hand out a
+#                         pooled and a direct string, and swapping provider
+#                         should not mean renaming secrets. On Supabase this is
+#                         the Transaction pooler (port 6543).
+#   DATABASE_DIRECT_URL   direct database URL (migrations, seed, reset). A
+#                         transaction-mode pooler cannot hold the session these
+#                         need. On Supabase this is the Session pooler (port
+#                         5432): the Direct connection is IPv6-only, and
+#                         GitHub's runners cannot reach it.
 #   JWT_SECRET            32+ random characters
 #   R2_ACCOUNT_ID, R2_BUCKET, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY
 #   R2_PUBLIC_URL         optional: the old public bucket address, so photos
@@ -74,7 +79,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      DIRECT_URL: ${{ secrets.DATABASE_DIRECT_URL || secrets.NEON_DIRECT_URL }}
+      DIRECT_URL: ${{ secrets.DATABASE_DIRECT_URL }}
     steps:
       - name: Check that the database is configured
         id: configured
@@ -118,8 +123,8 @@ jobs:
           DEMO_DATABASE: 'true'
           CONFIRM_RESET: erase-demo-database
 
-      # Migrations run here, once, before a new version takes traffic. They
-      # only ever add.
+      # Migrations run here, once, over the direct URL — before the new
+      # version takes traffic. They only ever add.
       - name: Migrate
         if: steps.configured.outputs.ready == 'true'
         run: npm run db:migrate -w @miftan/api
@@ -183,7 +188,7 @@ jobs:
       - name: Write runtime environment
         if: steps.configured.outputs.ready == 'true'
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL || secrets.NEON_DATABASE_URL }}
+          DATABASE_URL: ${{ secrets.DATABASE_POOLED_URL }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
           R2_BUCKET: ${{ secrets.R2_BUCKET }}
@@ -202,6 +207,10 @@ jobs:
               JWT_SECRET: process.env.JWT_SECRET,
               WEB_ORIGIN: origin,
               COOKIE_PATH: "/auth",
+              // The app is on workers.dev and this API on run.app — different
+              // sites, so the refresh cookie has to be SameSite=none or the
+              // browser never sends it back and every reload looks signed out.
+              COOKIE_SAMESITE: "none",
               DEMO_MODE: "true",
               TZ: "Asia/Jerusalem",
             };
