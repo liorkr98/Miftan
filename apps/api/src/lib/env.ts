@@ -27,17 +27,25 @@ const schema = z.object({
    * SameSite for the refresh cookie.
    *
    * `lax` is right when the web app and the API share a site — locally they do,
-   * through the Vite proxy. They do not in the deployed setup: the app is on
-   * workers.dev and the API on fly.dev, which are separate registrable domains,
-   * so every call between them is cross-site and a `lax` cookie is never sent
-   * back. That fails exactly like a wrong COOKIE_PATH — login appears to work,
-   * then the first refresh returns 401 and every reload looks signed out.
+   * through the Vite proxy. They do not once deployed: the app is on
+   * workers.dev and the API on run.app, separate registrable domains, so every
+   * call between them is cross-site and a `lax` cookie is never sent back. That
+   * fails exactly like a wrong COOKIE_PATH — login appears to work, then the
+   * first refresh returns 401 and every reload looks signed out.
    *
-   * `none` is the cross-site value and browsers only accept it on a Secure
-   * cookie, which is why it is set in fly.toml, where NODE_ENV=production also
+   * `none` is the cross-site value, and browsers accept it only on a Secure
+   * cookie, so it is set by the deploy workflow, where NODE_ENV=production also
    * makes `secure` true. Setting it in development would be rejected.
    */
   COOKIE_SAMESITE: z.enum(['lax', 'strict', 'none']).default('lax'),
+  /**
+   * Set only on the demo API. Production leaves it unset, and seeded account
+   * ids are then ordinary users — the demo badge and the revenue lens stay off.
+   */
+  DEMO_MODE: z.enum(['true', 'false']).optional(),
+  /** Resend. Unset = console adapter (dev, tests, demo). Never commit the key. */
+  RESEND_API_KEY: z.string().optional(),
+  EMAIL_FROM: z.string().default('בעל הבית <noreply@baalabait.co.il>'),
 
   /* ── Object storage (Cloudflare R2, S3 API) ──────────────
      Optional in development, required in production — the check lives in

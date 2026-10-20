@@ -3,6 +3,7 @@ import type { OwnerTicket, TenantTicket, TicketView } from '@miftan/shared';
 import { db, schema as s } from '../db/client.ts';
 import { availableActions } from './ticket-state.ts';
 import { scopeFor, type Viewer } from './viewer.ts';
+import { fileLinkOrNull, fileLinks } from '../storage/files.ts';
 
 type TicketRow = typeof s.tickets.$inferSelect;
 type MessageRow = typeof s.ticketMessages.$inferSelect;
@@ -41,7 +42,7 @@ export function projectTicket(viewer: Viewer, ctx: TicketContext): TicketView {
     status: ticket.status,
     title: ticket.title,
     description: ticket.description,
-    photos: ticket.photos,
+    photos: fileLinks(ticket.photos),
     createdAt: ticket.createdAt.toISOString(),
     scheduledAt: ticket.scheduledAt?.toISOString() ?? null,
     tenantAvailability: ticket.tenantAvailability.map((d) => d.toISOString()),
@@ -53,7 +54,7 @@ export function projectTicket(viewer: Viewer, ctx: TicketContext): TicketView {
       ticket.receiptAmountAgorot != null
         ? {
             amountAgorot: ticket.receiptAmountAgorot,
-            file: ticket.receiptFile,
+            file: fileLinkOrNull(ticket.receiptFile),
             uploadedAt: ticket.receiptUploadedAt?.toISOString() ?? new Date(0).toISOString(),
             uploadedBy: ticket.receiptUploadedBy ?? ('owner' as const),
           }
@@ -63,7 +64,7 @@ export function projectTicket(viewer: Viewer, ctx: TicketContext): TicketView {
       authorRole: m.authorRole,
       authorName: m.authorName,
       body: m.body,
-      photos: m.photos,
+      photos: fileLinks(m.photos),
       at: m.at.toISOString(),
     })),
     availableActions: availableActions(ticket.status, scope),

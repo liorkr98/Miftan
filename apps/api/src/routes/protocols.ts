@@ -16,6 +16,7 @@ import {
 import { db, schema as s } from '../db/client.ts';
 import { newId } from '../lib/ids.ts';
 import { resolveViewer, scopeFor, type Viewer } from '../policy/viewer.ts';
+import { fileLinks, toStoredKeys } from '../storage/files.ts';
 
 type RunRow = typeof s.protocolRuns.$inferSelect;
 type EntryRow = typeof s.protocolEntries.$inferSelect;
@@ -48,7 +49,7 @@ function project(
         itemId: item.id,
         done: e?.done ?? false,
         value: e?.value ?? null,
-        photos: e?.photos ?? [],
+        photos: fileLinks(e?.photos ?? []),
         note: e?.note ?? null,
       };
     }),
@@ -171,7 +172,7 @@ export async function protocolRoutes(app: FastifyInstance) {
           itemId: item.id,
           done: done ?? true,
           value: value ?? null,
-          photos: photos ?? [],
+          photos: toStoredKeys(photos ?? []),
           note: note ?? null,
         })
         .onConflictDoUpdate({
@@ -181,7 +182,7 @@ export async function protocolRoutes(app: FastifyInstance) {
                wipe the photo somebody else attached. */
             ...(done !== undefined ? { done } : {}),
             ...(value !== undefined ? { value: value ?? null } : {}),
-            ...(photos !== undefined ? { photos } : {}),
+            ...(photos !== undefined ? { photos: toStoredKeys(photos) } : {}),
             ...(note !== undefined ? { note: note ?? null } : {}),
           },
         });
@@ -275,8 +276,8 @@ export async function protocolRoutes(app: FastifyInstance) {
             section: item.section,
             moveIn: a?.value ?? null,
             moveOut: b?.value ?? null,
-            moveInPhotos: a?.photos ?? [],
-            moveOutPhotos: b?.photos ?? [],
+            moveInPhotos: fileLinks(a?.photos ?? []),
+            moveOutPhotos: fileLinks(b?.photos ?? []),
             /* Only when both sides were actually recorded. A missing reading is
                an unanswered question, not evidence of a change. */
             changed: a?.value != null && b?.value != null && a.value !== b.value,

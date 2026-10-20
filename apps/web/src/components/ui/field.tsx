@@ -79,7 +79,7 @@ export const Switch = React.forwardRef<
   <SwitchPrimitive.Root
     ref={ref}
     className={cn(
-      'press-sm inline-flex h-6 w-11 shrink-0 items-center rounded-full border-2 border-transparent transition-[background-color,transform] duration-150 ease-[var(--ease-out)]',
+      'press-sm inline-flex h-6 w-11 shrink-0 items-center rounded-full border-2 border-transparent',
       'bg-line-strong data-[state=checked]:bg-ink',
       className,
     )}
@@ -177,7 +177,7 @@ export const SelectContent = React.forwardRef<
       ref={ref}
       position="popper"
       sideOffset={4}
-      style={{ zIndex: 'var(--z-dropdown)' }}
+      style={{ zIndex: 'var(--z-popover)' }}
       className={cn(
         'pop-anim max-h-72 min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-[var(--radius-control)] border border-line bg-bg shadow-lg',
         className,

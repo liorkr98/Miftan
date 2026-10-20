@@ -24,7 +24,8 @@ import {
   type TicketView,
   type TrackRow,
 } from '@miftan/shared';
-import { useBriefings, useExpenses, useInquiries, useLeads, useMarket, useProperties, useRentPayments, useSeasonal, useTickets } from '@/api/hooks';
+import { useBriefings, useExpenses, useInquiries, useLeads, useMarket, useProperties, useRentPayments, useScreeningPresets, useSeasonal, useTickets } from '@/api/hooks';
+import { Onboarding } from '@/components/shared/onboarding';
 import { AVAILABILITY_TONE } from '@/data/selectors';
 import { DepartureTrack } from '@/components/shared/departure-track';
 import { Money, Num, PageHeader } from '@/components/shared/typography';
@@ -62,6 +63,7 @@ export function OwnerDashboard() {
   const { data: inquiries = [] } = useInquiries();
   const { data: leads = [] } = useLeads();
   const { data: seasonal } = useSeasonal();
+  const { data: presets = [] } = useScreeningPresets();
   const { data: expenseData } = useExpenses();
   const { data: payments = [] } = useRentPayments();
   const { data: briefings = [] } = useBriefings();
@@ -184,6 +186,16 @@ export function OwnerDashboard() {
   return (
     <div className="space-y-6">
       <PageHeader title={t.dashboard.title} />
+
+      <Onboarding
+        role="owner"
+        steps={[
+          { key: 'property', done: owned.length > 0, to: '/owner/properties' },
+          { key: 'invite', done: owned.some((p) => p.tenant !== null), to: '/owner/properties' },
+          { key: 'listed', done: owned.some((p) => p.listed), to: '/owner/properties' },
+          { key: 'screening', done: presets.length > 0, to: '/owner/leads/filters' },
+        ]}
+      />
 
       <div className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-[var(--radius-card)] border border-line bg-surface px-4 py-3">
         <span className="flex items-baseline gap-1.5">
@@ -346,7 +358,7 @@ export function OwnerDashboard() {
             <button
               type="button"
               onClick={() => navigate('/owner/leads?tab=inquiries')}
-              className="press-sm flex items-center gap-3 rounded-[var(--radius-card)] border border-signal/50 bg-signal-soft/40 p-3.5 text-start transition-[border-color,transform] duration-150 ease-[var(--ease-out)] hover:border-signal"
+              className="press-sm flex items-center gap-3 rounded-[var(--radius-card)] border border-signal/50 bg-signal-soft/40 p-3.5 text-start hover:border-signal"
             >
               <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[var(--radius-control)] bg-signal text-ink">
                 <MessageCircleQuestion className="h-4 w-4" />
@@ -365,7 +377,7 @@ export function OwnerDashboard() {
             <button
               type="button"
               onClick={() => navigate('/owner/maintenance')}
-              className="press-sm flex items-center gap-3 rounded-[var(--radius-card)] border border-line p-3.5 text-start transition-[border-color,transform] duration-150 ease-[var(--ease-out)] hover:border-line-strong"
+              className="press-sm flex items-center gap-3 rounded-[var(--radius-card)] border border-line p-3.5 text-start hover:border-line-strong"
             >
               <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[var(--radius-control)] bg-surface">
                 <CalendarClock className="h-4 w-4 text-ink-soft" />

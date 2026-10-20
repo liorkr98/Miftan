@@ -44,7 +44,36 @@ export const userSchema = z.object({
   email: z.string(),
   phone: z.string().nullable(),
   createdAt: z.string(),
+  /** What the account has paid for. Anything the server cannot vouch for is 'free'. */
+  plan: z.enum(['free', 'pro']),
+  /** A seeded demo login. Gates demo-only affordances like the revenue lens. */
+  isDemo: z.boolean(),
+  /** Roles whose onboarding checklist this account has closed */
+  onboardingDismissed: z.array(z.enum(['owner', 'tenant', 'seeker'])),
+  emailVerified: z.boolean(),
 });
+
+export const forgotPasswordSchema = z.object({ email: emailSchema });
+export const resetPasswordSchema = z.object({ token: z.string().min(10).max(200), password: passwordSchema });
+export const verifyTokenSchema = z.object({ token: z.string().min(10).max(200) });
+export const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1),
+  newPassword: passwordSchema,
+});
+export const changeEmailSchema = z.object({
+  email: emailSchema,
+  password: z.string().min(1),
+});
+export const sessionViewSchema = z.object({
+  id: z.string(),
+  userAgent: z.string().nullable(),
+  ip: z.string().nullable(),
+  createdAt: z.string(),
+  current: z.boolean(),
+});
+export const sessionListSchema = z.object({ sessions: z.array(sessionViewSchema) });
+
+export const dismissOnboardingSchema = z.object({ role: z.enum(['owner', 'tenant', 'seeker']) });
 
 /**
  * What a user *is* comes from what they hold, not a column.
@@ -84,3 +113,7 @@ export type PublicUser = z.infer<typeof userSchema>;
 export type Capabilities = z.infer<typeof capabilitiesSchema>;
 export type Me = z.infer<typeof meSchema>;
 export type AuthResult = z.infer<typeof authResultSchema>;
+export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
+export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
+export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
+export type ChangeEmailInput = z.infer<typeof changeEmailSchema>;

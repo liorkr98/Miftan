@@ -1,11 +1,24 @@
 import * as React from 'react';
 import { useStore, useStoreShallow } from '@/data/store';
-import { t, formatMoney, type AffiliateOffer } from '@miftan/shared';
+import { t, formatMoney, marketFor, type AffiliateOffer } from '@miftan/shared';
+import { useAuth } from '@/api/auth';
 import { cn } from '@/lib/utils';
 import { Money, Num } from './typography';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { BadgeCheck, Banknote, Check, Info, X } from 'lucide-react';
+import { BadgeCheck, Banknote, Check, Info, Lock, X } from 'lucide-react';
+import { useIsDemo } from '@/lib/demo';
+
+/**
+ * The lens is a demo affordance: it shows up, and turns on, only for seeded
+ * demo accounts. A real owner never sees the platform's cut marked across
+ * their own screens.
+ */
+function useLens(): boolean {
+  const lens = useStore((s) => s.revenueLens);
+  const { user } = useAuth();
+  return lens && Boolean(user?.isDemo);
+}
 
 /**
  * The revenue lens.
@@ -24,17 +37,18 @@ export function RevenueMarker({
   className?: string;
   note?: string;
 }) {
-  const lens = useStore((s) => s.revenueLens);
+  const lens = useLens();
   const stream = useStore((s) => s.revenueStreams.find((x) => x.id === streamId));
 
   if (!lens || !stream) return null;
+  const market = marketFor(streamId);
 
   return (
+    <span className={cn('inline-flex flex-col items-start gap-1', className)}>
     <span
       className={cn(
         'inline-flex items-center gap-1.5 rounded-full border border-dashed border-signal bg-signal-soft px-2 py-0.5 text-2xs font-bold text-signal-deep',
         'motion-safe:animate-[fade-up_220ms_var(--ease-out)_both]',
-        className,
       )}
       title={stream.basis}
     >
@@ -43,6 +57,35 @@ export function RevenueMarker({
       <Money value={stream.unit_revenue} board className="font-bold" />
       <span className="font-medium opacity-70">{t.revenue.perEvent}</span>
     </span>
+      {market ? (
+        /* What the job costs at market rates, and what the platform's cut of
+           it would be. Figures from Midrag's published averages. */
+        <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 ps-1 text-2xs text-signal-deep">
+          <span>
+            {t.revenue.market}: <Range min={market.min} max={market.max} />
+          </span>
+          <span aria-hidden>·</span>
+          <span className="font-bold">
+            {t.revenue.cut}: <Range min={market.cutMin} max={market.cutMax} />
+          </span>
+          <span className="opacity-70">({t.revenue.marketSource})</span>
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
+function Range({ min, max }: { min: number; max: number }) {
+  return (
+    <bdi className="inline-flex items-center gap-1">
+      <Money value={min} board />
+      {max !== min ? (
+        <>
+          <span>–</span>
+          <Money value={max} board />
+        </>
+      ) : null}
+    </bdi>
   );
 }
 
@@ -56,7 +99,7 @@ export function RevenueZone({
   children: React.ReactNode;
   className?: string;
 }) {
-  const lens = useStore((s) => s.revenueLens);
+  const lens = useLens();
   return (
     <div
       className={cn(
@@ -87,7 +130,7 @@ export function OfferCard({
   const requestOffer = useStore((s) => s.requestOffer);
   const pushToast = useStore((s) => s.pushToast);
   const requested = useStore((s) => s.offerRequests.includes(offer.id));
-  const lens = useStore((s) => s.revenueLens);
+  const lens = useLens();
   const [dismissed, setDismissed] = React.useState(false);
   const [showWhy, setShowWhy] = React.useState(false);
 
@@ -193,11 +236,15 @@ export function OfferRail({
   className?: string;
 }) {
   const affiliateOffers = useStore((s) => s.affiliateOffers);
+  /* The offers are illustrations with placeholder partners. Demo accounts
+     show them to landlords; real accounts never see them until the partner
+     contracts exist. */
+  const demo = useIsDemo();
   const offers = affiliateOffers.filter(
     (o) => o.placement === placement && (!audience || o.audience === audience),
   );
 
-  if (offers.length === 0) return null;
+  if (!demo || offers.length === 0) return null;
 
   const heading =
     title ??
@@ -255,16 +302,22 @@ export function useRevenueModel() {
 export function RevenueLensToggle() {
   const lens = useStore((s) => s.revenueLens);
   const toggle = useStore((s) => s.toggleRevenueLens);
+  const pushToast = useStore((s) => s.pushToast);
+  const { user } = useAuth();
+
+  if (!user?.isDemo) return null;
 
   return (
     <button
       type="button"
-      onClick={toggle}
+      onClick={() => {
+        if (!lens) pushToast(t.revenue.lensPremium);
+        toggle();
+      }}
       aria-pressed={lens}
       title={t.revenue.lensHint}
       className={cn(
         'press flex items-center gap-1.5 rounded-[var(--radius-control)] px-2.5 py-1.5 text-xs font-semibold',
-        'transition-[background-color,color,transform] duration-[var(--dur-press)] ease-[var(--ease-out)]',
         lens
           ? 'bg-signal text-ink'
           : 'text-on-ink-muted hover:bg-white/10 hover:text-on-ink',
@@ -272,6 +325,15 @@ export function RevenueLensToggle() {
     >
       <Banknote className="h-3.5 w-3.5" />
       <span className="hidden lg:inline">{t.revenue.lens}</span>
+      <span
+        className={cn(
+          'hidden items-center gap-0.5 rounded-full px-1.5 py-px text-[10px] font-bold sm:inline-flex',
+          lens ? 'bg-ink/10 text-ink' : 'bg-white/10 text-on-ink',
+        )}
+      >
+        <Lock className="h-2.5 w-2.5" />
+        {t.premium.badge}
+      </span>
     </button>
   );
 }

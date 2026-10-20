@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
  * reserved for status, never decoration or emphasis.
  */
 const buttonVariants = cva(
-  'press inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-[var(--radius-control)] font-semibold transition-[background-color,color,border-color,box-shadow,transform] duration-[var(--dur-press)] ease-[var(--ease-out)] disabled:pointer-events-none disabled:opacity-45 disabled:active:scale-100 [&_svg]:pointer-events-none [&_svg]:shrink-0',
+  'press inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-[var(--radius-control)] font-semibold disabled:pointer-events-none disabled:opacity-45 disabled:active:scale-100 [&_svg]:pointer-events-none [&_svg]:shrink-0',
   {
     variants: {
       variant: {

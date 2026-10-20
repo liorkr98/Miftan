@@ -11,6 +11,7 @@ import {
 } from '@miftan/shared';
 import { db, schema as s } from '../db/client.ts';
 import { scopeFor, type Viewer } from './viewer.ts';
+import { fileLinkOrNull } from '../storage/files.ts';
 
 type LeadRow = typeof s.leads.$inferSelect;
 type PropertyRow = typeof s.properties.$inferSelect;
@@ -130,7 +131,7 @@ export function projectLead(viewer: Viewer, ctx: LeadContext): LeadView {
 
     neighborhood: ctx.property.neighborhood,
     city: ctx.property.city,
-    photo: ctx.property.photos[0] ?? null,
+    photo: fileLinkOrNull(ctx.property.photos[0]),
     monthlyRentAgorot: ctx.property.monthlyRentAgorot,
     /* Through deriveAvailability like every other seeker-facing path, so the
        tenant's renewal intent is turned into a public signal in exactly one

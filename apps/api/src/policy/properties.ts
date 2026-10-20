@@ -1,6 +1,7 @@
 import { and, count, eq, inArray, isNull, sql } from 'drizzle-orm';
 import {
   deriveAvailability,
+  israelToday,
   type OwnerProperty,
   type PropertyView,
   type PublicProperty,
@@ -9,6 +10,8 @@ import {
 import { db, schema as s } from '../db/client.ts';
 import { OPEN_TICKET_STATUSES } from './constants.ts';
 import { scopeFor, type Viewer } from './viewer.ts';
+import { publicLocation } from './address.ts';
+import { fileLinks } from '../storage/files.ts';
 
 /**
  * The one place a property row becomes something a caller can see.
@@ -52,7 +55,7 @@ function publicPart(ctx: PropertyContext): Omit<PublicProperty, 'scope'> {
     floor: property.floor,
     totalFloors: property.totalFloors,
     amenities: property.amenities,
-    photos: property.photos,
+    photos: fileLinks(property.photos),
     monthlyRentAgorot: property.monthlyRentAgorot,
     arnonaBimonthlyAgorot: property.arnonaBimonthlyAgorot,
     vaadMonthlyAgorot: property.vaadMonthlyAgorot,
@@ -100,6 +103,7 @@ export function projectProperty(viewer: Viewer, ctx: PropertyContext): PropertyV
       scope: 'owner',
       status: ctx.property.status,
       listed: ctx.property.listed,
+      showExactAddress: ctx.property.showExactAddress,
       notes: ctx.property.notes,
       lease: ctx.lease ? leaseTerms(ctx.lease) : null,
       tenant: ctx.tenant ? contact(ctx.tenant) : null,
@@ -122,7 +126,12 @@ export function projectProperty(viewer: Viewer, ctx: PropertyContext): PropertyV
 
   /* Public. There is no `tenant`, `lease`, `notes` or `status` key to forget
      to remove, because the shape does not have them. */
-  const anyone: PublicProperty = { ...base, scope: 'public' };
+  const where = publicLocation(ctx.property);
+  const anyone: PublicProperty = {
+    ...base,
+    address: { ...base.address, number: where.number, lat: where.lat, lng: where.lng },
+    scope: 'public',
+  };
   return anyone;
 }
 
@@ -139,7 +148,7 @@ export async function loadPropertyContexts(
 ): Promise<PropertyContext[]> {
   if (properties.length === 0) return [];
   const ids = properties.map((p) => p.id);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = israelToday();
 
   const privileged = properties.filter((p) => scopeFor(viewer, p.id) !== 'public').map((p) => p.id);
 
@@ -176,7 +185,23 @@ export async function loadPropertyContexts(
       : Promise.resolve([]),
   ]);
 
-  const leaseByProperty = new Map(leases.map((l) => [l.propertyId, l]));
+  /* A unit can hold two live leases at once — the tenant living there and
+     the one invited to follow. Which of them a row shows depends on who is
+     asking: a tenant sees their own lease and never the other person's terms;
+     everyone else sees the lease in force today, or failing that the next. */
+  const leasesByProperty = new Map<string, LeaseRow[]>();
+  for (const l of leases) {
+    const list = leasesByProperty.get(l.propertyId) ?? [];
+    list.push(l);
+    leasesByProperty.set(l.propertyId, list);
+  }
+  const leaseFor = (propertyId: string): LeaseRow | null =>
+    pickLease(leasesByProperty.get(propertyId) ?? [], today, scopeFor(viewer, propertyId) === 'tenant' ? viewer.userId : null);
+  const leaseByProperty = new Map<string, LeaseRow>();
+  for (const id of ids) {
+    const lease = leaseFor(id);
+    if (lease) leaseByProperty.set(id, lease);
+  }
   const queueByProperty = new Map(queueRows.map((r) => [r.propertyId, r.n]));
   const ticketsByProperty = new Map(ticketRows.map((r) => [r.propertyId, r.n]));
 
@@ -211,4 +236,23 @@ export async function loadPropertyContexts(
       openTicketCount: ticketsByProperty.get(property.id) ?? 0,
     };
   });
+}
+
+/**
+ * The lease a row should show. HUMAN REVIEW: for a tenant this decides whose
+ * terms they read.
+ *
+ * With tenantId: only that tenant's leases are candidates. Then: the lease in
+ * force today (latest start wins if several), else the earliest upcoming one.
+ */
+export function pickLease(leases: LeaseRow[], today: string, tenantId: string | null): LeaseRow | null {
+  const candidates = tenantId ? leases.filter((l) => l.tenantId === tenantId) : leases;
+  const current = candidates
+    .filter((l) => l.startDate <= today && l.endDate >= today)
+    .sort((a, b) => b.startDate.localeCompare(a.startDate));
+  if (current[0]) return current[0];
+  const upcoming = candidates
+    .filter((l) => l.startDate > today)
+    .sort((a, b) => a.startDate.localeCompare(b.startDate));
+  return upcoming[0] ?? null;
 }

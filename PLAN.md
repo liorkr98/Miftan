@@ -55,8 +55,8 @@ npm test                             # every workspace
 ```
 
 Seeded accounts share the password `miftan-dev-2026`:
-`ran@almog-nadlan.co.il` (owner), `michal.stern@gmail.com` (tenant),
-`tal.aviram@gmail.com` (seeker).
+`ran@demo.baalabait.invalid` (owner), `michal.stern@demo.baalabait.invalid` (tenant),
+`tal.aviram@demo.baalabait.invalid` (seeker).
 
 `packages/shared` is the point: `types/index.ts`, `i18n/he.ts`, `lib/format.ts`
 and `lib/screening.ts` are platform-agnostic TypeScript today. The API and the

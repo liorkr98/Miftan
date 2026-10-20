@@ -29,6 +29,13 @@ import type {
   TemplateView,
   RenderedContract,
   UpdatePropertyInput,
+  CreateInviteInput,
+  RecordLeaseInput,
+  MarkRentPaidInput,
+  CreatedInvite,
+  InvitePreview,
+  OwnerInvite,
+  NotificationFeed,
 } from '@miftan/shared';
 
 /* Shapes the client assembles from an endpoint rather than importing whole. */
@@ -51,6 +58,7 @@ type ReviewBundle = {
 };
 import { api } from './client';
 import { keys } from './query';
+import { prepareForUpload } from '@/lib/image';
 
 /**
  * Every server read and write the app makes.
@@ -132,6 +140,15 @@ export function useExpenses(propertyId?: string) {
   return useQuery({
     queryKey: keys.expenses(propertyId),
     queryFn: () => api.request<{ expenses: ExpenseView[]; totalAgorot: number }>(`/expenses${query}`),
+  });
+}
+
+export function useMarkRentPaid() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...body }: { id: string } & MarkRentPaidInput) =>
+      api.request<RentPaymentView>(`/rent-payments/${id}/paid`, { method: 'POST', body: JSON.stringify(body) }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['rent-payments'] }),
   });
 }
 
@@ -260,12 +277,14 @@ export function usePostMessage() {
  * API at all, so a phone full of leak photos does not become our bandwidth bill.
  */
 export async function uploadFile(
-  file: File,
-  folder: 'tickets' | 'receipts' | 'protocol' | 'properties',
+  original: File,
+  folder: 'tickets' | 'receipts' | 'protocol' | 'properties' | 'contracts',
 ): Promise<string> {
+  /* Resized, and stripped of EXIF — including GPS — before it leaves the phone. */
+  const file = await prepareForUpload(original);
   const target = await api.request<{ uploadUrl: string; publicUrl: string }>('/uploads/sign', {
     method: 'POST',
-    body: JSON.stringify({ folder, filename: file.name, contentType: file.type }),
+    body: JSON.stringify({ folder, filename: file.name, contentType: file.type, size: file.size }),
   });
 
   const res = await fetch(target.uploadUrl, {
@@ -760,5 +779,110 @@ export function useWriteReview() {
     mutationFn: (body: Record<string, unknown>) =>
       api.request<ReviewView>('/reviews', { method: 'POST', body: JSON.stringify(body) }),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['reviews'] }),
+  });
+}
+
+/* ── Tenant invites ───────────────────────────────────── */
+
+export function useInvites(propertyId: string) {
+  return useQuery({
+    queryKey: keys.invites(propertyId),
+    queryFn: () => api.request<{ invites: OwnerInvite[] }>(`/properties/${propertyId}/invites`),
+    select: (data) => data.invites,
+    enabled: Boolean(propertyId),
+  });
+}
+
+export function useCreateInvite(propertyId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: CreateInviteInput) =>
+      api.request<CreatedInvite>(`/properties/${propertyId}/invites`, { method: 'POST', body: JSON.stringify(body) }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: keys.invites(propertyId) }),
+  });
+}
+
+/** The whole ordered list: the first photo is the cover. */
+export function useSetPropertyPhotos(propertyId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (photos: string[]) =>
+      api.request<PropertyView>(`/properties/${propertyId}/photos`, { method: 'PUT', body: JSON.stringify({ photos }) }),
+    onSuccess: (property) => {
+      qc.setQueryData(keys.property(property.id), property);
+      void qc.invalidateQueries({ queryKey: keys.properties });
+    },
+  });
+}
+
+export function useRecordLease(propertyId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: RecordLeaseInput) =>
+      api.request<{ leaseId: string }>(`/properties/${propertyId}/leases`, { method: 'POST', body: JSON.stringify(body) }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: keys.properties });
+      void qc.invalidateQueries({ queryKey: keys.property(propertyId) });
+    },
+  });
+}
+
+export function useRevokeInvite(propertyId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.request<{ ok: true }>(`/invites/${id}`, { method: 'DELETE' }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: keys.invites(propertyId) }),
+  });
+}
+
+/** Public: works signed out, because the person holding the link may not have an account yet. */
+export function useInvitePreview(token: string) {
+  return useQuery({
+    queryKey: keys.invitePreview(token),
+    queryFn: () => api.request<InvitePreview>(`/join/${encodeURIComponent(token)}`),
+    enabled: Boolean(token),
+  });
+}
+
+export function useAcceptInvite() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (token: string) =>
+      api.request<{ propertyId: string; leaseId: string }>(`/join/${encodeURIComponent(token)}/accept`, {
+        method: 'POST',
+      }),
+    onSuccess: () => {
+      /* The account just became a tenant: its properties and its roles change. */
+      void qc.invalidateQueries({ queryKey: keys.properties });
+      void qc.invalidateQueries({ queryKey: keys.me });
+    },
+  });
+}
+
+/* ── Notifications ────────────────────────────────────── */
+
+/** Polled once a minute while the app is open; there is no push yet. */
+export function useNotifications() {
+  return useQuery({
+    queryKey: keys.notifications,
+    queryFn: () => api.request<NotificationFeed>('/notifications'),
+    refetchInterval: 60_000,
+  });
+}
+
+export function useMarkNotificationsSeen() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.request<{ ok: true }>('/notifications/seen', { method: 'POST' }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: keys.notifications }),
+  });
+}
+
+/* ── Onboarding ───────────────────────────────────────── */
+
+export function useDismissOnboarding() {
+  return useMutation({
+    mutationFn: (role: 'owner' | 'tenant' | 'seeker') =>
+      api.request<{ ok: true }>('/me/onboarding/dismiss', { method: 'POST', body: JSON.stringify({ role }) }),
   });
 }

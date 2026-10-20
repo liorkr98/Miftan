@@ -1,7 +1,7 @@
 import * as React from 'react';
-import { MapContainer, Marker, TileLayer, useMap } from 'react-leaflet';
+import { MapContainer, Marker, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { formatDateShort, formatMoneyShort } from '@miftan/shared';
+import { formatDateShortYear, formatMoneyShort } from '@miftan/shared';
 import type { AvailabilityKind } from '@/data/selectors';
 import { AVAILABILITY_COLOR } from './status';
 
@@ -86,6 +86,105 @@ function KeepSized() {
   return null;
 }
 
+/**
+ * The basemap. OpenStreetMap's own tile server does not allow commercial use,
+ * so the map is drawn from OpenFreeMap's vector tiles (free, no key,
+ * commercial use allowed) by MapLibre, inside the existing Leaflet map so the
+ * pins stay as they are. Labels are switched to their Hebrew names where OSM
+ * has one, and the RTL plugin shapes them. Everything here is loaded only
+ * when a map is actually shown.
+ */
+const STYLE_URL = 'https://tiles.openfreemap.org/styles/positron';
+const ATTRIBUTION =
+  '<a href="https://openfreemap.org" target="_blank" rel="noreferrer">OpenFreeMap</a> © <a href="https://www.openmaptiles.org/" target="_blank" rel="noreferrer">OpenMapTiles</a> · נתונים © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">תורמי OpenStreetMap</a>';
+
+/* OpenStreetMap's own tiles: the fallback only, never the main basemap. */
+function rasterFallback() {
+  return L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    maxZoom: 19,
+  });
+}
+
+function VectorBasemap() {
+  const map = useMap();
+  React.useEffect(() => {
+    let layer: L.Layer | null = null;
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const [maplibregl, worker, rtl, adapter] = await Promise.all([
+          import('maplibre-gl'),
+          /* MapLibre 6 does its tile work in a separate worker file, which a
+             bundler does not emit on its own; without telling MapLibre where
+             the bundled one is, the worker fails to load and the map stays
+             blank. */
+          import('maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'),
+          import('rtl-text-plugin?url'),
+          import('@maplibre/maplibre-gl-leaflet'),
+          import('maplibre-gl/dist/maplibre-gl.css'),
+        ]);
+        if (cancelled) return;
+        maplibregl.setWorkerUrl(worker.default);
+        if (maplibregl.getRTLTextPluginStatus() === 'unavailable') {
+          void maplibregl.setRTLTextPlugin(rtl.default, true).catch(() => undefined);
+        }
+
+        /* The adapter's own export, not L.maplibreGL: it only attaches itself
+           to Leaflet when the bundled Leaflet object allows it, and in this
+           build it did not — the layer was never created and the map stayed
+           blank. */
+        type GlLayer = L.Layer & { getMaplibreMap(): import('maplibre-gl').Map };
+        const factory = (adapter.maplibreGL ?? adapter.default) as (o: object) => GlLayer;
+        const gl = factory({ style: STYLE_URL, attribution: ATTRIBUTION, interactive: false });
+        gl.addTo(map);
+        layer = gl;
+
+        const glMap = gl.getMaplibreMap();
+
+        /* If the style itself never arrives, show the plain map rather than an
+           empty frame. Only the style counts: tiles and fonts can take a few
+           seconds on a first visit, and the vector map must not be swapped
+           out while it is simply still drawing. */
+        let styled = false;
+        glMap.once('styledata', () => {
+          styled = true;
+        });
+        window.setTimeout(() => {
+          if (cancelled || styled) return;
+          console.error('vector basemap style did not load, using raster');
+          map.removeLayer(gl);
+          layer = rasterFallback().addTo(map);
+        }, 15_000);
+        glMap.once('styledata', () => {
+          for (const styleLayer of glMap.getStyle().layers ?? []) {
+            if (styleLayer.type !== 'symbol') continue;
+            if (!glMap.getLayoutProperty(styleLayer.id, 'text-field')) continue;
+            glMap.setLayoutProperty(styleLayer.id, 'text-field', [
+              'coalesce',
+              ['get', 'name:he'],
+              ['get', 'name'],
+            ]);
+          }
+        });
+      } catch (err) {
+        /* No WebGL, a blocked worker, a failed download: a plain map beats a
+           blank one. OpenStreetMap's tiles are the fallback only. */
+        console.error('vector basemap failed, using raster', err);
+        if (cancelled) return;
+        layer = rasterFallback().addTo(map);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      layer?.remove();
+    };
+  }, [map]);
+  return null;
+}
+
 /** Keeps the viewport in step with the filtered result set. */
 function FitBounds({ listings }: { listings: MapListing[] }) {
   const map = useMap();
@@ -128,11 +227,7 @@ export function ResultsMap({
       className={className}
       style={{ background: 'var(--color-surface-sunk)' }}
     >
-      <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-        url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-        maxZoom={19}
-      />
+      <VectorBasemap />
       <KeepSized />
       <FitBounds listings={listings} />
       {listings.map((listing) => (
@@ -142,13 +237,68 @@ export function ResultsMap({
           icon={pinIcon(
             listing.availabilityKind,
             formatMoneyShort(listing.monthlyRentShekels),
-            listing.availableDate ? formatDateShort(listing.availableDate) : undefined,
+            listing.availableDate ? formatDateShortYear(listing.availableDate) : undefined,
             activeId === listing.id,
           )}
           eventHandlers={{ click: () => onSelect(listing.id) }}
           zIndexOffset={activeId === listing.id ? 1000 : listing.availabilityKind === 'dated' ? 500 : 0}
         />
       ))}
+    </MapContainer>
+  );
+}
+
+/**
+ * A single pin the owner can drag onto the right building.
+ *
+ * The address lookup is good, not perfect: a new street, a house number OSM
+ * does not have, or two buildings sharing a number land the pin nearby
+ * rather than on it. Dragging fixes that in one move. The pin is a plain dot
+ * rather than Leaflet's image marker, whose icon files do not survive
+ * bundling.
+ */
+const PICKER_ICON = L.divIcon({
+  className: 'miftan-pin',
+  html: `<div style="transform:translate(-50%,-50%);width:22px;height:22px;border-radius:999px;
+                     background:var(--color-ink);border:3px solid #fff;
+                     box-shadow:0 2px 8px rgb(0 0 0 / .35);cursor:grab"></div>`,
+  iconSize: [0, 0],
+  iconAnchor: [0, 0],
+});
+
+export function PinPicker({
+  lat,
+  lng,
+  onMove,
+  className,
+}: {
+  lat: number;
+  lng: number;
+  onMove: (point: { lat: number; lng: number }) => void;
+  className?: string;
+}) {
+  return (
+    <MapContainer
+      center={[lat, lng]}
+      zoom={17}
+      fadeAnimation={false}
+      scrollWheelZoom={false}
+      className={className}
+      style={{ background: 'var(--color-surface-sunk)' }}
+    >
+      <VectorBasemap />
+      <KeepSized />
+      <Marker
+        position={[lat, lng]}
+        icon={PICKER_ICON}
+        draggable
+        eventHandlers={{
+          dragend: (e) => {
+            const { lat: la, lng: ln } = (e.target as L.Marker).getLatLng();
+            onMove({ lat: Number(la.toFixed(6)), lng: Number(ln.toFixed(6)) });
+          },
+        }}
+      />
     </MapContainer>
   );
 }

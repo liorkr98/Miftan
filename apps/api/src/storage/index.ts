@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
-import { extname, join, resolve } from 'node:path';
+import { join, resolve, sep } from 'node:path';
 import { ApiError } from '@miftan/shared';
-import { assertUploadable, type StorageDriver } from './contract.ts';
+import { EXTENSION, assertSize, assertUploadable, type StorageDriver, type UploadRequest } from './contract.ts';
 import { env } from '../lib/env.ts';
 import { r2FromEnv } from './r2.ts';
 
@@ -30,9 +30,10 @@ export * from './contract.ts';
 class LocalDiskDriver implements StorageDriver {
   #root = resolve(process.cwd(), 'uploads');
 
-  async createUpload(input: { folder: string; filename: string; contentType: string }) {
+  async createUpload(input: UploadRequest) {
     assertUploadable(input.contentType);
-    const key = `${input.folder}/${randomUUID()}${extname(input.filename) || ''}`;
+    assertSize(input.size);
+    const key = `${input.folder}/${randomUUID()}${EXTENSION[input.contentType] ?? ''}`;
     await mkdir(join(this.#root, input.folder), { recursive: true });
     const base = `http://127.0.0.1:${env.PORT}`;
     return {
@@ -46,7 +47,7 @@ class LocalDiskDriver implements StorageDriver {
   async write(key: string, body: Buffer): Promise<void> {
     const target = resolve(this.#root, key);
     /* Refuse anything that escapes the uploads directory. */
-    if (!target.startsWith(this.#root)) throw new ApiError('validation_failed', 'bad key');
+    if (!target.startsWith(this.#root + sep)) throw new ApiError('validation_failed', 'bad key');
     await mkdir(resolve(target, '..'), { recursive: true });
     await writeFile(target, body);
   }
@@ -70,7 +71,7 @@ export function createStorage(): StorageDriver {
        than refusing to boot. */
     throw new Error(
       'No production storage driver configured. Set R2_ACCOUNT_ID, R2_BUCKET, ' +
-        'R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY and R2_PUBLIC_URL.',
+        'R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY.',
     );
   }
   return localDriver;

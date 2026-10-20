@@ -1,12 +1,13 @@
 import * as React from 'react';
-import { Link, Navigate, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useLocation } from 'react-router-dom';
 import { ApiError, APP_NAME, t } from '@miftan/shared';
 import { useAuth } from '@/api/auth';
 import { homeFor } from './guard';
 import { rolesFor } from './role-switcher';
 import { Button } from '@/components/ui/button';
 import { Checkbox, Field, Input } from '@/components/ui/field';
-import { DoorOpen, UserPlus } from 'lucide-react';
+import { UserPlus } from 'lucide-react';
+import { Wordmark } from '@/components/shared/wordmark';
 
 const MIN_PASSWORD = 10;
 
@@ -21,8 +22,10 @@ const MIN_PASSWORD = 10;
  * either trust or ignore, and both are worse than deriving it.
  */
 export function SignUp() {
-  const navigate = useNavigate();
+  const location = useLocation();
   const { signUp, user, capabilities, restoring } = useAuth();
+  /* An invite link sends people here with somewhere to come back to. */
+  const from = (location.state as { from?: string } | null)?.from;
 
   const [name, setName] = React.useState('');
   const [email, setEmail] = React.useState('');
@@ -31,9 +34,10 @@ export function SignUp() {
   const [acceptedTerms, setAcceptedTerms] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
+  const [sent, setSent] = React.useState(false);
 
   if (user && !restoring) {
-    return <Navigate to={homeFor(rolesFor(capabilities))} replace />;
+    return <Navigate to={from ?? homeFor(rolesFor(capabilities))} replace />;
   }
 
   const tooShort = password.length > 0 && password.length < MIN_PASSWORD;
@@ -59,7 +63,7 @@ export function SignUp() {
         password,
         acceptedTerms: true,
       });
-      navigate('/', { replace: true });
+      setSent(true);
     } catch (err) {
       setError(
         err instanceof ApiError
@@ -74,14 +78,13 @@ export function SignUp() {
   return (
     <div className="grid min-h-dvh place-items-center bg-surface px-4 py-10">
       <div className="w-full max-w-sm">
-        <header className="mb-6 flex items-center gap-3">
-          <span className="grid size-10 place-items-center rounded-[var(--radius-control)] bg-ink text-on-ink">
-            <DoorOpen className="size-5" aria-hidden />
-          </span>
-          <div>
-            <h1 className="text-xl font-extrabold text-ink">{APP_NAME}</h1>
-            <p className="text-xs text-muted">{t.auth.signUpSubtitle}</p>
-          </div>
+        <header className="mb-6">
+          <h1>
+            <Link to="/" aria-label={APP_NAME}>
+              <Wordmark size="lg" />
+            </Link>
+          </h1>
+          <p className="mt-1.5 text-xs text-muted">{t.auth.signUpSubtitle}</p>
         </header>
 
         <form
@@ -89,6 +92,12 @@ export function SignUp() {
           className="rounded-[var(--radius-panel)] border border-line bg-bg p-5 shadow-sm"
         >
           <h2 className="mb-4 text-base font-bold text-ink">{t.auth.signUpTitle}</h2>
+          {sent ? (
+            <p role="status" className="text-sm font-semibold text-ink">
+              {t.auth.checkInbox}
+            </p>
+          ) : (
+          <>
 
           <div className="grid gap-3.5">
             <Field label={t.auth.name}>
@@ -185,6 +194,8 @@ export function SignUp() {
           </Button>
 
           <p className="mt-3 text-2xs leading-relaxed text-muted">{t.auth.roleNote}</p>
+          </>
+          )}
         </form>
 
         <p className="mt-4 text-center text-xs text-muted">

@@ -1,5 +1,6 @@
 import type { Property, SeasonalTaskTemplate, TicketCategory } from '../types';
 import { seasonalTemplates } from '../catalog/seasonal-templates';
+import { israelToday } from './time';
 
 /**
  * When preventive work is due, and what skipping it is actually worth.
@@ -22,9 +23,12 @@ export function appliesTo(template: SeasonalTaskTemplate, property: Pick<Propert
  * look overdue on April 2nd.
  */
 export function nextDueDate(template: SeasonalTaskTemplate, from = new Date()): string {
-  let due = new Date(from.getFullYear(), template.due_month - 1, 15);
-  if (due < from) due = new Date(from.getFullYear() + 1, template.due_month - 1, 15);
-  return due.toISOString().slice(0, 10);
+  const today = israelToday(from);
+  const year = Number(today.slice(0, 4));
+  const month = String(template.due_month).padStart(2, '0');
+  const candidate = `${year}-${month}-15`;
+  if (candidate < today) return `${year + 1}-${month}-15`;
+  return candidate;
 }
 
 /**

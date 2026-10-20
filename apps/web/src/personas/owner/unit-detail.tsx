@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useStore } from '@/data/store';
 import {
   t,
@@ -34,6 +34,7 @@ import {
 import { DepartureTrack } from '@/components/shared/departure-track';
 import { ProtocolPanel } from '@/components/shared/protocol';
 import { OfferRail } from '@/components/shared/revenue';
+import { InviteCard } from './invite-card';
 import { Money, Num, PageHeader, Phone, SectionTitle } from '@/components/shared/typography';
 import { EmptyState } from '@/components/shared/empty-state';
 import { ErrorState } from '@/components/shared/error-state';
@@ -60,13 +61,19 @@ import {
   Receipt,
   Users,
   Wrench,
+  Pencil,
+  Share2,
 } from 'lucide-react';
+import { PropertyFormDialog } from './property-form';
+import { PhotoManager } from './photo-manager';
 
 function amenityLabel(key: string): string {
   return key in t.amenity ? t.amenity[key as Amenity] : key;
 }
 
 export function OwnerUnitDetail() {
+  /* ?tab=lease lets the properties list link straight to the invite. */
+  const [searchParams] = useSearchParams();
   const { id = '' } = useParams();
   const navigate = useNavigate();
   const { data: property, isLoading, isError, refetch } = useProperty(id);
@@ -74,10 +81,15 @@ export function OwnerUnitDetail() {
   const { data: leads = [] } = useLeads(id);
   const { data: expenseData } = useExpenses(id);
   const updateProperty = useUpdateProperty();
+  const [editOpen, setEditOpen] = React.useState(false);
+  const pushToast = useStore((s) => s.pushToast);
 
   const owned = property?.scope === 'owner' ? property : undefined;
   const unitTickets = tickets.filter((tk): tk is TicketView & { scope: 'owner' } => tk.scope === 'owner');
-  const unitLeads = leads.filter((l): l is OwnerLead => l.scope === 'owner');
+  /* Ranked by screening score — there is no queue order. */
+  const unitLeads = leads
+    .filter((l): l is OwnerLead => l.scope === 'owner')
+    .sort((a, b) => b.score - a.score);
   const unitExpenses = [...(expenseData?.expenses ?? [])].sort((a, b) => b.date.localeCompare(a.date));
 
   if (isError) return <ErrorState onRetry={() => void refetch()} />;
@@ -139,6 +151,31 @@ export function OwnerUnitDetail() {
                 />
                 {owned.listed ? t.unit.listedOn : t.unit.listedOff}
               </label>
+              <Button variant="secondary" onClick={() => setEditOpen(true)}>
+                <Pencil className="h-3.5 w-3.5" />
+                {t.properties.edit}
+              </Button>
+              {owned.listed ? (
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    /* The public page, which previews properly in WhatsApp. */
+                    const url = `${window.location.origin}/l/${owned.id}`;
+                    const text = `${owned.address.street} · ${url}`;
+                    if (navigator.share) {
+                      void navigator.share({ text, url }).catch(() => undefined);
+                    } else {
+                      void navigator.clipboard.writeText(url).then(
+                        () => pushToast(t.publicListing.shareCopied, 'success'),
+                        () => undefined,
+                      );
+                    }
+                  }}
+                >
+                  <Share2 className="h-3.5 w-3.5" />
+                  {t.publicListing.shareOwner}
+                </Button>
+              ) : null}
               <Button variant="secondary" onClick={() => navigate(`/search/${owned.id}`)}>
                 {t.unit.openInSearch}
               </Button>
@@ -146,6 +183,8 @@ export function OwnerUnitDetail() {
           }
         />
       </div>
+
+      <PropertyFormDialog open={editOpen} onOpenChange={setEditOpen} property={owned} />
 
       <div className="flex flex-wrap items-center gap-2">
         <UnitStatusBadge status={owned.status} />
@@ -167,7 +206,7 @@ export function OwnerUnitDetail() {
         />
       ) : null}
 
-      <Tabs defaultValue="details">
+      <Tabs defaultValue={searchParams.get('tab') ?? 'details'}>
         <TabsList>
           <TabsTrigger value="details">{t.unit.tabs.details}</TabsTrigger>
           <TabsTrigger value="lease">{t.unit.tabs.lease}</TabsTrigger>
@@ -221,21 +260,7 @@ function DetailsTab({ property }: { property: OwnerProperty }) {
 
   return (
     <>
-      {property.photos.length ? (
-        <div className="hide-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 sm:mx-0 sm:px-0">
-          {property.photos.map((src, i) => (
-            <img
-              key={src}
-              src={src}
-              alt=""
-              loading={i === 0 ? 'eager' : 'lazy'}
-              className="h-40 w-56 shrink-0 rounded-[var(--radius-card)] object-cover"
-            />
-          ))}
-        </div>
-      ) : (
-        <EmptyState title={t.unit.noPhotos} hint={t.unit.noPhotosHint} compact />
-      )}
+      <PhotoManager property={property} />
 
       <div className="grid gap-4 md:grid-cols-2">
         <section className="rounded-[var(--radius-card)] border border-line p-4">
@@ -287,7 +312,15 @@ function LeaseTab({ property }: { property: OwnerProperty }) {
 
   if (!lease) {
     return (
-      <EmptyState icon={FileText} title={t.unit.lease.noLease} hint={t.unit.lease.noLeaseHint} />
+      <div className="grid gap-4 md:grid-cols-2">
+        <EmptyState
+          icon={FileText}
+          title={t.unit.lease.noLease}
+          hint={t.unit.lease.noLeaseHint}
+          className="md:col-span-2"
+        />
+        <InviteCard property={property} />
+      </div>
     );
   }
 
@@ -387,6 +420,7 @@ function LeaseTab({ property }: { property: OwnerProperty }) {
         </div>
       </section>
 
+      <InviteCard property={property} />
       <OfferRail placement="lease" audience="owner" className="md:col-span-2" />
     </div>
   );
@@ -506,7 +540,7 @@ function LeadsTab({ property, leads }: { property: OwnerProperty; leads: OwnerLe
               >
                 <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-surface-sunk">
                   <Num board className="text-xs font-bold text-ink-soft">
-                    {lead.queuePosition}
+                    {lead.score}
                   </Num>
                 </span>
                 <span className="min-w-0 flex-1">

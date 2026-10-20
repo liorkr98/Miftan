@@ -47,11 +47,12 @@ import {
   ArrowRight,
   Bell,
   BellOff,
+  Check,
   Clock3,
   EyeOff,
   MapPinX,
   MessageCircleQuestion,
-  Ticket,
+  Send,
   Users,
 } from 'lucide-react';
 import { Field, Input, Textarea } from '@/components/ui/field';
@@ -143,22 +144,10 @@ export function SeekerListing() {
       until: property.availability.date ?? undefined,
       tone: AVAILABILITY_TONE[kind],
       confidence: property.availability.confidence,
-      marks: property.availability.date
-        ? [
-            {
-              at: property.availability.date,
-              kind: 'queue' as const,
-              label: reserved && mine
-                ? `${t.seeker.listing.yourPosition} ${mine.queuePosition}`
-                : t.seeker.search.inQueue,
-            },
-          ]
-        : [],
     },
   ];
 
   const seekerSlots = (viewing?.slots ?? []).filter((s): s is SeekerSlot => s.scope === 'seeker');
-  const queueLength = mine?.queueLength ?? property.queueCount;
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-4 sm:px-6">
@@ -290,49 +279,13 @@ export function SeekerListing() {
       ) : null}
 
       <section className="mt-5 rounded-[var(--radius-card)] border border-line p-4">
-        <SectionTitle
-          aside={
-            queueLength ? (
-              <span className="text-2xs text-muted">
-                <Num board className="font-bold text-ink">
-                  {queueLength}
-                </Num>{' '}
-                {t.seeker.listing.queueCount}
-              </span>
-            ) : null
-          }
-        >
-          {t.seeker.listing.queueTitle}
-        </SectionTitle>
-
-        {queueLength === 0 ? (
-          <p className="text-xs text-muted">
-            {t.seeker.listing.queueEmpty} — {t.seeker.listing.queueEmptyHint}
-          </p>
-        ) : (
-          <ol className="mb-3 flex flex-wrap gap-1.5">
-            {Array.from({ length: Math.min(queueLength, 12) }, (_, i) => i + 1).map((position) => {
-              const isMine = Boolean(reserved && mine && mine.queuePosition === position);
-              return (
-                <li
-                  key={position}
-                  className={cn(
-                    'grid h-7 w-7 place-items-center rounded-full text-2xs font-bold',
-                    isMine ? 'bg-ink text-on-ink' : 'bg-surface-sunk text-muted',
-                  )}
-                  title={isMine ? t.seeker.listing.yourPosition : t.seeker.search.inQueue}
-                >
-                  <Num board>{position}</Num>
-                </li>
-              );
-            })}
-          </ol>
-        )}
+        <SectionTitle>{t.seeker.listing.queueTitle}</SectionTitle>
 
         {reserved && mine ? (
           <div className="flex flex-wrap items-center gap-3">
             <Badge tone="openSoft" size="lg">
-              {t.seeker.listing.yourPosition}: <Num board>{mine.queuePosition}</Num>
+              <Check className="h-3.5 w-3.5" />
+              {t.seeker.listing.reserved}
             </Badge>
             <Button
               variant="secondary"
@@ -347,7 +300,7 @@ export function SeekerListing() {
         ) : (
           <div className="flex flex-wrap gap-2">
             <Button size="lg" loading={reserveQueue.isPending} onClick={() => onReserve(false)}>
-              <Ticket className="h-4 w-4" />
+              <Send className="h-4 w-4" />
               {t.seeker.listing.reserve}
             </Button>
             <Button

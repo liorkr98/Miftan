@@ -16,7 +16,10 @@ import { WANTED, type ContractExtractor, type ExtractionResult } from './index.t
  * quietly puts the wrong rent on a lease.
  */
 
-const HE_DIGITS = '[0-9,\\.]+';
+/* Bounded on purpose. An unbounded run made the match quadratic on a long
+   string of digits with no currency after it: a few hundred KB of text could
+   hold a request for minutes. No rent needs more than 15 characters. */
+const HE_DIGITS = '[0-9][0-9,\\.]{0,14}';
 
 /** ₪12,500 / 12,500 ש"ח / 12500 שקל */
 const MONEY = new RegExp(`(?:₪\\s*(${HE_DIGITS})|(${HE_DIGITS})\\s*(?:ש["״']?ח|שקלים?|₪))`);

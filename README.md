@@ -37,10 +37,10 @@ Password for every seeded account: `miftan-dev-2026`
 
 | Account | Email | Holds |
 |---|---|---|
-| Owner | `ran@almog-nadlan.co.il` | 22 properties |
-| Tenant | `michal.stern@gmail.com` | 1 lease |
-| Seeker | `tal.aviram@gmail.com` | queue rows only |
-| **All three** | `dana@miftan-demo.co.il` | owns 3, rents 1, queues for 2 |
+| Owner | `ran@demo.baalabait.invalid` | 22 properties |
+| Tenant | `michal.stern@demo.baalabait.invalid` | 1 lease |
+| Seeker | `tal.aviram@demo.baalabait.invalid` | queue rows only |
+| **All three** | `dana@demo.baalabait.invalid` | owns 3, rents 1, queues for 2 |
 
 Test with Dana. It is the only account that holds all three relationships.
 

@@ -21,7 +21,7 @@ import { seedId } from '../lib/ids.ts';
  * they demoed before — including his 22 units.
  */
 
-export const DEMO_EMAIL = 'dana@miftan-demo.co.il';
+export const DEMO_EMAIL = 'dana@demo.baalabait.invalid';
 export const DEMO_NAME = 'דנה לוי';
 
 const uid = (k: string) => seedId('user', k);
@@ -41,14 +41,14 @@ export async function seedDemoAccount(tx: Tx, passwordHash: string) {
     { id: dana, email: DEMO_EMAIL, phone: '0526640912', name: DEMO_NAME, passwordHash },
     {
       id: herLandlord,
-      email: 'oren.segev@miftan-demo.co.il',
+      email: 'oren.segev@demo.baalabait.invalid',
       phone: '0542218806',
       name: 'אורן שגב',
       passwordHash,
     },
     /* Two tenants for the flats Dana lets. */
-    { id: uid('demo-t1'), email: 'yael.avraham@miftan-demo.co.il', phone: '0503319947', name: 'יעל אברהם', passwordHash },
-    { id: uid('demo-t2'), email: 'omri.katz@miftan-demo.co.il', phone: '0547781162', name: 'עמרי כץ', passwordHash },
+    { id: uid('demo-t1'), email: 'yael.avraham@demo.baalabait.invalid', phone: '0503319947', name: 'יעל אברהם', passwordHash },
+    { id: uid('demo-t2'), email: 'omri.katz@demo.baalabait.invalid', phone: '0547781162', name: 'עמרי כץ', passwordHash },
   ]);
 
   /* ── Dana as owner: three flats, deliberately in three different states ── */

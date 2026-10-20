@@ -87,6 +87,9 @@
     --z-map-overlay: 25;
     --z-backdrop: 30;
     --z-modal: 40;
+    /* Menus open from inside dialogs too (a select in a lead card), so they
+       sit above the modal — at --z-dropdown they opened behind it. */
+    --z-popover: 45;
     --z-toast: 50;
     --z-tooltip: 60;
   }
@@ -97,6 +100,8 @@
 
   html {
     -webkit-text-size-adjust: 100%;
+    /* The grey tap flash competes with the press scale; the scale is the feedback. */
+    -webkit-tap-highlight-color: transparent;
   }
 
   body {
@@ -177,9 +182,13 @@
     transition-duration: 140ms !important;
   }
 
+  /* The scale goes; the confirmation that the press registered stays, as a
+     dim — reduced motion means gentler, not silent. */
   .press:active,
+  .press-sm:active,
   button:active {
     transform: none !important;
+    opacity: 0.82;
   }
 }
 
@@ -232,17 +241,28 @@
 @layer utilities {
   /* Press feedback. Every pressable surface gets this — it is the single
      cheapest thing that makes an interface feel like it is listening. */
-  .press {
-    transition: transform var(--dur-press) var(--ease-out);
+  /* Per emil-design-eng:
+     - the scale is the only movement, ease-out, inside 100–160ms;
+     - colour on hover is not movement, so it takes plain `ease`;
+     - timing is asymmetric: the press is the deliberate phase and takes the
+       full 160ms, the release is the system answering and snaps back in
+       110ms. Symmetric press-and-release reads as mechanical. */
+  .press,
+  .press-sm {
+    transition:
+      transform 110ms var(--ease-out),
+      background-color var(--dur-press) ease,
+      color var(--dur-press) ease,
+      border-color var(--dur-press) ease,
+      box-shadow var(--dur-press) ease,
+      opacity var(--dur-press) ease;
+  }
+  .press:active,
+  .press-sm:active {
+    transition-duration: 160ms, var(--dur-press), var(--dur-press), var(--dur-press), var(--dur-press), var(--dur-press);
   }
   .press:active {
     transform: scale(0.97);
-  }
-  /* Carries its own transition: it is used standalone far more often than
-     alongside `.press`, and without one the scale snaps in both directions —
-     which reads as a glitch rather than as the interface listening. */
-  .press-sm {
-    transition: transform var(--dur-press) var(--ease-out);
   }
   .press-sm:active {
     transform: scale(0.985);
@@ -302,23 +322,34 @@
 
   /* Radix popovers/menus scale from their trigger, not from the centre.
      Modals are exempt — they are not anchored to anything. */
+  /* Keyframes, not transitions, and on purpose. Radix mounts the content
+     already in data-state=open, so a transition has no "from" and the enter
+     never played; and Radix removes closed content at once unless a CSS
+     *animation* is running, so the exit never played either. Menus and
+     selects were appearing and vanishing with no motion at all. Radix waits
+     for animationend, so the exit now finishes before unmount. */
   .pop-anim {
     transform-origin: var(--radix-popover-content-transform-origin, var(--radix-select-content-transform-origin, center));
-    transition:
-      opacity var(--dur-menu) var(--ease-out),
-      transform var(--dur-menu) var(--ease-out);
-  }
-  .pop-anim[data-state='closed'] {
-    transition-duration: var(--dur-exit);
   }
   .pop-anim[data-state='open'] {
-    opacity: 1;
-    transform: scale(1);
+    animation: pop-in var(--dur-menu) var(--ease-out);
   }
   .pop-anim[data-state='closed'] {
-    opacity: 0;
-    /* Never from scale(0) — nothing in the world appears from nothing. */
-    transform: scale(0.96);
+    /* Exit faster than enter: the user has already decided. */
+    animation: pop-out var(--dur-exit) var(--ease-out) forwards;
+  }
+  @keyframes pop-in {
+    from {
+      opacity: 0;
+      /* Never from scale(0) — nothing in the world appears from nothing. */
+      transform: scale(0.96);
+    }
+  }
+  @keyframes pop-out {
+    to {
+      opacity: 0;
+      transform: scale(0.96);
+    }
   }
 
   /* Staggered list entry. Decorative, never blocks interaction. */
@@ -341,6 +372,25 @@
   to {
     opacity: 1;
     transform: none;
+  }
+}
+
+@keyframes sheet-out {
+  to {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+}
+
+@keyframes backdrop-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes backdrop-out {
+  to {
+    opacity: 0;
   }
 }
 

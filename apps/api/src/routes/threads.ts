@@ -14,6 +14,48 @@ import { db, schema as s } from '../db/client.ts';
 import { newId } from '../lib/ids.ts';
 import { resolveViewer, type Viewer } from '../policy/viewer.ts';
 
+/**
+ * An owner may open a conversation only with someone they already have a
+ * relationship with: a tenant on one of their leases, or a seeker who applied
+ * to one of their units. And a thread may only hang off their own ticket or
+ * lead. HUMAN REVIEW. Without this, any account could message any user whose
+ * id it learned, and read back that user's name.
+ */
+async function assertThreadLinks(
+  viewer: Viewer,
+  b: { counterpartyUserId?: string | null; ticketId?: string | null; leadId?: string | null },
+): Promise<void> {
+  const owned = [...viewer.ownedPropertyIds];
+  const refuse = () => {
+    throw new ApiError('not_found', 'no such counterparty');
+  };
+
+  if (b.ticketId) {
+    const [t] = await db.select({ p: s.tickets.propertyId }).from(s.tickets).where(eq(s.tickets.id, b.ticketId));
+    if (!t || !viewer.ownedPropertyIds.has(t.p)) refuse();
+  }
+  if (b.leadId) {
+    const [l] = await db.select({ p: s.leads.propertyId }).from(s.leads).where(eq(s.leads.id, b.leadId));
+    if (!l || !viewer.ownedPropertyIds.has(l.p)) refuse();
+  }
+  if (b.counterpartyUserId) {
+    if (owned.length === 0) refuse();
+    const uid = b.counterpartyUserId;
+    const [tenant] = await db
+      .select({ id: s.leases.id })
+      .from(s.leases)
+      .where(and(eq(s.leases.tenantId, uid), inArray(s.leases.propertyId, owned)))
+      .limit(1);
+    if (tenant) return;
+    const [seeker] = await db
+      .select({ id: s.leads.id })
+      .from(s.leads)
+      .where(and(eq(s.leads.seekerId, uid), inArray(s.leads.propertyId, owned)))
+      .limit(1);
+    if (!seeker) refuse();
+  }
+}
+
 type ThreadRow = typeof s.messageThreads.$inferSelect;
 type MessageRow = typeof s.threadMessages.$inferSelect;
 
@@ -120,6 +162,7 @@ export async function threadRoutes(app: FastifyInstance) {
       if (b.propertyId && !viewer.ownedPropertyIds.has(b.propertyId)) {
         throw new ApiError('not_found', 'no such property');
       }
+      await assertThreadLinks(viewer, b);
 
       /* A counterparty with an account is named from it; one without — a
          plumber, usually — has to be named explicitly. */

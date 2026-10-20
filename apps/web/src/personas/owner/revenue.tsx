@@ -106,7 +106,7 @@ export function OwnerRevenue() {
                 <span className="h-2.5 flex-1 overflow-hidden rounded-full bg-surface-sunk">
                   <span
                     className={cn(
-                      'block h-full rounded-full transition-[width] duration-500 ease-[var(--ease-out)]',
+                      'block h-full rounded-full transition-[width] duration-300 ease-[var(--ease-out)]',
                       i === 0 ? 'bg-ink' : 'bg-line-strong',
                     )}
                     style={{ width: `${(row.value / max) * 100}%` }}

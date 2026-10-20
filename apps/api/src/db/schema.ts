@@ -74,6 +74,16 @@ export const users = pgTable(
     /** argon2. Null while an account is invite-pending and has no password yet. */
     passwordHash: text('password_hash'),
     emailVerifiedAt: timestamp('email_verified_at', { withTimezone: true }),
+    /**
+     * What this account has paid for. 'free' until a billing provider says
+     * otherwise — and anything unrecognised is read as free, never as paid.
+     * There is no billing yet; the demo accounts are seeded as 'pro'.
+     */
+    plan: text('plan', { enum: ['free', 'pro'] }).notNull().default('free'),
+    /** Everything in the notification feed newer than this is unread. */
+    notificationsSeenAt: timestamp('notifications_seen_at', { withTimezone: true }),
+    /** Roles whose onboarding checklist this account has closed. */
+    onboardingDismissed: text('onboarding_dismissed').array().notNull().default([]),
     /** Set at registration. Required — the register route refuses to create
         an account without it, so this is never null for a real user; it stays
         nullable only because a handful of seeded rows predate the column. */
@@ -83,6 +93,41 @@ export const users = pgTable(
     deletedAt,
   },
   (t) => [uniqueIndex('users_email_key').on(t.email)],
+);
+
+/**
+ * One row marks a database as the demo. Seed and reset refuse to touch a
+ * database that has real accounts and does not carry `environment=demo`.
+ * Production never gets that row.
+ */
+export const appMeta = pgTable('app_meta', {
+  key: text('key').primaryKey(),
+  value: text('value').notNull(),
+});
+
+/**
+ * One-time tokens for reset, verify and email-change. Only a hash is stored,
+ * same as invites — a leaked table does not hand out working links.
+ */
+export const authTokens = pgTable(
+  'auth_tokens',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    purpose: text('purpose', { enum: ['reset', 'verify', 'email_change'] }).notNull(),
+    tokenHash: text('token_hash').notNull(),
+    /** New email, only for email_change. */
+    payload: text('payload'),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    usedAt: timestamp('used_at', { withTimezone: true }),
+    createdAt,
+  },
+  (t) => [
+    uniqueIndex('auth_tokens_hash_key').on(t.tokenHash),
+    index('auth_tokens_user_idx').on(t.userId),
+  ],
 );
 
 /**
@@ -144,6 +189,8 @@ export const properties = pgTable(
     availabilityConfidence: availabilityConfidence('availability_confidence').notNull().default('unknown'),
     /** Published to the seeker-facing search */
     listed: boolean('listed').notNull().default(false),
+    /** Public listing shows the house number and the exact pin. Off by default. */
+    showExactAddress: boolean('show_exact_address').notNull().default(false),
     notes: text('notes'),
 
     createdAt,
@@ -185,6 +232,41 @@ export const leases = pgTable(
     deletedAt,
   },
   (t) => [index('leases_property_idx').on(t.propertyId), index('leases_tenant_idx').on(t.tenantId)],
+);
+
+/**
+ * A link an owner sends to the person who will rent a unit.
+ *
+ * Nobody becomes a tenant by saying so. The lease terms are fixed by the owner
+ * when the invite is made; accepting it creates the lease with the accepting
+ * account as tenant. Only the SHA-256 of the token is stored — the link itself
+ * is shown once, and a lost link is replaced, not recovered.
+ */
+export const tenantInvites = pgTable(
+  'tenant_invites',
+  {
+    id: text('id').primaryKey(),
+    propertyId: text('property_id').notNull().references(() => properties.id),
+    createdBy: text('created_by').notNull().references(() => users.id),
+    tokenHash: text('token_hash').notNull(),
+    startDate: date('start_date').notNull(),
+    endDate: date('end_date').notNull(),
+    monthlyRentAgorot: integer('monthly_rent_agorot').notNull(),
+    depositAgorot: integer('deposit_agorot').notNull().default(0),
+    paymentMethod: paymentMethod('payment_method').notNull(),
+    /** Optional — for the owner's own list, never shown to anyone else */
+    tenantName: text('tenant_name'),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    acceptedAt: timestamp('accepted_at', { withTimezone: true }),
+    acceptedBy: text('accepted_by').references(() => users.id),
+    leaseId: text('lease_id').references(() => leases.id),
+    revokedAt: timestamp('revoked_at', { withTimezone: true }),
+    createdAt,
+  },
+  (t) => [
+    uniqueIndex('tenant_invites_token_hash_key').on(t.tokenHash),
+    index('tenant_invites_property_idx').on(t.propertyId),
+  ],
 );
 
 export const leaseGuarantors = pgTable('lease_guarantors', {

@@ -10,12 +10,13 @@ import {
   ticketActionSchema,
   ticketListSchema,
   ticketViewSchema,
+  israelToday,
   uploadReceiptSchema,
 } from '@miftan/shared';
 import { db, schema as s } from '../db/client.ts';
 import { newId } from '../lib/ids.ts';
 import { decideAutoApproval } from '../policy/budget.ts';
-import { resolveViewer, scopeFor, type Viewer } from '../policy/viewer.ts';
+import { resolveViewer, scopeFor, tenantMaySeeTicket, type Viewer } from '../policy/viewer.ts';
 import {
   loadTicketContexts,
   loadTicketOr404,
@@ -23,6 +24,7 @@ import {
   visiblePropertyIds,
 } from '../policy/tickets.ts';
 import { RECEIPT_ALLOWED_FROM, nextStatus, type TicketAction } from '../policy/ticket-state.ts';
+import { toStoredKey, toStoredKeys } from '../storage/files.ts';
 
 const viewerFor = (request: FastifyRequest): Promise<Viewer> => resolveViewer(request.currentUser!.id);
 
@@ -33,6 +35,9 @@ async function ticketFor(viewer: Viewer, ticketId: string) {
   if (!ticket) throw new ApiError('not_found', 'no such ticket');
   const scope = scopeFor(viewer, ticket.propertyId);
   if (scope === 'public') throw new ApiError('not_found', 'no such ticket');
+  if (scope === 'tenant' && !tenantMaySeeTicket(viewer, ticket)) {
+    throw new ApiError('not_found', 'no such ticket');
+  }
   return { ticket, scope };
 }
 
@@ -70,9 +75,14 @@ export async function ticketRoutes(app: FastifyInstance) {
         .where(and(inArray(s.tickets.propertyId, propertyIds), isNull(s.tickets.deletedAt)))
         .orderBy(desc(s.tickets.createdAt));
 
+      /* Owners see every ticket on what they own; a tenant sees only their
+         own period on the flat (tenantMaySeeTicket). */
+      const mine = rows.filter(
+        (t) => scopeFor(viewer, t.propertyId) === 'owner' || tenantMaySeeTicket(viewer, t),
+      );
       const open = request.query.open
-        ? rows.filter((t) => t.status !== 'closed')
-        : rows;
+        ? mine.filter((t) => t.status !== 'closed')
+        : mine;
 
       const contexts = await loadTicketContexts(open);
       return { tickets: contexts.map((ctx) => projectTicket(viewer, ctx)) };
@@ -131,7 +141,7 @@ export async function ticketRoutes(app: FastifyInstance) {
           status: decision.approved ? 'approved' : 'new',
           title,
           description,
-          photos,
+          photos: toStoredKeys(photos),
           tenantAvailability: availability.map((iso) => new Date(iso)),
           estimateAgorot: decision.estimateAgorot,
           autoApprovedAt: decision.approved ? new Date() : null,
@@ -150,7 +160,7 @@ export async function ticketRoutes(app: FastifyInstance) {
           authorUserId: viewer.userId,
           authorName: request.currentUser!.name,
           body: description || title,
-          photos,
+          photos: toStoredKeys(photos),
         });
       });
 
@@ -191,8 +201,20 @@ export async function ticketRoutes(app: FastifyInstance) {
             scheduledAt: scheduledAt ? [] : ['required'],
           });
         }
-        const [vendor] = await db.select().from(s.vendors).where(eq(s.vendors.id, vendorId));
-        if (!vendor) throw new ApiError('not_found', 'no such vendor');
+        const [vendor] = await db
+          .select()
+          .from(s.vendors)
+          .where(and(eq(s.vendors.id, vendorId), isNull(s.vendors.deletedAt)));
+        /* Only this owner's own vendors, or the shared directory (no owner).
+           Another landlord's private list — names and phone numbers — is not
+           this owner's to book, or to show their tenant. */
+        const [property] = await db
+          .select({ ownerId: s.properties.ownerId })
+          .from(s.properties)
+          .where(eq(s.properties.id, ticket.propertyId));
+        if (!vendor || (vendor.ownerId !== null && vendor.ownerId !== property?.ownerId)) {
+          throw new ApiError('not_found', 'no such vendor');
+        }
 
         patch.vendorId = vendorId;
         patch.scheduledAt = new Date(scheduledAt);
@@ -201,7 +223,38 @@ export async function ticketRoutes(app: FastifyInstance) {
         patch.tenantConfirmedSlot = false;
       }
 
-      await db.update(s.tickets).set(patch).where(eq(s.tickets.id, ticket.id));
+      /* Closing a ticket that carries a tenant's receipt is the owner accepting
+         it — and only then does it become an expense on the owner's books. */
+      const bookTenantReceipt =
+        action === 'close' &&
+        ticket.receiptAmountAgorot != null &&
+        ticket.receiptUploadedBy === 'tenant';
+
+      await db.transaction(async (tx) => {
+        await tx.update(s.tickets).set(patch).where(eq(s.tickets.id, ticket.id));
+        if (!bookTenantReceipt) return;
+        const [already] = await tx
+          .select({ id: s.expenses.id })
+          .from(s.expenses)
+          .where(eq(s.expenses.ticketId, ticket.id));
+        if (already) return;
+        const vendor = ticket.vendorId
+          ? (await tx.select().from(s.vendors).where(eq(s.vendors.id, ticket.vendorId)))[0]
+          : null;
+        await tx.insert(s.expenses).values({
+          id: newId('expense'),
+          propertyId: ticket.propertyId,
+          kind: 'maintenance',
+          category: ticket.category,
+          amountAgorot: ticket.receiptAmountAgorot!,
+          vendorId: ticket.vendorId,
+          vendorName: vendor?.name ?? null,
+          date: israelToday(),
+          ticketId: ticket.id,
+          receiptFile: ticket.receiptFile,
+          documentType: 'receipt',
+        });
+      });
       return respondWith(viewer, ticket.id);
     },
   );
@@ -266,6 +319,26 @@ export async function ticketRoutes(app: FastifyInstance) {
       }
 
       const { amountAgorot, file } = request.body;
+
+      /* A tenant's receipt is a claim, not an expense. HUMAN REVIEW: it waits on
+         the ticket for the owner, who books it by closing the ticket. Before,
+         a tenant could put any amount up to ₪1M straight into the owner's
+         books. */
+      if (scope === 'tenant') {
+        await db
+          .update(s.tickets)
+          .set({
+            status: 'awaiting_receipt',
+            receiptAmountAgorot: amountAgorot,
+            receiptFile: file ? toStoredKey(file) : null,
+            receiptUploadedAt: new Date(),
+            receiptUploadedBy: 'tenant',
+            updatedAt: new Date(),
+          })
+          .where(eq(s.tickets.id, ticket.id));
+        return respondWith(viewer, ticket.id);
+      }
+
       const vendor = ticket.vendorId
         ? (await db.select().from(s.vendors).where(eq(s.vendors.id, ticket.vendorId)))[0]
         : null;
@@ -276,7 +349,7 @@ export async function ticketRoutes(app: FastifyInstance) {
           .set({
             status: 'closed',
             receiptAmountAgorot: amountAgorot,
-            receiptFile: file,
+            receiptFile: file ? toStoredKey(file) : null,
             receiptUploadedAt: new Date(),
             receiptUploadedBy: scope,
             updatedAt: new Date(),
@@ -291,9 +364,9 @@ export async function ticketRoutes(app: FastifyInstance) {
           amountAgorot,
           vendorId: ticket.vendorId,
           vendorName: vendor?.name ?? null,
-          date: new Date().toISOString().slice(0, 10),
+          date: israelToday(),
           ticketId: ticket.id,
-          receiptFile: file,
+          receiptFile: file ? toStoredKey(file) : null,
           documentType: 'receipt',
         });
       });
@@ -323,7 +396,7 @@ export async function ticketRoutes(app: FastifyInstance) {
         authorUserId: viewer.userId,
         authorName: request.currentUser!.name,
         body: request.body.body,
-        photos: request.body.photos,
+        photos: toStoredKeys(request.body.photos),
       });
 
       return respondWith(viewer, ticket.id);

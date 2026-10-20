@@ -68,17 +68,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [queryClient],
   );
 
-  /* Registration signs you straight in — there is no email-confirmation step
-     to sit between opening an account and using it. */
-  const signUp = React.useCallback(
-    async (input: RegisterInput) => {
-      const result = await api.register(input);
-      setUser(result.user);
-      setCapabilities(result.capabilities);
-      await queryClient.invalidateQueries({ queryKey: keys.me });
-    },
-    [queryClient],
-  );
+  const signUp = React.useCallback(async (input: RegisterInput) => {
+    await api.register(input);
+  }, []);
 
   const signOut = React.useCallback(async () => {
     await api.logout();

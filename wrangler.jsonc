@@ -4,12 +4,25 @@
   "compatibility_date": "2026-08-01",
 
   /**
+   * A small Worker in front of the files, for one job: writing the preview
+   * card (og: tags) into public listing pages, which WhatsApp reads without
+   * running any JavaScript. Every other path goes straight to the files.
+   */
+  "main": "./apps/web/worker/index.js",
+  "vars": {
+    "API_URL": "https://miftan.fly.dev"
+  },
+
+  /**
    * Cloudflare ran `wrangler deploy` from the repository root and could not
    * work out which app in the workspace to ship. This file answers that: the
    * built web app, and nothing else.
    */
   "assets": {
     "directory": "./apps/web/dist",
+    "binding": "ASSETS",
+    /* Only the public listing pages reach the Worker. */
+    "run_worker_first": ["/l/*"],
     /**
      * The app is a single-page app with client-side routing. Without this,
      * every deep link — /owner/properties, /search/prop_x — would 404 on a

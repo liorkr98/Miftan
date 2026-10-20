@@ -7,7 +7,9 @@ import { rolesFor } from './role-switcher';
 import { Button } from '@/components/ui/button';
 import { Field, Input } from '@/components/ui/field';
 import { cn } from '@/lib/utils';
-import { DoorOpen, LogIn } from 'lucide-react';
+import { LogIn } from 'lucide-react';
+import { Wordmark } from '@/components/shared/wordmark';
+import { isDemoBuild } from '@/lib/demo';
 
 /**
  * Seeded accounts, so the three sides of the product are one click apart.
@@ -18,10 +20,10 @@ import { DoorOpen, LogIn } from 'lucide-react';
  * signing out twice and losing the thread each time.
  */
 const DEMO_ACCOUNTS = [
-  { role: t.roles.owner, email: 'ran@almog-nadlan.co.il', name: 'רן אלמוג', hint: t.roles.ownerHint },
-  { role: t.roles.tenant, email: 'michal.stern@gmail.com', name: 'מיכל שטרן', hint: null },
-  { role: t.roles.seeker, email: 'tal.aviram@gmail.com', name: 'טל אבירם', hint: null },
-  { role: t.roles.all, email: 'dana@miftan-demo.co.il', name: 'דנה לוי', hint: t.roles.allHint },
+  { role: t.roles.owner, email: 'ran@demo.baalabait.invalid', name: 'רן אלמוג', hint: t.roles.ownerHint },
+  { role: t.roles.tenant, email: 'michal.stern@demo.baalabait.invalid', name: 'מיכל שטרן', hint: null },
+  { role: t.roles.seeker, email: 'tal.aviram@demo.baalabait.invalid', name: 'טל אבירם', hint: null },
+  { role: t.roles.all, email: 'dana@demo.baalabait.invalid', name: 'דנה לוי', hint: t.roles.allHint },
 ];
 const DEMO_PASSWORD = 'miftan-dev-2026';
 
@@ -58,14 +60,13 @@ export function SignIn() {
   return (
     <div className="grid min-h-dvh place-items-center bg-surface px-4 py-10">
       <div className="w-full max-w-sm">
-        <div className="mb-6 flex items-center gap-2.5">
-          <span className="grid h-10 w-10 place-items-center rounded-[10px] bg-ink text-on-ink">
-            <DoorOpen className="h-5 w-5" strokeWidth={2.5} />
-          </span>
-          <div>
-            <h1 className="text-xl font-extrabold tracking-[-0.01em] text-ink">{APP_NAME}</h1>
-            <p className="text-2xs text-muted">{t.auth.subtitle}</p>
-          </div>
+        <div className="mb-6">
+          <h1>
+            <Link to="/" aria-label={APP_NAME}>
+              <Wordmark size="lg" />
+            </Link>
+          </h1>
+          <p className="mt-1.5 text-2xs text-muted">{t.auth.subtitle}</p>
         </div>
 
         <form
@@ -116,6 +117,11 @@ export function SignIn() {
           </Button>
 
           <p className="mt-3 text-center text-xs text-muted">
+            <Link to="/forgot" className="font-bold text-ink underline-offset-2 hover:underline">
+              {t.auth.forgot}
+            </Link>
+          </p>
+          <p className="mt-2 text-center text-xs text-muted">
             {t.auth.noAccount}{' '}
             <Link to="/sign-up" className="font-bold text-ink underline-offset-2 hover:underline">
               {t.auth.createOne}
@@ -123,7 +129,7 @@ export function SignIn() {
           </p>
         </form>
 
-        {import.meta.env.DEV ? (
+        {import.meta.env.DEV || isDemoBuild ? (
           <section className="mt-5">
             <h2 className="text-xs font-bold text-ink">{t.auth.demoTitle}</h2>
             <p className="mb-2 text-2xs text-muted">{t.auth.demoHint}</p>
@@ -140,7 +146,7 @@ export function SignIn() {
                   }}
                   className={cn(
                     'press-sm flex flex-col gap-0.5 rounded-[var(--radius-control)] border bg-bg px-3 py-2 text-start',
-                    'transition-[border-color,transform] duration-150 ease-[var(--ease-out)] hover:border-line-strong',
+                    'hover:border-line-strong',
                     /* The all-roles account is the odd one out, so it looks it
                        rather than hiding among three that behave differently. */
                     account.hint ? 'border-accent' : 'border-line',

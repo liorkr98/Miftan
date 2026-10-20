@@ -9,6 +9,7 @@ name: verify
 on:
   push:
   pull_request:
+  workflow_call:
 
 concurrency:
   group: verify-${{ github.ref }}
@@ -38,14 +39,19 @@ jobs:
       TEST_DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/miftan_test
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
 
       - run: npm ci
+
+      # Known-vulnerable runtime dependencies fail the build. Dev tooling is
+      # excluded: it never ships.
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
 
       - name: Typecheck
         run: npm run typecheck
@@ -53,8 +59,29 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      # On failure the last lines also go out as annotations, which can be
+      # read through the API without downloading the log.
       - name: Build
-        run: npm run build
+        run: |
+          npm run build > build.log 2>&1 || {
+            cat build.log
+            grep -iE 'error|fail|could not|cannot' build.log | grep -v '^    at ' | head -n 8 | sed 's/^/::error::/'
+            exit 1
+          }
+          cat build.log
 
       - name: Test
         run: npm test
+
+      # The seed is not covered by the tests, and a broken seed is only found
+      # the day someone resets the demo. Run it against a clean database here.
+      - name: Seed smoke test
+        run: |
+          npm run db:reset -w @miftan/api
+          npm run db:migrate -w @miftan/api
+          npm run db:seed -w @miftan/api
+        env:
+          DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/miftan_test
+          JWT_SECRET: seed-only-placeholder-that-is-long-enough-to-validate
+          DEMO_DATABASE: 'true'
+          CONFIRM_RESET: erase-demo-database

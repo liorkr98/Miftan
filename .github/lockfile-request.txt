@@ -1,0 +1,2 @@
+# GHSA-58mr-gqgx-xq4g, GHSA-qw65-cvwx-89v3 (high) in fast-uri, pulled in by fastify and ajv.
+update fast-uri

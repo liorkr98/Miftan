@@ -51,6 +51,12 @@ beforeEach(async () => {
     lat: '32.0651', lng: '34.7708', rooms: '3.5', sqm: 80, floor: 5, totalFloors: 6,
     monthlyRentAgorot: 1_040_000, status: 'occupied',
   });
+  /* The owner can only message someone they have a relationship with. */
+  await db.insert(s.leases).values({
+    id: newId('lease'), propertyId, tenantId: tenant.id,
+    startDate: '2026-01-01', endDate: '2027-12-31',
+    monthlyRentAgorot: 1_040_000, paymentMethod: 'bank_transfer',
+  });
 });
 
 const openThread = async (over: Record<string, unknown> = {}) => {
@@ -65,6 +71,16 @@ const openThread = async (over: Record<string, unknown> = {}) => {
   expect(res.statusCode).toBe(201);
   return res.json();
 };
+
+describe('who can be messaged', () => {
+  it('refuses a thread with a user the owner has no relationship with', async () => {
+    const res = await req('POST', '/threads', owner.token, {
+      subject: 'שלום', body: 'היי', counterpartyRole: 'tenant', counterpartyUserId: stranger.id,
+    });
+    expect(res.statusCode).toBe(404);
+    expect(JSON.stringify(res.json())).not.toContain('זר');
+  });
+});
 
 describe('a conversation', () => {
   it('shows each side the other person, not themselves', async () => {

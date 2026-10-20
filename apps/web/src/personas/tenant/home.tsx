@@ -11,6 +11,7 @@ import {
   type TrackRow,
 } from '@miftan/shared';
 import { useProperties, useTickets } from '@/api/hooks';
+import { Onboarding } from '@/components/shared/onboarding';
 import { DepartureTrack } from '@/components/shared/departure-track';
 import { OfferRail } from '@/components/shared/revenue';
 import { Money, Num, PageHeader, Phone, SectionTitle } from '@/components/shared/typography';
@@ -21,7 +22,7 @@ import { Badge } from '@/components/ui/badge';
 import { Meter } from '@/components/shared/meter';
 import { Skeleton } from '@/components/shared/skeleton';
 import { addMonths, parseISO, subDays } from 'date-fns';
-import { CalendarCheck2, FileText, KeyRound, ListChecks, Wrench } from 'lucide-react';
+import { CalendarCheck2, FileText, KeyRound, ListChecks, Star, Wrench } from 'lucide-react';
 
 /** Statuses that still want the tenant's attention. */
 const OPEN = ['new', 'approved', 'assigned', 'in_progress', 'awaiting_receipt'];
@@ -91,6 +92,7 @@ export function TenantHome() {
     { to: '/tenant/tickets', label: t.tenant.myTickets, Icon: ListChecks, count: openTickets.length },
     { to: '/tenant/renewal', label: t.tenant.renewal, Icon: CalendarCheck2 },
     { to: '/tenant/documents', label: t.tenant.documentsLink, Icon: FileText },
+    { to: '/tenant/reviews', label: t.tenantNav.reviews, Icon: Star },
   ];
 
   return (
@@ -98,6 +100,16 @@ export function TenantHome() {
       <PageHeader
         title={`${address.street} ${address.number}`}
         subtitle={`${address.neighborhood} · ${address.city}`}
+      />
+
+      <Onboarding
+        role="tenant"
+        steps={[
+          /* Having a flat here is the first step, and it is already done. */
+          { key: 'home', done: true, to: '/tenant/documents' },
+          { key: 'report', done: tickets.some((tk) => tk.scope === 'tenant'), to: '/tenant/report' },
+          { key: 'renewal', done: home.lease.renewalIntent !== null, to: '/tenant/renewal' },
+        ]}
       />
 
       {home.photos[0] ? (

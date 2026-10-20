@@ -1,0 +1,22 @@
+# Weekly dependency and action updates. Grouped so a week is one PR per
+# ecosystem, not twenty. CI (verify.yml) is the gate for each.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    # Major versions (TypeScript 7, React 19, a lucide 1.x rename…) change
+    # behaviour and need deliberate work, not a weekly bot PR. Security
+    # updates still arrive for every version.
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

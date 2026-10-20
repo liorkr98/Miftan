@@ -16,6 +16,7 @@ import {
   useRenderTemplate,
   useSaveTemplate,
   useScanContract,
+  uploadFile,
 } from '@/api/hooks';
 import { Num, PageHeader, SectionTitle } from '@/components/shared/typography';
 import { EmptyState } from '@/components/shared/empty-state';
@@ -45,6 +46,7 @@ import {
   Trash2,
   Upload,
 } from 'lucide-react';
+import { pdfText } from '@/lib/pdf-text';
 
 const SCAN_STEPS = [
   t.contracts.scanStep.upload,
@@ -67,6 +69,7 @@ export function OwnerContracts() {
   const { data: scans = [], isLoading, isError, refetch } = useContractScans();
   const { data: properties = [] } = useProperties();
   const scanContract = useScanContract();
+  const pushToast = useStore((s) => s.pushToast);
   const fileInput = React.useRef<HTMLInputElement>(null);
 
   const owned = properties.filter((p): p is OwnerProperty => p.scope === 'owner');
@@ -88,10 +91,40 @@ export function OwnerContracts() {
       t.contracts.fileNamePattern
         .replace('{street}', property?.address.street ?? '')
         .replace('{number}', property?.address.number ?? '');
-    const text = await file.text();
+    /* The lease file itself is kept (it is the signed document), and its
+       text is read in the browser to fill the lease. */
+    const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+    /* Reading and keeping the file are separate: a failed upload must not
+       stop the scan, and a failed read must not lose the file. */
+    const [read, stored] = await Promise.allSettled([
+      isPdf ? pdfText(file) : file.text(),
+      isPdf ? uploadFile(file, 'contracts') : Promise.resolve(null),
+    ]);
+    if (read.status === 'rejected') {
+      console.error('contract read failed', read.reason);
+      pushToast(t.contracts.readFailed, 'alert');
+      return;
+    }
+    if (stored.status === 'rejected') {
+      console.error('contract upload failed', stored.reason);
+      pushToast(t.contracts.uploadFailed, 'alert');
+    }
+    const text = read.value;
+    const fileUrl = stored.status === 'fulfilled' ? stored.value : null;
+    if (!text) {
+      pushToast(t.contracts.noText, 'alert');
+      return;
+    }
     scanContract.mutate(
-      { propertyId: unitId, fileName: name, text },
-      { onSuccess: (scan) => setActiveScanId(scan.id) },
+      { propertyId: unitId, fileName: name, fileUrl, text },
+      {
+        onSuccess: (scan) => setActiveScanId(scan.id),
+        /* It used to fail silently: nothing happened and nothing said why. */
+        onError: (err) => {
+          console.error('contract scan failed', err);
+          pushToast(t.contracts.scanFailed, 'alert');
+        },
+      },
     );
   };
 
@@ -138,7 +171,7 @@ export function OwnerContracts() {
                 <input
                   ref={fileInput}
                   type="file"
-                  accept=".txt,.pdf,.png,.jpg,.jpeg"
+                  accept=".pdf,application/pdf,.txt"
                   className="sr-only"
                   tabIndex={-1}
                   aria-hidden="true"
@@ -154,7 +187,6 @@ export function OwnerContracts() {
                   disabled={scanContract.isPending}
                   className={cn(
                     'press flex w-full flex-col items-center gap-2 rounded-[var(--radius-card)] border border-dashed border-line px-4 py-10',
-                    'transition-[border-color,background-color,transform] duration-150 ease-[var(--ease-out)]',
                     'hover:border-line-strong hover:bg-surface disabled:pointer-events-none disabled:opacity-50',
                   )}
                 >

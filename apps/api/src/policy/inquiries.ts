@@ -1,5 +1,5 @@
 import { and, desc, eq, inArray, isNull } from 'drizzle-orm';
-import type { InquiryView, OwnerInquiry, SeekerInquiry, TenantInquiry } from '@miftan/shared';
+import { israelToday, type InquiryView, type OwnerInquiry, type SeekerInquiry, type TenantInquiry } from '@miftan/shared';
 import { db, schema as s } from '../db/client.ts';
 import { scopeFor, type Viewer } from './viewer.ts';
 
@@ -84,7 +84,7 @@ export function projectInquiry(viewer: Viewer, ctx: InquiryContext): InquiryView
 /** The live tenant of a property, if there is one. */
 export async function currentTenants(propertyIds: string[]): Promise<Map<string, Contact>> {
   if (propertyIds.length === 0) return new Map();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = israelToday();
   const rows = await db
     .select({
       propertyId: s.leases.propertyId,

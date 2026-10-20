@@ -1,5 +1,12 @@
 import { ApiError, type ApiErrorBody, type ErrorCode } from './errors';
-import type { AuthResult, LoginInput, Me, RegisterInput } from './schemas';
+import type {
+  AuthResult,
+  ForgotPasswordInput,
+  LoginInput,
+  Me,
+  RegisterInput,
+  ResetPasswordInput,
+} from './schemas';
 
 /**
  * The typed client both the web app and any future wrapper use.
@@ -103,10 +110,31 @@ export class MiftanClient {
 
   /* ── Auth ────────────────────────────────────────────── */
 
-  async register(input: RegisterInput): Promise<AuthResult> {
-    const r = await this.request<AuthResult>('/auth/register', {
+  async register(input: RegisterInput): Promise<{ ok: true }> {
+    return this.request<{ ok: true }>('/auth/register', {
       method: 'POST',
       body: JSON.stringify(input),
+    }, false);
+  }
+
+  async forgotPassword(input: ForgotPasswordInput): Promise<{ ok: true }> {
+    return this.request<{ ok: true }>('/auth/forgot', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }, false);
+  }
+
+  async resetPassword(input: ResetPasswordInput): Promise<{ ok: true }> {
+    return this.request<{ ok: true }>('/auth/reset', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }, false);
+  }
+
+  async verifyEmail(token: string): Promise<AuthResult> {
+    const r = await this.request<AuthResult>('/auth/verify', {
+      method: 'POST',
+      body: JSON.stringify({ token }),
     }, false);
     this.#accessToken = r.accessToken;
     return r;

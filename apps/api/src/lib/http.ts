@@ -2,7 +2,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 import { ApiError } from '@miftan/shared';
 import { env, isProd } from './env.ts';
 
-export const REFRESH_COOKIE = 'miftan_rt';
+export const REFRESH_COOKIE = 'bb_rt';
 
 /**
  * httpOnly so no script can read it, SameSite from COOKIE_SAMESITE because the
@@ -29,6 +29,25 @@ export function readRefreshCookie(request: FastifyRequest): string {
   return token;
 }
 
+/**
+ * The caller's address, as the hosting platform saw it.
+ *
+ * Google Cloud Run's front end appends the address it received the request
+ * from to X-Forwarded-For, so the LAST entry is the one a caller cannot
+ * forge; anything before it was written by the caller. (Taking the first
+ * entry, as many examples do, lets anyone pick their own IP and walk around
+ * the rate limits.)
+ */
+export function clientIp(request: FastifyRequest): string {
+  const forwarded = request.headers['x-forwarded-for'];
+  const value = Array.isArray(forwarded) ? forwarded.join(',') : forwarded;
+  if (typeof value === 'string' && value.length > 0) {
+    const last = value.split(',').pop()!.trim();
+    if (last) return last;
+  }
+  return request.socket.remoteAddress ?? '0.0.0.0';
+}
+
 export function clientMeta(request: FastifyRequest) {
-  return { userAgent: request.headers['user-agent'], ip: request.ip };
+  return { userAgent: request.headers['user-agent'], ip: clientIp(request) };
 }

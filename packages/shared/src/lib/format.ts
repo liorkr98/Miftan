@@ -70,6 +70,12 @@ export function formatDateShort(d: string | Date): string {
   return format(iso(d), 'dd/MM');
 }
 
+/** dd/MM/yy — short, but with the year: a flat freeing up next spring must
+    not read as this spring. Used on map pins. */
+export function formatDateShortYear(d: string | Date): string {
+  return format(iso(d), 'dd/MM/yy');
+}
+
 /** dd/MM/yyyy · HH:mm */
 export function formatDateTime(d: string | Date): string {
   return format(iso(d), 'dd/MM/yyyy · HH:mm');

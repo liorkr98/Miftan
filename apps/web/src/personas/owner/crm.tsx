@@ -215,7 +215,7 @@ export function OwnerCrm() {
               const queue = ownerLeads
                 .filter((l) => l.propertyId === property.id)
                 .slice()
-                .sort((a, b) => a.queuePosition - b.queuePosition);
+                .sort((a, b) => b.score - a.score);
               return (
                 <section
                   key={property.id}
@@ -253,7 +253,7 @@ export function OwnerCrm() {
                         >
                           <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-surface-sunk">
                             <Num board className="text-2xs font-bold text-ink-soft">
-                              {lead.queuePosition}
+                              {lead.score}
                             </Num>
                           </span>
                           <span className="min-w-0 flex-1">
@@ -304,7 +304,7 @@ function LeadCard({ lead, onClick }: { lead: OwnerLead; onClick: () => void }) {
         </span>
         <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-surface-sunk">
           <Num board className="text-2xs font-bold text-ink-soft">
-            {lead.queuePosition}
+            {lead.score}
           </Num>
         </span>
       </span>
@@ -360,7 +360,7 @@ function LeadDrawer({
           <div className="flex flex-wrap items-center gap-1.5">
             <LeadStageBadge stage={lead.stage} size="sm" />
             <Badge tone="outline" size="sm">
-              {t.crm.queuePosition} <Num board>{lead.queuePosition}</Num>
+              {t.crm.queuePosition} <Num board>{lead.score}</Num>
             </Badge>
             {lead.watchOnly ? (
               <Badge tone="neutral" size="sm">

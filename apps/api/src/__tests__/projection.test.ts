@@ -24,6 +24,7 @@ const viewer: Viewer = {
   userId: 'usr_1',
   ownedPropertyIds: new Set([OWNED]),
   tenantPropertyIds: new Set([RENTED]),
+  tenantWindows: new Map([[RENTED, { startDate: '2020-01-01', endDate: '2099-12-31' }]]),
 };
 
 function context(id: string): PropertyContext {
@@ -41,6 +42,7 @@ function context(id: string): PropertyContext {
       availableFrom: '2099-07-15',
       availabilityConfidence: 'likely',
       listed: true,
+      showExactAddress: false,
       notes: 'PRIVATE-OWNER-NOTE',
       createdAt: new Date(), updatedAt: new Date(), deletedAt: null,
     },

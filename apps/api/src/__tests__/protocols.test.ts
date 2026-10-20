@@ -74,6 +74,10 @@ async function fillRequired(runId: string, token: string, value = '48210') {
   }
 }
 
+/* Object keys as the upload flow issues them. Outside URLs are refused. */
+const WALL = 'protocol/11111111-1111-4111-8111-111111111111.jpg';
+const METER = 'protocol/22222222-2222-4222-8222-222222222222.jpg';
+
 describe('running a protocol', () => {
   it('starts from the full checklist, not from whatever rows exist', async () => {
     const run = await start('move_in');
@@ -90,7 +94,7 @@ describe('running a protocol', () => {
     const res = await req('PATCH', `/protocols/${run.id}/entries/pi-cond-living`, tenant.token, {
       done: true,
       note: 'סדק בקיר מאחורי הספה, קיים מראש',
-      photos: ['https://example.test/a.jpg'],
+      photos: [WALL],
     });
     expect(res.statusCode).toBe(200);
     const entry = res.json().entries.find((e: { itemId: string }) => e.itemId === 'pi-cond-living');
@@ -98,10 +102,18 @@ describe('running a protocol', () => {
     expect(entry.photos).toHaveLength(1);
   });
 
+  it('refuses a photo that is not one of our uploads', async () => {
+    const run = await start('move_in');
+    const res = await req('PATCH', `/protocols/${run.id}/entries/pi-cond-living`, tenant.token, {
+      done: true, photos: ['https://tracker.example/pixel.gif'],
+    });
+    expect(res.statusCode).toBe(422);
+  });
+
   it('does not wipe fields the caller did not send', async () => {
     const run = await start('move_in');
     await req('PATCH', `/protocols/${run.id}/entries/${ELEC}`, owner.token, {
-      done: true, value: '48210', photos: ['https://example.test/meter.jpg'],
+      done: true, value: '48210', photos: [METER],
     });
     const after = (
       await req('PATCH', `/protocols/${run.id}/entries/${ELEC}`, tenant.token, { note: 'צולם יחד' })
@@ -110,7 +122,8 @@ describe('running a protocol', () => {
     const entry = after.entries.find((e: { itemId: string }) => e.itemId === ELEC);
     expect(entry.note).toBe('צולם יחד');
     /* The photo the other party attached must survive. */
-    expect(entry.photos).toEqual(['https://example.test/meter.jpg']);
+    expect(entry.photos).toHaveLength(1);
+    expect(entry.photos[0]).toContain(METER);
     expect(entry.value).toBe('48210');
   });
 

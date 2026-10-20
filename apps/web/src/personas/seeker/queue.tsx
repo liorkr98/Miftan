@@ -21,8 +21,9 @@ export function SeekerQueue() {
 
   /**
    * `/leads` answers in whichever role you hold per row, so an account that
-   * also lets flats gets owner rows here too. This screen is "queues I am in",
-   * which is the seeker half.
+   * also lets flats gets owner rows here too. This screen is "flats I applied
+   * to or follow", which is the seeker half. There is no queue: no position,
+   * no count of other applicants.
    */
   const mine = (leads.filter((l) => l.scope === 'seeker') as SeekerLead[])
     .slice()
@@ -34,7 +35,7 @@ export function SeekerQueue() {
     id: lead.id,
     property_id: lead.propertyId,
     label: lead.propertyLabel,
-    sublabel: `${t.seeker.queue.position} ${lead.queuePosition}`,
+    sublabel: lead.neighborhood,
     from: new Date().toISOString().slice(0, 10),
     until: lead.availability.kind === 'now' ? undefined : (lead.availability.date ?? undefined),
     tone: lead.availability.kind === 'now' ? 'open' : lead.watchOnly ? 'muted' : 'signal',
@@ -121,20 +122,6 @@ export function SeekerQueue() {
                       )}
                     </p>
                   </div>
-
-                  {!lead.watchOnly ? (
-                    <div className="text-center">
-                      <p className="text-2xs text-muted">{t.seeker.queue.position}</p>
-                      <p className="flex items-baseline justify-center gap-0.5">
-                        <Num board className="text-xl font-semibold text-ink">
-                          {lead.queuePosition}
-                        </Num>
-                        <span className="text-2xs text-muted">
-                          {t.seeker.queue.outOf} <Num board>{lead.queueLength}</Num>
-                        </span>
-                      </p>
-                    </div>
-                  ) : null}
 
                   <div className="text-end">
                     <Money agorot={lead.monthlyRentAgorot} board className="text-sm font-bold text-ink" />

@@ -7,12 +7,16 @@ import {
   hasZodFastifySchemaValidationErrors,
 } from 'fastify-type-provider-zod';
 import { ApiError } from '@miftan/shared';
+import { sql } from './db/client.ts';
 import { env, isProd } from './lib/env.ts';
+import { logSerializers } from './lib/log.ts';
 import { authenticatePlugin } from './plugins/authenticate.ts';
 import { authRoutes } from './routes/auth.ts';
 import { meRoutes } from './routes/me.ts';
 import { propertyRoutes } from './routes/properties.ts';
 import { rentPaymentRoutes } from './routes/rent-payments.ts';
+import { inviteRoutes } from './routes/invites.ts';
+import { notificationRoutes } from './routes/notifications.ts';
 import { ticketRoutes } from './routes/tickets.ts';
 import { directoryRoutes } from './routes/directory.ts';
 import { uploadRoutes } from './routes/uploads.ts';
@@ -34,15 +38,26 @@ import { contractTemplateRoutes } from './routes/contract-templates.ts';
 export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({
     /* Silent under test — a request log line per assertion buries the results.
-       Structured JSON in production, human-readable in development. */
+       Structured JSON in production, human-readable in development. Either way
+       URLs and errors go through lib/log.ts, which strips tokens and values. */
     logger:
       env.NODE_ENV === 'test'
         ? false
         : isProd
-          ? true
-          : { transport: { target: 'pino-pretty', options: { translateTime: 'HH:MM:ss', ignore: 'pid,hostname' } } },
-    /* Behind a proxy in production, so request.ip is the real client. */
-    trustProxy: isProd,
+          ? { serializers: logSerializers }
+          : { serializers: logSerializers, transport: { target: 'pino-pretty', options: { translateTime: 'HH:MM:ss', ignore: 'pid,hostname' } } },
+    /* Fastify does not interpret X-Forwarded-For; clientIp() reads the one
+       entry the platform wrote and a caller cannot forge. trustProxy: true
+       would let a caller pick their own IP. */
+    trustProxy: false,
+  });
+
+  app.addHook('onSend', async (_request, reply, payload) => {
+    reply.header('X-Content-Type-Options', 'nosniff');
+    reply.header('Referrer-Policy', 'strict-origin-when-cross-origin');
+    reply.header('X-Frame-Options', 'DENY');
+    reply.header('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+    return payload;
   });
 
   app.setValidatorCompiler(validatorCompiler);
@@ -67,6 +82,7 @@ export async function buildApp(): Promise<FastifyInstance> {
     /* Credentials mode means the origin cannot be '*'. */
     origin: env.WEB_ORIGIN,
     credentials: true,
+    maxAge: 600,
     /* @fastify/cors allows only GET, HEAD and POST unless told otherwise. The
        dev proxy is same-origin and never sends a preflight, so every PATCH,
        PUT and DELETE worked locally and failed the moment the web app and the
@@ -120,12 +136,26 @@ export async function buildApp(): Promise<FastifyInstance> {
     reply.code(404).send(new ApiError('not_found', 'no such route').toBody()),
   );
 
-  app.get('/health', async () => ({ ok: true, env: env.NODE_ENV }));
+  /* Liveness only. The environment name used to be in this body; it is not
+     something a public URL needs to advertise. */
+  app.get('/health', async () => ({ ok: true }));
+
+  /* Readiness for the uptime monitor: the process is up and Postgres answers. */
+  app.get('/ready', async (_request, reply) => {
+    try {
+      await sql`select 1`;
+      return { ok: true };
+    } catch {
+      return reply.code(503).send({ ok: false });
+    }
+  });
 
   await app.register(authRoutes);
   await app.register(meRoutes);
   await app.register(propertyRoutes);
   await app.register(rentPaymentRoutes);
+  await app.register(inviteRoutes);
+  await app.register(notificationRoutes);
   await app.register(ticketRoutes);
   await app.register(directoryRoutes);
   await app.register(uploadRoutes);

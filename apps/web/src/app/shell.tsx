@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useStore } from '@/data/store';
+import { useIsPro } from '@/components/shared/premium-gate';
 import {
   useInquiries,
   useLeads,
@@ -10,8 +11,9 @@ import {
   useTickets,
 } from '@/api/hooks';
 import { useAuth } from '@/api/auth';
+import { api } from '@/api/client';
 import { queryClient } from '@/api/query';
-import { APP_NAME, t, daysUntil } from '@miftan/shared';
+import { t, daysUntil } from '@miftan/shared';
 import { cn } from '@/lib/utils';
 import { RoleSwitcher } from './role-switcher';
 import { Toaster } from '@/components/shared/toaster';
@@ -28,18 +30,21 @@ import {
 } from '@/components/ui/dialog';
 import { Num } from '@/components/shared/typography';
 import { RevenueLensToggle } from '@/components/shared/revenue';
+import { NotificationBell } from '@/components/shared/notification-bell';
 import { OPEN_TICKET_STATUSES } from '@/data/selectors';
 import {
   Banknote,
+  Building2,
   CalendarClock,
   FileSignature,
   CalendarCheck2,
   FileText,
   Gauge,
   Home,
+  CircleUser,
   LogOut,
   ListChecks,
-  MapPin,
+  Send,
   RotateCcw,
   Search,
   Users,
@@ -47,7 +52,10 @@ import {
   Coins,
   Lock,
   Star,
+  Tag,
 } from 'lucide-react';
+import { Wordmark } from '@/components/shared/wordmark';
+import { useIsDemo } from '@/lib/demo';
 
 interface NavItem {
   to: string;
@@ -59,31 +67,33 @@ interface NavItem {
       can see is a reason to ask about the plan; a feature they never knew
       existed is not. */
   premium?: boolean;
+  /** Top navigation only. A phone's bottom bar holds five tabs before the
+      labels stop fitting; the rest stay reachable from the page itself. */
+  secondary?: boolean;
 }
 
 /* ── Top bar — the one dark band, present in every persona ─── */
 
 function TopBar() {
+  const isDemo = useIsDemo();
   const [resetOpen, setResetOpen] = React.useState(false);
   const resetDemo = useStore((s) => s.resetDemo);
   const pushToast = useStore((s) => s.pushToast);
-  const { capabilities, user, signOut } = useAuth();
+  const { capabilities, user, signOut, refreshMe } = useAuth();
+  const [verifySent, setVerifySent] = React.useState(false);
 
   return (
     <header
       style={{ zIndex: 'var(--z-sticky)' }}
-      className="sticky top-0 flex h-14 shrink-0 items-center gap-3 bg-ink px-3 sm:px-4"
+      className="relative sticky top-0 flex h-14 shrink-0 items-center gap-3 bg-ink px-3 sm:px-4"
     >
       <div className="flex shrink-0 items-center gap-2">
-        <span className="grid h-7 w-7 place-items-center overflow-hidden rounded-[8px] bg-signal" title={APP_NAME}>
-          <img src="/favicon.svg" alt="" width={28} height={28} className="h-7 w-7" />
-        </span>
-        <span className="hidden text-base font-extrabold tracking-[-0.01em] text-on-ink sm:inline">
-          {APP_NAME}
-        </span>
-        <span className="hidden rounded-full bg-white/10 px-2 py-0.5 text-2xs font-bold text-on-ink-muted lg:inline">
-          {t.shell.demoBadge}
-        </span>
+        <Wordmark size="sm" onInk />
+        {isDemo ? (
+          <span className="hidden rounded-full bg-white/10 px-2 py-0.5 text-2xs font-bold text-on-ink-muted lg:inline">
+            {t.shell.demoBadge}
+          </span>
+        ) : null}
       </div>
 
       <div className="flex flex-1 justify-center">
@@ -91,26 +101,63 @@ function TopBar() {
       </div>
 
       <div className="flex shrink-0 items-center gap-1">
-        <RevenueLensToggle />
-        <button
-          type="button"
-          onClick={() => setResetOpen(true)}
-          className="press flex items-center gap-1.5 rounded-[var(--radius-control)] px-2.5 py-1.5 text-xs font-semibold text-on-ink-muted transition-[color,background-color,transform] duration-[var(--dur-press)] ease-[var(--ease-out)] hover:bg-white/10 hover:text-on-ink"
+        <NotificationBell />
+        <NavLink
+          to="/account"
+          className="press hidden items-center gap-1.5 rounded-[var(--radius-control)] px-2.5 py-1.5 text-xs font-semibold text-on-ink-muted hover:bg-white/10 hover:text-on-ink sm:flex"
         >
-          <RotateCcw className="h-3.5 w-3.5" />
-          <span className="hidden md:inline">{t.shell.resetDemo}</span>
-        </button>
+          <CircleUser className="h-3.5 w-3.5" />
+          <span className="hidden md:inline">{t.shell.account}</span>
+        </NavLink>
+        <NavLink
+          to="/pricing"
+          className="press hidden items-center gap-1.5 rounded-[var(--radius-control)] px-2.5 py-1.5 text-xs font-semibold text-on-ink-muted hover:bg-white/10 hover:text-on-ink sm:flex"
+        >
+          <Tag className="h-3.5 w-3.5" />
+          <span className="hidden md:inline">{t.pricing.nav}</span>
+        </NavLink>
+        {isDemo ? <RevenueLensToggle /> : null}
+        {isDemo ? (
+          <button
+            type="button"
+            onClick={() => setResetOpen(true)}
+            className="press flex items-center gap-1.5 rounded-[var(--radius-control)] px-2.5 py-1.5 text-xs font-semibold text-on-ink-muted hover:bg-white/10 hover:text-on-ink"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            <span className="hidden md:inline">{t.shell.resetDemo}</span>
+          </button>
+        ) : null}
 
         <button
           type="button"
           onClick={() => void signOut()}
           title={user?.name}
-          className="press flex items-center gap-1.5 rounded-[var(--radius-control)] px-2.5 py-1.5 text-xs font-semibold text-on-ink-muted transition-[color,background-color,transform] duration-[var(--dur-press)] ease-[var(--ease-out)] hover:bg-white/10 hover:text-on-ink"
+          className="press flex items-center gap-1.5 rounded-[var(--radius-control)] px-2.5 py-1.5 text-xs font-semibold text-on-ink-muted hover:bg-white/10 hover:text-on-ink"
         >
           <LogOut className="h-3.5 w-3.5" />
           <span className="hidden lg:inline">{user?.name ?? t.auth.signOut}</span>
         </button>
       </div>
+
+      {user && !user.emailVerified ? (
+        <div className="absolute inset-x-0 top-full border-b border-line bg-surface px-4 py-2 text-xs font-semibold text-ink">
+          {verifySent ? t.auth.verifyBannerSent : t.auth.verifyBanner}{' '}
+          {!verifySent ? (
+            <button
+              type="button"
+              className="underline"
+              onClick={() => {
+                void api.request('/me/verify-email', { method: 'POST' }).then(() => {
+                  setVerifySent(true);
+                  void refreshMe();
+                });
+              }}
+            >
+              {t.auth.verifyBannerAction}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
 
       <Dialog open={resetOpen} onOpenChange={setResetOpen}>
         <DialogContent>
@@ -143,6 +190,8 @@ function TopBar() {
 /* ── Nav pieces ────────────────────────────────────────── */
 
 function RailLink({ item }: { item: NavItem }) {
+  /* The lock is shown only to accounts that do not have the plan. */
+  const locked = useIsPro() ? false : Boolean(item.premium);
   return (
     <NavLink
       to={item.to}
@@ -150,14 +199,13 @@ function RailLink({ item }: { item: NavItem }) {
       className={({ isActive }) =>
         cn(
           'press-sm flex items-center gap-2.5 rounded-[var(--radius-control)] px-3 py-2 text-sm font-semibold',
-          'transition-[background-color,color,transform] duration-150 ease-[var(--ease-out)]',
           isActive ? 'bg-ink text-on-ink' : 'text-ink-soft hover:bg-surface-sunk hover:text-ink',
         )
       }
     >
       <item.Icon className="h-4 w-4 shrink-0" />
       <span className="flex-1 truncate">{item.label}</span>
-      {item.premium ? (
+      {locked ? (
         <Badge tone="signalSoft" size="sm" className="gap-1">
           <Lock className="h-2.5 w-2.5" />
           {t.premium.badge}
@@ -171,7 +219,8 @@ function RailLink({ item }: { item: NavItem }) {
   );
 }
 
-function BottomTabs({ items }: { items: NavItem[] }) {
+function BottomTabs({ items: all }: { items: NavItem[] }) {
+  const items = all.filter((item) => !item.secondary);
   return (
     <nav
       aria-label={t.shell.mainNav}
@@ -267,6 +316,7 @@ function SkipLink() {
 /* ── Owner: rail + dense workstation ───────────────────── */
 
 export function OwnerShell() {
+  const isDemo = useIsDemo();
   const main = React.useRef<HTMLElement>(null!);
   useScrollReset(main);
 
@@ -323,7 +373,9 @@ export function OwnerShell() {
        explicitly, and separate from the revenue premium gate below: this one
        is not locked, it is simply not shown yet. The route and screen still
        exist and work if opened directly. */
-    { to: '/owner/revenue', label: t.ownerNav.revenue, Icon: Coins, premium: true },
+    ...(isDemo
+      ? [{ to: '/owner/revenue', label: t.ownerNav.revenue, Icon: Coins, premium: true } satisfies NavItem]
+      : []),
   ];
 
   /* Bottom nav caps at five: dashboard, portfolio, tickets, leads, maintenance. */
@@ -356,9 +408,29 @@ export function OwnerShell() {
           </div>
         </main>
       </div>
+      <AppFooter />
       <BottomTabs items={mobileItems} />
       <Toaster />
     </div>
+  );
+}
+
+function AppFooter() {
+  return (
+    <footer className="hidden items-center justify-center gap-4 border-t border-line bg-surface px-4 py-2 text-2xs text-muted md:flex">
+      <NavLink to="/contact" className="hover:text-ink hover:underline">
+        {t.shell.contact}
+      </NavLink>
+      <NavLink to="/legal/terms" className="hover:text-ink hover:underline">
+        {t.auth.termsLink}
+      </NavLink>
+      <NavLink to="/legal/privacy" className="hover:text-ink hover:underline">
+        {t.auth.privacyLink}
+      </NavLink>
+      <NavLink to="/account" className="hover:text-ink hover:underline">
+        {t.shell.account}
+      </NavLink>
+    </footer>
   );
 }
 
@@ -377,9 +449,11 @@ export function TenantShell() {
     { to: '/tenant', label: t.tenantNav.home, Icon: Home, end: true },
     { to: '/tenant/report', label: t.tenantNav.report, Icon: Wrench },
     { to: '/tenant/tickets', label: t.tenantNav.tickets, Icon: ListChecks, count: open },
-    { to: '/tenant/renewal', label: t.tenantNav.renewal, Icon: CalendarCheck2 },
     { to: '/tenant/documents', label: t.tenantNav.documents, Icon: FileText },
-    { to: '/tenant/reviews', label: t.tenantNav.reviews, Icon: Star },
+    { to: '/tenant/renewal', label: t.tenantNav.renewal, Icon: CalendarCheck2, secondary: true },
+    { to: '/tenant/reviews', label: t.tenantNav.reviews, Icon: Star, secondary: true },
+    /* Renting a flat does not stop someone looking for the next one. */
+    { to: '/search', label: t.tenantNav.search, Icon: Search },
   ];
 
   return (
@@ -392,6 +466,7 @@ export function TenantShell() {
           <Outlet />
         </div>
       </main>
+      <AppFooter />
       <BottomTabs items={items} />
       <Toaster />
     </div>
@@ -405,12 +480,18 @@ export function SeekerShell() {
   const main = React.useRef<HTMLElement>(null!);
   useScrollReset(main);
 
+  const { capabilities } = useAuth();
   const queued = leads.filter((l) => l.scope === 'seeker' && !l.watchOnly).length;
 
   const items: NavItem[] = [
     { to: '/search', label: t.seekerNav.search, Icon: Search, end: true },
-    { to: '/search/queue', label: t.seekerNav.queue, Icon: MapPin, count: queued },
+    { to: '/search/queue', label: t.seekerNav.queue, Icon: Send, count: queued },
     { to: '/search/profile', label: t.seekerNav.profile, Icon: Users },
+    ...(capabilities?.isTenant ? [{ to: '/tenant', label: t.tenantNav.home, Icon: Home }] : []),
+    /* Someone who does not own anything yet still needs a way to start. */
+    ...(capabilities && !capabilities.isOwner
+      ? [{ to: '/start/owner', label: t.startOwner.nav, Icon: Building2, secondary: true }]
+      : []),
   ];
 
   return (
@@ -421,6 +502,7 @@ export function SeekerShell() {
       <main ref={main} id="main" className="min-w-0 flex-1 overflow-y-auto">
         <Outlet />
       </main>
+      <AppFooter />
       <BottomTabs items={items} />
       <Toaster />
     </div>

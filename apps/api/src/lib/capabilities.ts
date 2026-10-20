@@ -1,5 +1,5 @@
 import { and, count, eq, gte, isNull, sql } from 'drizzle-orm';
-import type { Capabilities } from '@miftan/shared';
+import { israelToday, type Capabilities } from '@miftan/shared';
 import { db, schema as s } from '../db/client.ts';
 
 /**
@@ -10,7 +10,7 @@ import { db, schema as s } from '../db/client.ts';
  * shell from this rather than from a field somebody has to remember to update.
  */
 export async function capabilitiesFor(userId: string): Promise<Capabilities> {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = israelToday();
 
   const [[owned], activeLeases, [leads]] = await Promise.all([
     db

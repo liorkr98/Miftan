@@ -314,7 +314,7 @@ export function TenantReport() {
               type="button"
               disabled={uploading}
               onClick={() => fileInput.current?.click()}
-              className="press flex h-20 w-20 flex-col items-center justify-center gap-1 rounded-[var(--radius-control)] border border-dashed border-line text-muted transition-[color,border-color,transform] duration-150 ease-[var(--ease-out)] hover:border-line-strong hover:text-ink disabled:opacity-50"
+              className="press flex h-20 w-20 flex-col items-center justify-center gap-1 rounded-[var(--radius-control)] border border-dashed border-line text-muted hover:border-line-strong hover:text-ink disabled:opacity-50"
             >
               <Camera className="h-5 w-5" />
               <span className="text-2xs font-bold">

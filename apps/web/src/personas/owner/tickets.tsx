@@ -177,7 +177,7 @@ export function OwnerTickets() {
                         onClick={() => setOpen(ticket.id)}
                         className={cn(
                           'press-sm w-full rounded-[var(--radius-control)] border bg-bg p-2.5 text-start',
-                          'transition-[border-color,transform] duration-150 ease-[var(--ease-out)] hover:border-line-strong',
+                          'hover:border-line-strong',
                           ticket.severity === 'urgent' ? 'border-alert/40' : 'border-line',
                         )}
                       >
@@ -534,7 +534,6 @@ function AssignVendorDialog({
                       aria-pressed={vendorId === vendor.id}
                       className={cn(
                         'press-sm w-full rounded-[var(--radius-control)] border p-3 text-start',
-                        'transition-[border-color,background-color,transform] duration-150 ease-[var(--ease-out)]',
                         vendorId === vendor.id
                           ? 'border-ink bg-surface'
                           : 'border-line hover:border-line-strong',

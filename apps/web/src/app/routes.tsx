@@ -1,8 +1,19 @@
-import { createBrowserRouter } from 'react-router-dom';
+import { createBrowserRouter, Outlet } from 'react-router-dom';
 import { Entry, RequireAuth } from './guard';
 import { LegalPage } from './legal-page';
 import { SignIn } from './sign-in';
 import { SignUp } from './sign-up';
+import { ForgotPassword } from './forgot';
+import { ResetPassword } from './reset';
+import { VerifyEmail } from './verify';
+import { Contact } from './contact';
+import { Account } from './account';
+import { AppErrorPage } from './error-page';
+import { Join } from './join';
+import { StartOwner } from './start-owner';
+import { Welcome } from './welcome';
+import { PublicListing } from './public-listing';
+import { Pricing } from './pricing';
 import { OwnerShell, SeekerShell, TenantShell } from './shell';
 import { NotFound } from './not-found';
 import { OwnerDashboard } from '@/personas/owner/dashboard';
@@ -28,16 +39,34 @@ import { SeekerSearch } from '@/personas/seeker/search';
 import { SeekerListing } from '@/personas/seeker/listing';
 import { SeekerQueue } from '@/personas/seeker/queue';
 import { SeekerProfile } from '@/personas/seeker/profile';
+import { DemoOnly } from './demo-only';
 
 export const router = createBrowserRouter([
+  {
+    element: <Outlet />,
+    errorElement: <AppErrorPage />,
+    children: [
   { path: '/', element: <Entry /> },
   { path: '/sign-in', element: <SignIn /> },
   { path: '/sign-up', element: <SignUp /> },
+  { path: '/forgot', element: <ForgotPassword /> },
+  { path: '/reset/:token', element: <ResetPassword /> },
+  { path: '/verify/:token', element: <VerifyEmail /> },
+  { path: '/contact', element: <Contact /> },
+  /* Public: the invite link and the price list work signed out. */
+  { path: '/join/:token', element: <Join /> },
+  { path: '/pricing', element: <Pricing /> },
   { path: '/legal/:id', element: <LegalPage /> },
+  /* A listing anyone can open, shared by link. */
+  { path: '/l/:id', element: <PublicListing /> },
   {
     /* Everything below here needs a session. */
     element: <RequireAuth />,
     children: [
+      { path: '/account', element: <Account /> },
+      /* Any signed-in account: the door into the owner role. */
+      { path: '/start/owner', element: <StartOwner /> },
+      { path: '/welcome', element: <Welcome /> },
       {
         path: '/owner',
         element: <OwnerShell />,
@@ -56,11 +85,14 @@ export const router = createBrowserRouter([
           { path: 'vendors', element: <OwnerMaintenanceHub /> },
           { path: 'contracts', element: <OwnerContracts /> },
           {
+            /* The investor model runs on illustrative data: demo accounts only. */
             path: 'revenue',
             element: (
-              <PremiumGate hint={t.premium.revenueLockedHint}>
-                <OwnerRevenue />
-              </PremiumGate>
+              <DemoOnly>
+                <PremiumGate hint={t.premium.revenueLockedHint}>
+                  <OwnerRevenue />
+                </PremiumGate>
+              </DemoOnly>
             ),
           },
           { path: 'leads/filters', element: <OwnerScreening /> },
@@ -96,4 +128,6 @@ export const router = createBrowserRouter([
     ],
   },
   { path: '*', element: <NotFound /> },
+    ],
+  },
 ]);

@@ -108,12 +108,54 @@ describe('PUT /properties/:id/photos', () => {
   it('replaces the whole array, because order is the cover', async () => {
     const created = await req('POST', '/properties', owner.token, createBody);
     const id = created.json().id as string;
+    /* The links the upload flow hands back (the local driver, under test). */
     const photos = [
-      'https://uploads.example.com/cover.jpg',
-      'https://uploads.example.com/kitchen.jpg',
+      'http://127.0.0.1:4000/files/properties/44444444-4444-4444-8444-444444444444.jpg',
+      'http://127.0.0.1:4000/files/properties/55555555-5555-4555-8555-555555555555.jpg',
     ];
     const res = await req('PUT', `/properties/${id}/photos`, owner.token, { photos });
     expect(res.statusCode).toBe(200);
     expect(res.json().photos).toEqual(photos);
+  });
+
+  it('refuses an image hosted anywhere else', async () => {
+    const created = await req('POST', '/properties', owner.token, createBody);
+    const id = created.json().id as string;
+    const res = await req('PUT', `/properties/${id}/photos`, owner.token, {
+      photos: ['https://tracker.example/pixel.gif'],
+    });
+    expect(res.statusCode).toBe(422);
+  });
+});
+
+describe('what a stranger learns about where a listing is', () => {
+  const metresBetween = (a: { lat: number; lng: number }, b: { lat: number; lng: number }) => {
+    const dLat = (a.lat - b.lat) * 111_320;
+    const dLng = (a.lng - b.lng) * 111_320 * Math.cos((a.lat * Math.PI) / 180);
+    return Math.hypot(dLat, dLng);
+  };
+
+  it('by default: the street, no house number, and a pin 100–200 m away', async () => {
+    const created = (await req('POST', '/properties', owner.token, { ...createBody, listed: true })).json();
+    const seen = (await req('GET', `/properties/${created.id}`, stranger.token)).json();
+    expect(seen.scope).toBe('public');
+    expect(seen.address.street).toBe(created.address.street);
+    expect(seen.address.number).toBe('');
+    const off = metresBetween(seen.address, created.address);
+    expect(off).toBeGreaterThan(90);
+    expect(off).toBeLessThan(210);
+
+    /* The same pin every time, so averaging requests reveals nothing. */
+    const again = (await req('GET', `/properties/${created.id}`, stranger.token)).json();
+    expect(again.address.lat).toBe(seen.address.lat);
+  });
+
+  it('shows the exact address when the owner chooses to', async () => {
+    const created = (
+      await req('POST', '/properties', owner.token, { ...createBody, listed: true, showExactAddress: true })
+    ).json();
+    const seen = (await req('GET', `/properties/${created.id}`, stranger.token)).json();
+    expect(seen.address.number).toBe(created.address.number);
+    expect(seen.address.lat).toBe(created.address.lat);
   });
 });
