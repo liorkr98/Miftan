@@ -15,10 +15,12 @@ if (!url) {
  * reports `prepared statement "s1" does not exist` under load, which is a
  * miserable thing to debug at 2am.
  *
- * The pooled host is the one with `-pooler` in it. Detecting it here means the
+ * Neon's pooled host has `-pooler` in it; Supabase's transaction pooler
+ * (Supavisor) is `*.pooler.supabase.com` on port 6543 — its session pooler on
+ * 5432 keeps prepared statements and needs nothing. Detecting it here means the
  * connection string is the only thing that has to change between environments.
  */
-const isPooled = /-pooler\./.test(url);
+const isPooled = /-pooler\./.test(url) || /\.pooler\.supabase\.com:6543\//.test(url);
 
 /** One connection pool per process. Scripts close it explicitly. */
 export const sql = postgres(url, {

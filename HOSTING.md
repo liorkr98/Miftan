@@ -57,6 +57,36 @@ refresh cookie will not be sent and every reload will look like a signed-out
 session. Put the API on a subdomain of the same registrable domain
 (`api.miftan.co.il` + `miftan.co.il`) and it works.
 
+## Database (Supabase)
+
+The shared database is the Supabase project `kpyzuzlgdfbkacoqmqtb` (region
+ap-southeast-2, Sydney). The app talks to it as plain Postgres — it does not use
+Supabase's Data API or keys.
+
+Two GitHub secrets, both from **Connect** in the Supabase dashboard, with the
+database password filled in (URL-encode any special characters) and
+`?sslmode=require` appended:
+
+- `DATABASE_DIRECT_URL` — the **session pooler**, port **5432**
+  (`postgresql://postgres.kpyzuzlgdfbkacoqmqtb:<password>@aws-0-ap-southeast-2.pooler.supabase.com:5432/postgres?sslmode=require`).
+  Migrations and seeding use it. The direct `db.<ref>.supabase.co` host is
+  IPv6-only and GitHub's runners cannot reach it.
+- `DATABASE_URL` — the **transaction pooler**: the same address on port **6543**.
+  The running app uses it; `db/client.ts` recognises it and turns off prepared
+  statements.
+
+The `database` job in `deploy.yml` applies every migration on main to it after
+each green build, so a table anyone adds reaches the shared database without
+anybody connecting by hand. To load the demo data: Actions → deploy → Run
+workflow → data `reset-demo`, confirm `erase-demo-database`.
+
+Every table gets row-level security with no policies (`db/migrate.ts`), so the
+Data API — reachable with the project's public key — sees nothing. The app's own
+connection owns the tables and is unaffected.
+
+`.mcp.json` registers Supabase's MCP server for Claude Code, for inspecting the
+database; it carries the project id only, no credentials.
+
 ## Database (Neon)
 
 Create the project in **AWS eu-central-1 (Frankfurt)** — the same city as the API,
