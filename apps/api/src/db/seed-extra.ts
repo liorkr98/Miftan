@@ -262,7 +262,9 @@ export async function seedExtraDemo(tx: Tx, passwordHash: string) {
 
   /* ── Committed contract scans ───────────────────────── */
   const field = (key: string, label: string, value: string, confidence = 1) => ({
-    key, label, value, confidence, sourceHint: 'אושר על ידי הבעלים', needsReview: false,
+    /* The stored shape (snake_case, as the scanner writes it); needsReview is
+       computed on read. */
+    key, label, value, confidence, source_hint: 'אושר על ידי הבעלים',
   });
   await tx.insert(s.contractScans).values(
     leased.slice(0, 3).map((f) => {
