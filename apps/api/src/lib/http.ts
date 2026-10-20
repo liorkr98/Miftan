@@ -5,14 +5,14 @@ import { env, isProd } from './env.ts';
 export const REFRESH_COOKIE = 'miftan_rt';
 
 /**
- * httpOnly so no script can read it, sameSite=lax so it survives a normal
- * navigation but not a cross-site POST, and scoped to COOKIE_PATH so it is not
- * attached to every ordinary API call.
+ * httpOnly so no script can read it, SameSite from COOKIE_SAMESITE because the
+ * right value depends on whether the app and the API share a site, and scoped
+ * to COOKIE_PATH so it is not attached to every ordinary API call.
  */
 export function setRefreshCookie(reply: FastifyReply, token: string, expiresAt: Date): void {
   reply.setCookie(REFRESH_COOKIE, token, {
     httpOnly: true,
-    sameSite: 'lax',
+    sameSite: env.COOKIE_SAMESITE,
     secure: isProd,
     path: env.COOKIE_PATH,
     expires: expiresAt,

@@ -23,6 +23,21 @@ const schema = z.object({
    * session.
    */
   COOKIE_PATH: z.string().default('/auth'),
+  /**
+   * SameSite for the refresh cookie.
+   *
+   * `lax` is right when the web app and the API share a site — locally they do,
+   * through the Vite proxy. They do not in the deployed setup: the app is on
+   * workers.dev and the API on fly.dev, which are separate registrable domains,
+   * so every call between them is cross-site and a `lax` cookie is never sent
+   * back. That fails exactly like a wrong COOKIE_PATH — login appears to work,
+   * then the first refresh returns 401 and every reload looks signed out.
+   *
+   * `none` is the cross-site value and browsers only accept it on a Secure
+   * cookie, which is why it is set in fly.toml, where NODE_ENV=production also
+   * makes `secure` true. Setting it in development would be rejected.
+   */
+  COOKIE_SAMESITE: z.enum(['lax', 'strict', 'none']).default('lax'),
 
   /* ── Object storage (Cloudflare R2, S3 API) ──────────────
      Optional in development, required in production — the check lives in
