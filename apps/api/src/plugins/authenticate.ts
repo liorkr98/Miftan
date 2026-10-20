@@ -43,7 +43,7 @@ async function userForToken(token: string) {
     if (!supabaseAuthEnabled()) throw err;
   }
 
-  const subject = await verifySupabaseToken(token);
+  const { sub: subject } = await verifySupabaseToken(token);
   const [user] = await db
     .select(USER_COLUMNS)
     .from(s.users)

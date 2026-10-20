@@ -6,9 +6,11 @@ import {
   authResultSchema,
   forgotPasswordSchema,
   loginSchema,
+  meSchema,
   okSchema,
   registerSchema,
   resetPasswordSchema,
+  supabaseClaimSchema,
   verifyTokenSchema,
 } from '@miftan/shared';
 import { db, schema as s } from '../db/client.ts';
@@ -23,6 +25,7 @@ import {
   rotateSession,
   signAccessToken,
   verifyPassword,
+  verifySupabaseToken,
   wasteTimeLikeAVerify,
 } from '../lib/auth.ts';
 import { consumeAuthToken, issueAuthToken, retireUnused } from '../lib/auth-tokens.ts';
@@ -262,6 +265,103 @@ export async function authRoutes(app: FastifyInstance) {
         user: publicUser(user),
         capabilities: await capabilitiesFor(user.id),
       };
+    },
+  );
+
+  /**
+   * Give a Supabase Auth account its row here.
+   *
+   * Supabase owns the password; this owns the portfolio. Signing in through
+   * Supabase proves who someone is but says nothing about the leases, tickets
+   * and tenants attached to them, so the two have to be joined once. The
+   * Supabase access token is the whole input — the body carries only what
+   * Supabase does not ask for at sign-up.
+   *
+   * Idempotent: called again with the same token it simply returns the row.
+   *
+   * HUMAN REVIEW: this decides which existing account a new Supabase login is
+   * allowed to become.
+   */
+  r.post(
+    '/auth/supabase',
+    {
+      onRequest: [authBurst],
+      schema: { body: supabaseClaimSchema, response: { 200: meSchema } },
+    },
+    async (request) => {
+      const header = request.headers.authorization;
+      if (!header?.startsWith('Bearer ')) {
+        throw new ApiError('not_authenticated', 'missing supabase token');
+      }
+      const identity = await verifySupabaseToken(header.slice(7));
+
+      /* Already claimed. */
+      const [linked] = await db
+        .select()
+        .from(s.users)
+        .where(and(eq(s.users.supabaseUserId, identity.sub), isNull(s.users.deletedAt)));
+      if (linked) {
+        return { user: publicUser(linked), capabilities: await capabilitiesFor(linked.id) };
+      }
+
+      if (!identity.email) {
+        throw new ApiError('validation_failed', 'supabase token carries no email');
+      }
+
+      /* No deletedAt filter here, deliberately: users_email_key is unique on
+         the address alone, so a closed account still holds it. Filtering
+         deleted rows out would find nothing and then fail on the insert. The
+         register route reads it the same way. */
+      const [existing] = await db
+        .select()
+        .from(s.users)
+        .where(eq(s.users.email, identity.email));
+
+      if (existing?.deletedAt) {
+        /* Closing an account was deliberate; signing up again elsewhere is not
+           consent to have the old portfolio handed back. The address stays
+           spent. */
+        throw new ApiError('forbidden', 'this address belongs to a closed account');
+      }
+
+      if (existing) {
+        /* Adopting an account that already holds data. Without the verified
+           check, anyone could sign up at Supabase using a landlord's address
+           and inherit their portfolio — the password here would never be
+           tested, because Supabase is the thing being trusted. A confirmed
+           address is the only evidence that the person holds the mailbox. */
+        if (!identity.emailVerified) {
+          throw new ApiError('forbidden', 'confirm your email address before signing in this way');
+        }
+        /* Another Supabase account got here first. Reassigning would hand one
+           person's data to another, so it stops. */
+        if (existing.supabaseUserId && existing.supabaseUserId !== identity.sub) {
+          throw new ApiError('forbidden', 'this account is already linked to another login');
+        }
+
+        const [updated] = await db
+          .update(s.users)
+          .set({ supabaseUserId: identity.sub, emailVerifiedAt: existing.emailVerifiedAt ?? new Date() })
+          .where(eq(s.users.id, existing.id))
+          .returning();
+        return { user: publicUser(updated), capabilities: await capabilitiesFor(updated.id) };
+      }
+
+      /* New to us. No password hash: Supabase holds it. */
+      const [created] = await db
+        .insert(s.users)
+        .values({
+          id: newId('user'),
+          name: request.body.name,
+          email: identity.email,
+          phone: request.body.phone ?? null,
+          supabaseUserId: identity.sub,
+          termsAcceptedAt: new Date(),
+          emailVerifiedAt: identity.emailVerified ? new Date() : null,
+        })
+        .returning();
+
+      return { user: publicUser(created), capabilities: await capabilitiesFor(created.id) };
     },
   );
 

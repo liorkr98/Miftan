@@ -64,12 +64,20 @@ const schema = z.object({
      storage/index.ts so the failure names the actual problem. These are R2
      *S3 access keys* from "Manage R2 API Tokens", not a Cloudflare API token;
      the two are different credentials and only the former can sign a URL. */
-  R2_ACCOUNT_ID: z.string().optional(),
-  R2_BUCKET: z.string().optional(),
-  R2_ACCESS_KEY_ID: z.string().optional(),
-  R2_SECRET_ACCESS_KEY: z.string().optional(),
-  /** Public read origin — a bucket custom domain, or the r2.dev subdomain */
-  R2_PUBLIC_URL: z.string().optional(),
+  /**
+   * The S3 endpoint, as a whole URL — this is what makes the storage provider
+   * interchangeable:
+   *   Cloudflare R2   https://<account>.r2.cloudflarestorage.com
+   *   Supabase        https://<ref>.supabase.co/storage/v1/s3
+   */
+  S3_ENDPOINT: z.preprocess((v) => (v === '' ? undefined : v), z.string().url().optional()),
+  S3_BUCKET: z.string().optional(),
+  S3_ACCESS_KEY_ID: z.string().optional(),
+  S3_SECRET_ACCESS_KEY: z.string().optional(),
+  /** R2 ignores the region; Supabase wants the project's. 'auto' suits R2. */
+  S3_REGION: z.string().default('auto'),
+  /** Public read origin for files saved before the bucket went private. */
+  S3_PUBLIC_URL: z.preprocess((v) => (v === '' ? undefined : v), z.string().optional()),
 });
 
 const parsed = schema.safeParse(process.env);

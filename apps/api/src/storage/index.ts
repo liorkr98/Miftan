@@ -4,7 +4,7 @@ import { join, resolve, sep } from 'node:path';
 import { ApiError } from '@miftan/shared';
 import { EXTENSION, assertSize, assertUploadable, type StorageDriver, type UploadRequest } from './contract.ts';
 import { env } from '../lib/env.ts';
-import { r2FromEnv } from './r2.ts';
+import { s3FromEnv } from './s3.ts';
 
 /* Re-exported so callers keep importing storage from one place. */
 export * from './contract.ts';
@@ -18,8 +18,8 @@ export * from './contract.ts';
  * target, uploads straight to it, and tells us the resulting URL.
  *
  * The local driver imitates that shape rather than short-cutting it. Swapping
- * to Cloudflare R2 later is a new driver in this folder and nothing else,
- * because callers only ever see `createUpload`.
+ * provider is a different S3_ENDPOINT and nothing else, because callers only
+ * ever see `createUpload`.
  */
 
 /**
@@ -60,18 +60,19 @@ class LocalDiskDriver implements StorageDriver {
 export const localDriver = new LocalDiskDriver();
 
 export function createStorage(): StorageDriver {
-  /* R2 when it is fully configured, local disk otherwise. Partial R2 config
-     falls through to the production guard below rather than half-working. */
-  const r2 = r2FromEnv();
-  if (r2) return r2;
+  /* Object storage when it is fully configured, local disk otherwise. A
+     partial configuration falls through to the production guard below rather
+     than half-working. */
+  const remote = s3FromEnv();
+  if (remote) return remote;
 
   if (env.NODE_ENV === 'production') {
     /* Deliberately fatal. Silently writing a tenant's leak photos to a
        container filesystem that is thrown away on the next deploy is worse
        than refusing to boot. */
     throw new Error(
-      'No production storage driver configured. Set R2_ACCOUNT_ID, R2_BUCKET, ' +
-        'R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY.',
+      'No production storage driver configured. Set S3_ENDPOINT, S3_BUCKET, ' +
+        'S3_ACCESS_KEY_ID and S3_SECRET_ACCESS_KEY.',
     );
   }
   return localDriver;

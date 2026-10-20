@@ -105,9 +105,24 @@ export const authResultSchema = z.object({
   capabilities: capabilitiesSchema,
 });
 
+/**
+ * Claiming a row for a Supabase Auth account.
+ *
+ * The Supabase access token carries who this is, so no password and no email
+ * go in the body — they would be a second, unverified opinion about an identity
+ * the token already proves. `name` is only read when the row does not exist
+ * yet, because Supabase does not require one at sign-up.
+ */
+export const supabaseClaimSchema = z.object({
+  name: z.string().trim().min(2).max(120),
+  phone: israeliPhone.optional(),
+  acceptedTerms: z.literal(true, { message: 'you must accept the terms to register' }),
+});
+
 export const okSchema = z.object({ ok: z.literal(true) });
 
 export type RegisterInput = z.infer<typeof registerSchema>;
+export type SupabaseClaimInput = z.infer<typeof supabaseClaimSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type PublicUser = z.infer<typeof userSchema>;
 export type Capabilities = z.infer<typeof capabilitiesSchema>;

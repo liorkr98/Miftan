@@ -88,7 +88,18 @@ export function supabaseAuthEnabled(): boolean {
   return Boolean(env.SUPABASE_JWKS_URL);
 }
 
-export async function verifySupabaseToken(token: string): Promise<string> {
+export interface SupabaseIdentity {
+  /** Supabase's own user id. Matched against `users.supabaseUserId`. */
+  sub: string;
+  email: string | null;
+  /**
+   * Whether Supabase has seen this address confirmed. Only an account that
+   * clears this may be linked to an existing row — see the claim route.
+   */
+  emailVerified: boolean;
+}
+
+export async function verifySupabaseToken(token: string): Promise<SupabaseIdentity> {
   if (!env.SUPABASE_JWKS_URL) {
     throw new ApiError('not_authenticated', 'supabase auth is not configured');
   }
@@ -96,7 +107,15 @@ export async function verifySupabaseToken(token: string): Promise<string> {
   try {
     const { payload } = await jwtVerify(token, jwks, { audience: 'authenticated' });
     if (!payload.sub) throw new Error('no subject');
-    return payload.sub;
+
+    /* Supabase has carried this flag both at the top level and inside
+       user_metadata across versions, so read either and treat anything that is
+       not exactly true as unverified. */
+    const metadata = (payload.user_metadata ?? {}) as Record<string, unknown>;
+    const verified = payload.email_verified === true || metadata.email_verified === true;
+    const email = typeof payload.email === 'string' ? payload.email : null;
+
+    return { sub: payload.sub, email, emailVerified: verified };
   } catch {
     throw new ApiError('not_authenticated', 'invalid or expired supabase token');
   }

@@ -1,23 +1,36 @@
 import { describe, expect, it } from 'vitest';
 import { ApiError } from '@miftan/shared';
-import { R2Driver } from '../storage/r2.ts';
+import { S3Driver } from '../storage/s3.ts';
 import { MAX_UPLOAD_BYTES } from '../storage/contract.ts';
 
 /**
- * The R2 driver signs a URL; it does not upload anything. So this tests the
+ * The driver signs a URL; it does not upload anything. So this tests the
  * signature's shape and the rules that actually protect us — the content type
  * and the size are bound into the signature, and the client never chooses the
  * key or its extension.
  */
 
-const driver = new R2Driver({
-  accountId: 'acct',
+const driver = new S3Driver({
+  host: 'acct.r2.cloudflarestorage.com',
+  pathPrefix: '',
   bucket: 'miftan-uploads',
+  region: 'auto',
   accessKeyId: 'AKIAEXAMPLE',
   secretAccessKey: 'secret-example-value',
 });
 
-describe('the R2 upload target', () => {
+/* Supabase serves S3 under a path, which is the only structural difference
+   between the two providers — so it gets the same assertions. */
+const supabase = new S3Driver({
+  host: 'proj.supabase.co',
+  pathPrefix: '/storage/v1/s3',
+  bucket: 'miftan-uploads',
+  region: 'eu-central-1',
+  accessKeyId: 'AKIAEXAMPLE',
+  secretAccessKey: 'secret-example-value',
+});
+
+describe('the upload target', () => {
   it('signs a time-limited PUT to the right bucket', async () => {
     const target = await driver.createUpload({
       folder: 'tickets',
@@ -68,5 +81,23 @@ describe('the R2 upload target', () => {
     await expect(
       driver.createUpload({ folder: 'tickets', filename: 'x.sh', contentType: 'application/x-sh', size: 10 }),
     ).rejects.toBeInstanceOf(ApiError);
+  });
+});
+
+describe('the same driver against Supabase', () => {
+  it('signs under the S3 path prefix, not the bucket root', async () => {
+    const target = await supabase.createUpload({
+      folder: 'tickets',
+      filename: 'leak.jpg',
+      contentType: 'image/jpeg',
+      size: 1_000,
+    });
+
+    const url = new URL(target.uploadUrl);
+    expect(url.host).toBe('proj.supabase.co');
+    /* The prefix is the difference: dropping it would sign a path the store
+       does not serve, and every upload would 404 after a valid signature. */
+    expect(url.pathname).toBe(`/storage/v1/s3/miftan-uploads/${target.key}`);
+    expect(url.searchParams.get('X-Amz-Credential')).toContain('/eu-central-1/s3/');
   });
 });

@@ -19,8 +19,14 @@
 #                         transaction-mode pooler cannot hold the session these
 #                         need. On Supabase this is the Direct connection.
 #   JWT_SECRET            32+ random characters
-#   R2_ACCOUNT_ID, R2_BUCKET, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY
-#   R2_PUBLIC_URL         optional: the old public bucket address, so photos
+#   S3_ENDPOINT           object storage, as a whole URL. Named for the role,
+#                         not the vendor, so the provider can change without
+#                         renaming secrets:
+#                           Cloudflare R2  https://<account>.r2.cloudflarestorage.com
+#                           Supabase       https://<ref>.supabase.co/storage/v1/s3
+#   S3_BUCKET, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY
+#   S3_REGION             optional: 'auto' suits R2, Supabase wants its region
+#   S3_PUBLIC_URL         optional: the old public bucket address, so photos
 #                         saved before the bucket went private still show
 #   RESEND_API_KEY        optional until email is set up
 #
@@ -148,11 +154,12 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_POOLED_URL }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
-          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
-          R2_BUCKET: ${{ secrets.R2_BUCKET }}
-          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          R2_PUBLIC_URL: ${{ secrets.R2_PUBLIC_URL }}
+          S3_ENDPOINT: ${{ secrets.S3_ENDPOINT }}
+          S3_BUCKET: ${{ secrets.S3_BUCKET }}
+          S3_ACCESS_KEY_ID: ${{ secrets.S3_ACCESS_KEY_ID }}
+          S3_SECRET_ACCESS_KEY: ${{ secrets.S3_SECRET_ACCESS_KEY }}
+          S3_REGION: ${{ secrets.S3_REGION }}
+          S3_PUBLIC_URL: ${{ secrets.S3_PUBLIC_URL }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           WEB_ORIGIN_INPUT: ${{ inputs.web_origin }}
         run: |
@@ -172,10 +179,10 @@ jobs:
               DEMO_MODE: "true",
               TZ: "Asia/Jerusalem",
             };
-            for (const k of ["R2_ACCOUNT_ID", "R2_BUCKET", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_PUBLIC_URL", "RESEND_API_KEY"]) {
+            for (const k of ["S3_ENDPOINT", "S3_BUCKET", "S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY", "S3_REGION", "S3_PUBLIC_URL", "RESEND_API_KEY"]) {
               if (process.env[k]) env[k] = process.env[k];
             }
-            const missing = ["DATABASE_URL", "JWT_SECRET", "R2_ACCOUNT_ID", "R2_BUCKET", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY"].filter((k) => !env[k]);
+            const missing = ["DATABASE_URL", "JWT_SECRET", "S3_ENDPOINT", "S3_BUCKET", "S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY"].filter((k) => !env[k]);
             if (missing.length) { console.error("Missing secrets: " + missing.join(", ")); process.exit(1); }
             require("fs").writeFileSync(process.env.RUNNER_TEMP + "/env.yaml", JSON.stringify(env));
             console.log("WEB_ORIGIN=" + origin);

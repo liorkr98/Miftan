@@ -1,5 +1,6 @@
 import { ApiError } from '@miftan/shared';
 import { env } from '../lib/env.ts';
+import { objectPath, s3ConfigFromEnv } from './s3-config.ts';
 import { presignGet } from './presign.ts';
 
 /**
@@ -25,17 +26,6 @@ export function isFileKey(value: string): boolean {
   return KEY.test(value);
 }
 
-function r2Config() {
-  const { R2_ACCOUNT_ID, R2_BUCKET, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY } = env;
-  if (!R2_ACCOUNT_ID || !R2_BUCKET || !R2_ACCESS_KEY_ID || !R2_SECRET_ACCESS_KEY) return null;
-  return {
-    host: `${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-    bucket: R2_BUCKET,
-    accessKeyId: R2_ACCESS_KEY_ID,
-    secretAccessKey: R2_SECRET_ACCESS_KEY,
-  };
-}
-
 /**
  * Whatever a client sent back — a bare key, the preview link it was given
  * after uploading, or a link from the old public bucket — reduced to a key.
@@ -54,15 +44,16 @@ export function toStoredKey(value: string): string {
   const path = decodeURIComponent(url.pathname);
   const candidates: string[] = [];
 
-  const r2 = r2Config();
-  if (r2 && url.host === r2.host && path.startsWith(`/${r2.bucket}/`)) {
-    candidates.push(path.slice(r2.bucket.length + 2));
+  const config = s3ConfigFromEnv();
+  if (config && url.host === config.host) {
+    const prefix = `${config.pathPrefix}/${config.bucket}/`;
+    if (path.startsWith(prefix)) candidates.push(path.slice(prefix.length));
   }
-  if (env.R2_PUBLIC_URL && value.startsWith(env.R2_PUBLIC_URL.replace(/\/$/, '') + '/')) {
+  if (env.S3_PUBLIC_URL && value.startsWith(env.S3_PUBLIC_URL.replace(/\/$/, '') + '/')) {
     candidates.push(path.replace(/^\//, ''));
   }
   /* The local development driver serves files from this API. */
-  if (!r2 && path.startsWith('/files/')) candidates.push(path.slice('/files/'.length));
+  if (!config && path.startsWith('/files/')) candidates.push(path.slice('/files/'.length));
 
   const key = candidates.find(isFileKey);
   if (!key) throw new ApiError('validation_failed', 'not a file this service stored');
@@ -84,23 +75,23 @@ export function toStoredKeys(values: readonly string[]): string[] {
 export function fileLink(stored: string, now: Date = new Date()): string {
   let key = stored;
   if (!isFileKey(stored)) {
-    const legacy = env.R2_PUBLIC_URL?.replace(/\/$/, '');
+    const legacy = env.S3_PUBLIC_URL?.replace(/\/$/, '');
     if (legacy && stored.startsWith(`${legacy}/`)) key = stored.slice(legacy.length + 1);
     else return stored;
     if (!isFileKey(key)) return stored;
   }
 
-  const r2 = r2Config();
-  if (!r2) return `http://127.0.0.1:${env.PORT}/files/${key}`;
+  const config = s3ConfigFromEnv();
+  if (!config) return `http://127.0.0.1:${env.PORT}/files/${key}`;
 
   const aligned = new Date(Math.floor(now.getTime() / (ALIGN_SECONDS * 1000)) * ALIGN_SECONDS * 1000);
   return presignGet({
-    host: r2.host,
-    path: `/${r2.bucket}/${key}`,
-    region: 'auto',
+    host: config.host,
+    path: objectPath(config, key),
+    region: config.region,
     service: 's3',
-    accessKeyId: r2.accessKeyId,
-    secretAccessKey: r2.secretAccessKey,
+    accessKeyId: config.accessKeyId,
+    secretAccessKey: config.secretAccessKey,
     now: aligned,
     /* Issued up to an hour ago by alignment, so it runs two hours from the
        aligned start to leave at least one usable hour. */
