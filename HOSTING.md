@@ -82,7 +82,7 @@ go straight from the client to R2 and never through the API process.
 Five variables, all required together (`apps/api/.env.example` has them):
 
 ```
-R2_ACCOUNT_ID  R2_BUCKET  R2_ACCESS_KEY_ID  R2_SECRET_ACCESS_KEY  R2_PUBLIC_URL
+S3_ENDPOINT  S3_BUCKET  S3_ACCESS_KEY_ID  S3_SECRET_ACCESS_KEY  S3_REGION  S3_PUBLIC_URL
 ```
 
 The bucket is `miftan-uploads`, in WEUR, reading publicly from
@@ -94,11 +94,16 @@ Verified against the real bucket: a signed PUT returns 200, the object reads bac
 from the public origin with the right content type, and a PUT whose content type
 does not match the one that was signed is rejected with 403.
 
-`R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` come from **R2 → Manage R2 API Tokens →
+`S3_ENDPOINT` is what selects the provider — `https://<account>.r2.cloudflarestorage.com`
+for R2, `https://<ref>.supabase.co/storage/v1/s3` for Supabase, whose keys come from
+**Storage → S3 Access Keys**. `S3_REGION` is `auto` for R2 and the project's region for
+Supabase.
+
+On R2, `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` come from **R2 → Manage R2 API Tokens →
 Create API token → Object Read & Write**. A Cloudflare API token (`cfut_…`) is a
 different credential and cannot sign an S3 request.
 
-The bucket needs a public read origin for `R2_PUBLIC_URL` — either a custom domain
+The bucket needs a public read origin for `S3_PUBLIC_URL` — either a custom domain
 on the bucket, or its `r2.dev` subdomain. Uploads are keyed by UUID, so filenames
 never come from the client.
 
