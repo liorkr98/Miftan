@@ -38,4 +38,6 @@ export const authBurst = rateLimit({ name: 'auth', windowMs: 15 * 60_000, max: 2
 export const refreshBurst = rateLimit({ name: 'refresh', windowMs: 60_000, max: 60 });
 export const joinBurst = rateLimit({ name: 'join', windowMs: 60 * 60_000, max: 30 });
 export const searchBurst = rateLimit({ name: 'search', windowMs: 60_000, max: 60 });
+export const viewBurst = rateLimit({ name: 'view', windowMs: 60_000, max: 120 });
+export const interpretBurst = rateLimit({ name: 'interpret', windowMs: 60_000, max: 20 });
 export const uploadBurst = rateLimit({ name: 'upload', windowMs: 60 * 60_000, max: 40 });

@@ -1,5 +1,5 @@
 import { districtOf, toAgorot } from '@miftan/shared';
-import { daysAgo, hoursAgo, monthKey, monthsOut, photo, slotAt } from '@miftan/fixtures';
+import { apartmentPhotos, daysAgo, hoursAgo, monthKey, monthsOut, photo, slotAt } from '@miftan/fixtures';
 import { schema as s } from './client.ts';
 import { seedId } from '../lib/ids.ts';
 
@@ -103,7 +103,7 @@ export async function seedExtraDemo(tx: Tx, passwordHash: string) {
       district: districtOf(f.city) ?? null, lat: f.lat, lng: f.lng,
       rooms: f.rooms, sqm: f.sqm, floor: f.floor, totalFloors: f.total,
       amenities: f.amenities,
-      photos: [photo(`miftan-demo-${f.key}1`), photo(`miftan-demo-${f.key}2`)],
+      photos: apartmentPhotos(40 + FLATS.indexOf(f), 2),
       monthlyRentAgorot: money(f.rent),
       arnonaBimonthlyAgorot: money(Math.round(f.sqm * 11)),
       vaadMonthlyAgorot: money(f.floor > 2 ? 220 : 140),
@@ -128,6 +128,21 @@ export async function seedExtraDemo(tx: Tx, passwordHash: string) {
       renewalAskedAt: 'intent' in f ? new Date(daysAgo(12)) : null,
     })),
   );
+
+  /* One tenant asked questions before deciding — the owner's "answer" step. */
+  await tx.insert(s.renewalCycles).values({
+    id: seedId('renewalCycle', 'demo-e'),
+    leaseId: lid('demo-e'),
+    propertyId: pid('demo-e'),
+    stage: 'questions',
+    openedAt: new Date(daysAgo(6)),
+    questions: [
+      { topic: 'rent_same', text: null },
+      { topic: 'extend_year', text: null },
+      { topic: 'other', text: 'אפשר לתקן את התריס בסלון לפני שחותמים?' },
+    ],
+    questionsAt: new Date(daysAgo(1)),
+  });
 
   /* ── A year of rent, with a late payer on ביאליק ────────── */
   await tx.insert(s.rentPayments).values(
@@ -247,7 +262,9 @@ export async function seedExtraDemo(tx: Tx, passwordHash: string) {
 
   /* ── Committed contract scans ───────────────────────── */
   const field = (key: string, label: string, value: string, confidence = 1) => ({
-    key, label, value, confidence, sourceHint: 'אושר על ידי הבעלים', needsReview: false,
+    /* The stored shape (snake_case, as the scanner writes it); needsReview is
+       computed on read. */
+    key, label, value, confidence, source_hint: 'אושר על ידי הבעלים',
   });
   await tx.insert(s.contractScans).values(
     leased.slice(0, 3).map((f) => {

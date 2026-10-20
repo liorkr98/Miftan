@@ -222,6 +222,65 @@ export async function leadRoutes(app: FastifyInstance) {
     },
   );
 
+  /**
+   * Someone who followed a flat now applying for it — one tap. The renter
+   * profile they already filled in is frozen into the application as it is
+   * today, the same way a fresh application is; nothing is typed again.
+   */
+  r.post(
+    '/leads/:id/apply',
+    {
+      onRequest: [app.authenticate],
+      schema: { params: z.object({ id: z.string() }), response: { 200: leadViewSchema } },
+    },
+    async (request) => {
+      const viewer = await resolveViewer(request.currentUser!.id);
+      const [lead] = await db
+        .select()
+        .from(s.leads)
+        .where(and(eq(s.leads.id, request.params.id), isNull(s.leads.deletedAt)));
+      if (!lead || lead.seekerId !== viewer.userId) throw new ApiError('not_found', 'no such application');
+      if (!lead.watchOnly) throw new ApiError('forbidden', 'you have already applied');
+
+      const [property] = await db.select().from(s.properties).where(eq(s.properties.id, lead.propertyId));
+      if (!property?.listed || property.deletedAt) throw new ApiError('not_found', 'no such listing');
+
+      const [profile] = await db.select().from(s.renterProfiles).where(eq(s.renterProfiles.userId, viewer.userId));
+      if (!profile?.complete) throw new ApiError('forbidden', 'complete your renter profile before applying');
+
+      const [{ n }] = await db
+        .select({ n: sql<number>`count(*)::int` })
+        .from(s.leads)
+        .where(and(eq(s.leads.propertyId, lead.propertyId), isNull(s.leads.deletedAt), eq(s.leads.watchOnly, false)));
+
+      const now = new Date();
+      await db
+        .update(s.leads)
+        .set({
+          watchOnly: false,
+          stage: 'new',
+          queuePosition: n + 1,
+          desiredMoveIn: property.availableFrom ?? lead.desiredMoveIn,
+          incomeToRentRatio: profile.incomeToRentRatio,
+          employment: profile.employment,
+          hasGuarantors: profile.hasGuarantors,
+          occupants: profile.occupants,
+          pets: profile.pets,
+          smoker: profile.smoker,
+          leaseLengthMonths: profile.leaseLengthMonths,
+          priorLandlordReference: profile.priorLandlordReference,
+          /* Applied now, so it is new to the owner now. */
+          createdAt: now,
+          updatedAt: now,
+        })
+        .where(eq(s.leads.id, lead.id));
+
+      const [after] = await db.select().from(s.leads).where(eq(s.leads.id, lead.id));
+      const [ctx] = await loadLeadContexts([after], { criteria: [], withIdentities: false });
+      return projectLead(viewer, ctx);
+    },
+  );
+
   /** Leaving a queue closes the gap behind you. */
   r.delete(
     '/leads/:id',

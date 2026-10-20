@@ -26,6 +26,7 @@ export const keys = {
   properties: ['properties'] as const,
   property: (id: string) => ['properties', id] as const,
   search: ['search'] as const,
+  searchUniverse: ['search', 'universe'] as const,
   tickets: (filters?: { propertyId?: string }) => ['tickets', filters ?? {}] as const,
   ticket: (id: string) => ['tickets', id] as const,
   vendors: ['vendors'] as const,
@@ -33,6 +34,9 @@ export const keys = {
   rentPayments: (filters?: { propertyId?: string; from?: string; to?: string }) =>
     ['rent-payments', filters ?? {}] as const,
   renterProfile: ['me', 'renter-profile'] as const,
+
+  portfolio: ['portfolio'] as const,
+  portfolioAnalytics: (from: string, to: string) => ['portfolio', 'analytics', from, to] as const,
 
   leads: ['leads'] as const,
   lead: (id: string) => ['leads', id] as const,
@@ -56,4 +60,5 @@ export const keys = {
   invites: (propertyId: string) => ['invites', propertyId] as const,
   invitePreview: (token: string) => ['invite-preview', token] as const,
   notifications: ['notifications'] as const,
+  renewals: ['renewals'] as const,
 };

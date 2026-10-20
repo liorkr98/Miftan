@@ -31,6 +31,9 @@ export const ID_PREFIX = {
   session: 'sess',
   invite: 'inv',
   authToken: 'atok',
+  listingView: 'lview',
+  renewalCycle: 'rnw',
+  meetingSlot: 'mslot',
 } as const;
 
 export type IdKind = keyof typeof ID_PREFIX;

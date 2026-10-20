@@ -4,6 +4,7 @@ import { and, eq, gte, inArray, isNotNull, isNull, lt, lte, ne, or, sql } from '
 import { israelMonth, notificationFeedSchema, okSchema, zonedWallTime, type NotificationView } from '@miftan/shared';
 import { db, schema as s } from '../db/client.ts';
 import { isCurrentTenant, resolveViewer } from '../policy/viewer.ts';
+import { turnoverItems } from '../policy/turnover-notifications.ts';
 
 /**
  * The notification feed, derived on read.
@@ -282,6 +283,10 @@ export async function notificationRoutes(app: FastifyInstance) {
           });
         }
       }
+
+      /* Lease turnover and viewings. Reading these also opens any renewal
+         that has reached its day — the bell is part of the scheduler. */
+      items.push(...(await turnoverItems(viewer, since)));
 
       const [me] = await db
         .select({ seen: s.users.notificationsSeenAt })

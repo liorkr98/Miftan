@@ -5,9 +5,10 @@ import { contactSchema } from './views';
  * Leads, screening and the audit trail.
  *
  * The two scopes are very different questions. An owner asks "who is queueing
- * for my flat and how do they compare"; a seeker asks "where am I in the line".
- * The seeker's answer contains a position and a total and no other human being,
- * because the people ahead of them in a queue are not their business.
+ * for my flat and how do they compare"; a seeker asks "did my application go
+ * in, and when does the flat free up". The seeker's answer carries no
+ * position and no total — that is the owner's tool for managing demand, not a
+ * number to publish to the applicant.
  */
 
 export const leadStageSchema = z.enum([
@@ -57,11 +58,10 @@ export const ownerLeadSchema = z.object({
 });
 
 /**
- * The seeker's own place in a queue. No other applicant appears.
- *
- * It also carries the listing's public face — rent, a photo, the availability
- * signal — so "the queues I am in" renders from one request. All of it is
- * already visible on the listing page; none of it is about anybody else.
+ * The seeker's own application. No other applicant appears, and neither does
+ * the seeker's position among them — where someone stands relative to other
+ * applicants is the owner's information to manage, not a number to hand a
+ * seeker so they can game the line.
  */
 export const seekerLeadSchema = z.object({
   scope: z.literal('seeker'),
@@ -70,8 +70,6 @@ export const seekerLeadSchema = z.object({
   propertyLabel: z.string(),
   stage: leadStageSchema,
   desiredMoveIn: z.string(),
-  queuePosition: z.number().int(),
-  queueLength: z.number().int(),
   watchOnly: z.boolean(),
   createdAt: z.string(),
 

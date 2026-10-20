@@ -23,6 +23,7 @@ import { hashPassword } from '../lib/auth.ts';
 import { DEMO_EMAIL, seedDemoAccount } from './seed-demo.ts';
 import { assertDemoSeedAllowed, DEMO_MARKER_KEY, DEMO_MARKER_VALUE } from './demo-guard.ts';
 import { seedExtraDemo } from './seed-extra.ts';
+import { seedScenarios } from './seed-scenarios.ts';
 
 /**
  * Loads the demo portfolio into Postgres as development fixtures.
@@ -376,6 +377,8 @@ await db.transaction(async (tx) => {
      demonstrable rather than to describe anything real. It only adds rows. */
   await seedDemoAccount(tx, DEV_PASSWORD_HASH);
   await seedExtraDemo(tx, DEV_PASSWORD_HASH);
+  /* The lease lifecycle, one flat per moment of it — see seed-scenarios.ts. */
+  await seedScenarios(tx, DEV_PASSWORD_HASH);
 
   /* Every seeded account is a demo login, and a demo should show the whole
      product — so those accounts, and only those, get the paid plan. A real

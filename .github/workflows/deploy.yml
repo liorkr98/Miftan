@@ -1,7 +1,13 @@
-# The API on Google Cloud Run (service `miftan-api`, Frankfurt, next to the
-# database). It deploys automatically after verify is green on main, and
-# can be run by hand from the Actions tab. Cloud Run scales to zero when
-# nobody is using it, so at this traffic it stays inside the free tier.
+# Two jobs, run automatically after verify is green on main (and by hand from
+# the Actions tab):
+#
+#   database  Brings the hosted database up to date: every migration on main —
+#             anyone's — is applied, so a new table reaches the shared database
+#             without anybody connecting to it by hand. Runs whenever
+#             DATABASE_DIRECT_URL exists, whether or not Google Cloud is set up.
+#   deploy    The API on Google Cloud Run (service `miftan-api`, Frankfurt).
+#             Scales to zero when nobody is using it, so at this traffic it
+#             stays inside the free tier. Runs after the database job.
 #
 # reset-demo erases the database and reloads the demo data. It needs the
 # typed confirmation, and the seed guard still refuses a database that holds
@@ -17,7 +23,9 @@
 #                         the Transaction pooler (port 6543).
 #   DATABASE_DIRECT_URL   direct database URL (migrations, seed, reset). A
 #                         transaction-mode pooler cannot hold the session these
-#                         need. On Supabase this is the Direct connection.
+#                         need. On Supabase this is the Session pooler (port
+#                         5432): the Direct connection is IPv6-only, and
+#                         GitHub's runners cannot reach it.
 #   JWT_SECRET            32+ random characters
 #   S3_ENDPOINT           object storage, as a whole URL. Named for the role,
 #                         not the vendor, so the provider can change without
@@ -30,8 +38,8 @@
 #                         saved before the bucket went private still show
 #   RESEND_API_KEY        optional until email is set up
 #
-# Until GCP_PROJECT_ID and GCP_SA_KEY exist, the job explains what is missing
-# and stops without failing.
+# Until a secret a job needs exists, that job explains what is missing and
+# stops without failing.
 
 name: deploy
 
@@ -70,21 +78,20 @@ env:
   REGION: europe-west3
 
 jobs:
-  deploy:
+  database:
     if: >-
       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
       || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 15
+    env:
+      DIRECT_URL: ${{ secrets.DATABASE_DIRECT_URL }}
     steps:
-      - name: Check that Google Cloud is configured
+      - name: Check that the database is configured
         id: configured
-        env:
-          PROJECT: ${{ secrets.GCP_PROJECT_ID }}
-          KEY: ${{ secrets.GCP_SA_KEY }}
         run: |
-          if [ -z "$PROJECT" ] || [ -z "$KEY" ]; then
-            echo "::notice::Deploy skipped: add GCP_PROJECT_ID and GCP_SA_KEY to the repository secrets."
+          if [ -z "$DIRECT_URL" ]; then
+            echo "::notice::Database step skipped: add DATABASE_DIRECT_URL to the repository secrets."
             echo "ready=false" >> "$GITHUB_OUTPUT"
           else
             echo "ready=true" >> "$GITHUB_OUTPUT"
@@ -118,7 +125,7 @@ jobs:
         if: steps.configured.outputs.ready == 'true' && inputs.data == 'reset-demo'
         run: npm run db:reset -w @miftan/api
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_DIRECT_URL }}
+          DATABASE_URL: ${{ env.DIRECT_URL }}
           DEMO_DATABASE: 'true'
           CONFIRM_RESET: erase-demo-database
 
@@ -128,15 +135,50 @@ jobs:
         if: steps.configured.outputs.ready == 'true'
         run: npm run db:migrate -w @miftan/api
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_DIRECT_URL }}
+          DATABASE_URL: ${{ env.DIRECT_URL }}
 
       - name: Seed demo data
         if: steps.configured.outputs.ready == 'true' && inputs.data == 'reset-demo'
         run: npm run db:seed -w @miftan/api
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_DIRECT_URL }}
+          DATABASE_URL: ${{ env.DIRECT_URL }}
           DEMO_DATABASE: 'true'
           JWT_SECRET: seed-only-placeholder-that-is-long-enough-to-validate
+
+  deploy:
+    needs: database
+    if: >-
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+      || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check that Google Cloud is configured
+        id: configured
+        env:
+          PROJECT: ${{ secrets.GCP_PROJECT_ID }}
+          KEY: ${{ secrets.GCP_SA_KEY }}
+        run: |
+          if [ -z "$PROJECT" ] || [ -z "$KEY" ]; then
+            echo "::notice::Deploy skipped: add GCP_PROJECT_ID and GCP_SA_KEY to the repository secrets."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.configured.outputs.ready == 'true'
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - uses: actions/setup-node@v4
+        if: steps.configured.outputs.ready == 'true'
+        with:
+          node-version: 24
+          cache: npm
+
+      - if: steps.configured.outputs.ready == 'true'
+        run: npm ci
 
       - uses: google-github-actions/auth@v2
         if: steps.configured.outputs.ready == 'true'

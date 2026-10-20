@@ -5,18 +5,26 @@ import { z } from 'zod';
 import {
   ApiError,
   bookSlotSchema,
+  cancelSlotSchema,
   inviteToSlotSchema,
   markAttendanceSchema,
+  moveSlotSchema,
   passesScreening,
   publishSlotsSchema,
+  publishWindowsSchema,
+  splitWindow,
+  VIEWING_MINUTES,
   slotListSchema,
   slotViewSchema,
   upcomingBriefingsSchema,
   type OwnerSlot,
   type SeekerSlot,
   type SlotView,
+  t,
+  formatDateTime,
   zonedWallTime,
 } from '@miftan/shared';
+import { mailUser } from '../email/notify.ts';
 import { db, schema as s } from '../db/client.ts';
 import { newId } from '../lib/ids.ts';
 import { resolveViewer, scopeFor, type Viewer } from '../policy/viewer.ts';
@@ -180,6 +188,51 @@ export async function viewingRoutes(app: FastifyInstance) {
     },
   );
 
+  /**
+   * Availability, the way an owner thinks about it: "Tuesday 17:00–19:00,
+   * Friday 10:00–12:00". Each window becomes back-to-back 15-minute viewings.
+   */
+  r.post(
+    '/viewings/windows',
+    {
+      onRequest: [app.authenticate],
+      schema: { body: publishWindowsSchema, response: { 201: slotListSchema } },
+    },
+    async (request, reply) => {
+      const viewer = await resolveViewer(request.currentUser!.id);
+      const { propertyId, windows } = request.body;
+      if (scopeFor(viewer, propertyId) !== 'owner') throw new ApiError('not_found', 'no such property');
+
+      const now = new Date();
+      const wanted = windows
+        .flatMap((w) => splitWindow(w.from, w.until, VIEWING_MINUTES).map((hhmm) => zonedWallTime(w.date, hhmm)))
+        .filter((d) => d > now);
+      if (wanted.length === 0) {
+        throw new ApiError('validation_failed', 'none of these times are in the future', { windows: ['pick a future time'] });
+      }
+
+      const existing = await db
+        .select({ startsAt: s.viewingSlots.startsAt })
+        .from(s.viewingSlots)
+        .where(and(eq(s.viewingSlots.propertyId, propertyId), inArray(s.viewingSlots.startsAt, wanted)));
+      const taken = new Set(existing.map((e) => e.startsAt.getTime()));
+      const fresh = wanted.filter((d) => !taken.has(d.getTime()));
+      if (fresh.length) {
+        await db.insert(s.viewingSlots).values(
+          fresh.map((startsAt) => ({ id: newId('viewingSlot'), propertyId, ownerId: viewer.userId, startsAt, durationMinutes: VIEWING_MINUTES })),
+        );
+      }
+
+      const [property] = await db.select().from(s.properties).where(eq(s.properties.id, propertyId));
+      const rows = await db
+        .select()
+        .from(s.viewingSlots)
+        .where(eq(s.viewingSlots.propertyId, propertyId))
+        .orderBy(asc(s.viewingSlots.startsAt));
+      return reply.code(201).send({ slots: await projectForOwner(rows, property), eligible: null, ineligibleReason: null });
+    },
+  );
+
   /** An applicant taking a time. */
   r.post(
     '/viewings/:id/book',
@@ -209,6 +262,12 @@ export async function viewingRoutes(app: FastifyInstance) {
       if (!eligible) throw new ApiError('forbidden', reason);
 
       await claim(slot.id, lead.id, { invitedByOwner: false, note: null });
+
+      /* Both sides hear about it; neither has to message the other. */
+      const label = `${property.street} ${property.houseNumber}`.trim();
+      const [me] = await db.select({ name: s.users.name }).from(s.users).where(eq(s.users.id, viewer.userId));
+      await mailUser(property.ownerId, t.turnoverMail.viewingBooked, `/owner/properties/${property.id}?tab=viewings`, { name: me?.name ?? '', label });
+      await mailUser(viewer.userId, t.turnoverMail.viewingConfirmed, `/search/${property.id}`, { label });
       return oneForViewer(viewer, slot.id);
     },
   );
@@ -261,7 +320,7 @@ export async function viewingRoutes(app: FastifyInstance) {
     '/viewings/:id/cancel',
     {
       onRequest: [app.authenticate],
-      schema: { params: z.object({ id: z.string() }), response: { 200: slotViewSchema } },
+      schema: { params: z.object({ id: z.string() }), body: cancelSlotSchema, response: { 200: slotViewSchema } },
     },
     async (request) => {
       const viewer = await resolveViewer(request.currentUser!.id);
@@ -275,18 +334,85 @@ export async function viewingRoutes(app: FastifyInstance) {
       const isMine = holder?.seekerId === viewer.userId;
       if (!isOwner && !isMine) throw new ApiError('not_found', 'no such slot');
 
-      /* An applicant giving a slot back reopens it for somebody else; an owner
-         cancelling withdraws the time entirely. */
+      /* An applicant giving a slot back reopens it for somebody else. An owner
+         either withdraws the time entirely, or — `reopen` — cancels the
+         booking but keeps the time free on the calendar. */
+      const withdraw = isOwner && !isMine && !request.body?.reopen;
       await db
         .update(s.viewingSlots)
         .set(
-          isOwner && !isMine
+          withdraw
             ? { status: 'cancelled', updatedAt: new Date() }
-            : { status: 'open', leadId: null, bookedAt: null, invitedByOwner: false, updatedAt: new Date() },
+            : { status: 'open', leadId: null, bookedAt: null, invitedByOwner: false, note: null, updatedAt: new Date() },
         )
         .where(eq(s.viewingSlots.id, slot.id));
 
+      /* The owner called it off: the applicant hears, and is asked to pick again. */
+      if (isOwner && !isMine && holder && slot.status === 'booked') {
+        const [property] = await db.select().from(s.properties).where(eq(s.properties.id, slot.propertyId));
+        await mailUser(holder.seekerId, t.turnoverMail.viewingCancelled, `/search/${slot.propertyId}`, { label: label(property) });
+      }
+
       return oneForViewer(viewer, slot.id);
+    },
+  );
+
+  /**
+   * The owner moving a booked viewing to another free time.
+   *
+   * One step, not "cancel then hope they rebook": the old time frees up for
+   * somebody else and the applicant is told the new one. Atomic, so a seeker
+   * booking the target time at the same moment cannot end up sharing it.
+   */
+  r.post(
+    '/viewings/:id/move',
+    {
+      onRequest: [app.authenticate],
+      schema: { params: z.object({ id: z.string() }), body: moveSlotSchema, response: { 200: slotViewSchema } },
+    },
+    async (request) => {
+      const viewer = await resolveViewer(request.currentUser!.id);
+      const from = await ownedSlot(viewer, request.params.id);
+      if (from.status !== 'booked' || !from.leadId) throw new ApiError('forbidden', 'nobody is booked into that time');
+      const [to] = await db.select().from(s.viewingSlots).where(eq(s.viewingSlots.id, request.body.toSlotId));
+      if (!to || to.propertyId !== from.propertyId) throw new ApiError('not_found', 'no such slot');
+      if (to.startsAt < new Date()) throw new ApiError('forbidden', 'that time has passed');
+
+      const moved = await db.transaction(async (tx) => {
+        const claimed = await tx
+          .update(s.viewingSlots)
+          .set({ status: 'open', leadId: null, bookedAt: null, invitedByOwner: false, note: null, updatedAt: new Date() })
+          .where(and(eq(s.viewingSlots.id, from.id), eq(s.viewingSlots.status, 'booked')))
+          .returning({ id: s.viewingSlots.id });
+        if (claimed.length === 0) return false;
+        const took = await tx
+          .update(s.viewingSlots)
+          .set({
+            status: 'booked',
+            leadId: from.leadId,
+            bookedAt: new Date(),
+            invitedByOwner: from.invitedByOwner,
+            note: from.note,
+            updatedAt: new Date(),
+          })
+          .where(and(eq(s.viewingSlots.id, to.id), eq(s.viewingSlots.status, 'open')))
+          .returning({ id: s.viewingSlots.id });
+        if (took.length === 0) {
+          tx.rollback();
+        }
+        return true;
+      }).catch(() => false);
+      if (!moved) throw new ApiError('forbidden', 'that time has been taken');
+
+      const [lead] = await db.select().from(s.leads).where(eq(s.leads.id, from.leadId));
+      const [property] = await db.select().from(s.properties).where(eq(s.properties.id, from.propertyId));
+      if (lead) {
+        await mailUser(lead.seekerId, t.turnoverMail.viewingMoved, `/search/${property.id}`, {
+          label: label(property),
+          date: formatDateTime(to.startsAt.toISOString()),
+        });
+      }
+      return oneForViewer(viewer, to.id);
     },
   );
 
@@ -438,9 +564,8 @@ async function eligibilityOf(
   property: PropertyRow,
 ): Promise<{ eligible: boolean; reason: string }> {
   const { criteria } = await activeCriteria(property.ownerId);
-  /* No criteria configured means no filter to fail. */
-  if (criteria.length === 0) return { eligible: true, reason: '' };
-
+  /* evaluate() layers this flat's own requirements over the preset; with
+     neither, there are no flags and nothing to fail. */
   const [ctx] = await loadLeadContexts([lead], { criteria, withIdentities: false });
   const { flags } = evaluate(ctx);
   if (passesScreening(flags)) return { eligible: true, reason: '' };

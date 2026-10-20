@@ -31,6 +31,27 @@ export const notificationKindSchema = z.enum([
   'inquiry_replied',
   'application_stage',
   'followed_dated',
+  /* lease turnover — owner */
+  'turnover_staying',
+  'turnover_leaving',
+  'turnover_questions',
+  'turnover_overdue',
+  'turnover_meeting_booked',
+  'turnover_search_open',
+  'viewing_booked',
+  /* lease turnover — tenant */
+  'turnover_open',
+  'turnover_reminder',
+  'turnover_deadline_soon',
+  'turnover_answers',
+  'turnover_times',
+  'turnover_meeting_soon',
+  'turnover_renewed',
+  /* seeker */
+  'apply_invite',
+  'viewing_invite',
+  /* anyone with a viewing tomorrow */
+  'viewing_soon',
 ]);
 
 export const notificationSchema = z.object({

@@ -133,3 +133,41 @@ export function citiesByDistrict(): Array<{ district: District; label: string; c
     cities: citiesIn(district).sort((a, b) => a.name.localeCompare(b.name, 'he')),
   }));
 }
+
+/**
+ * The search geography for this version of the product: Tel Aviv, in the nine
+ * areas people actually say out loud. No nationwide hierarchy — a person
+ * looking for a flat in Florentin does not think in districts.
+ *
+ * `name` is what is stored on a property (`neighborhood`) and what the filter
+ * matches on, so there is exactly one spelling of each area in the system.
+ */
+export const TEL_AVIV = 'תל אביב-יפו';
+
+export const TEL_AVIV_AREAS = [
+  { name: 'הצפון החדש', en: 'HaTzafon HaHadash', aliases: ['הצפון החדש', 'צפון החדש', 'צפון חדש'] },
+  { name: 'הצפון הישן', en: 'HaTzafon HaYashan', aliases: ['הצפון הישן', 'צפון הישן', 'צפון ישן'] },
+  { name: 'מרכז העיר', en: 'City Center', aliases: ['מרכז העיר'] },
+  {
+    name: 'כרם התימנים ונווה צדק',
+    en: 'Kerem HaTeimanim & Neve Tzedek',
+    aliases: ['כרם התימנים ונווה צדק', 'כרם התימנים', 'נווה צדק'],
+  },
+  { name: 'לב העיר', en: 'Lev HaIr', aliases: ['לב העיר'] },
+  { name: 'לבונטין', en: 'Levontin', aliases: ['לבונטין'] },
+  { name: 'פלורנטין', en: 'Florentin', aliases: ['פלורנטין'] },
+  { name: 'יד אליהו', en: 'Yad Eliyahu', aliases: ['יד אליהו'] },
+  {
+    name: 'מזרח אבן גבירול',
+    en: 'East of Ibn Gabirol',
+    aliases: ['מזרח אבן גבירול', 'מזרח אבן-גבירול'],
+  },
+] as const;
+
+export type TelAvivArea = (typeof TEL_AVIV_AREAS)[number]['name'];
+
+export const TEL_AVIV_AREA_NAMES: string[] = TEL_AVIV_AREAS.map((a) => a.name);
+
+export function isTelAvivArea(name: string): name is TelAvivArea {
+  return TEL_AVIV_AREA_NAMES.includes(name);
+}

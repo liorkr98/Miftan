@@ -8,6 +8,17 @@ export const Dialog = DialogPrimitive.Root;
 export const DialogTrigger = DialogPrimitive.Trigger;
 export const DialogClose = DialogPrimitive.Close;
 
+/**
+ * For sheets whose first field is optional: on a phone, landing focus on it
+ * throws the keyboard over the one button most people want. Focus the sheet
+ * itself instead — screen readers still start inside it.
+ */
+export function focusSheetOnTouch(e: Event) {
+  if (!window.matchMedia('(pointer: coarse)').matches) return;
+  e.preventDefault();
+  (e.currentTarget as HTMLElement | null)?.focus();
+}
+
 export const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & { wide?: boolean }

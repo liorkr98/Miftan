@@ -34,6 +34,8 @@ export const searchFiltersSchema = z.object({
   district: districtSchema.nullish(),
   city: z.string().nullish(),
   neighborhood: z.string().nullish(),
+  /** One or more of the nine Tel Aviv areas. Empty means all of them. */
+  areas: z.array(z.string()).max(9).default([]),
 
   /* Size */
   minRooms: z.number().min(1).max(12).nullish(),
@@ -95,6 +97,7 @@ export const searchResultSchema = z.object({
     confidence: z.enum(['confirmed', 'likely', 'unknown']),
     askable: z.boolean(),
   }),
+  /** How many people are queueing. A count only — never anyone's place in it. */
   queueLength: z.number().int(),
 });
 
@@ -129,6 +132,37 @@ export const marketResponseSchema = z.object({
   /** Below this a median is not published at all, only counted */
   minimumSample: z.number().int(),
   generatedAt: z.string(),
+});
+
+/* ── Free-text interpretation ──────────────────────────── */
+
+export const interpretRequestSchema = z.object({
+  /** What the person typed. Not stored, and never sent with who they are. */
+  text: z.string().trim().min(1).max(500),
+});
+
+export const searchIntentSchema = z.object({
+  areas: z.array(z.string()),
+  minRooms: z.number().optional(),
+  maxRooms: z.number().optional(),
+  minSqm: z.number().optional(),
+  maxSqm: z.number().optional(),
+  minPrice: z.number().optional(),
+  maxPrice: z.number().optional(),
+  availableFrom: z.string().optional(),
+  availableBy: z.string().optional(),
+  required: z.array(amenitySchema),
+  preferred: z.array(amenitySchema),
+  smart: z.array(z.enum(['below_market', 'soon', 'low_competition'])),
+  sort: z.enum(['date', 'price_asc', 'price_desc', 'rooms', 'sqm', 'recommended', 'best_match', 'ppsqm']).optional(),
+  unsupported: z.array(z.enum(['quiet', 'transit', 'schools', 'view', 'garden', 'similar', 'other_city'])),
+  recognized: z.number().int(),
+});
+
+export const interpretResponseSchema = z.object({
+  intent: searchIntentSchema,
+  /** Which interpreter answered: the language model, or the built-in rules it falls back to */
+  source: z.enum(['model', 'rules']),
 });
 
 export type SearchFilters = z.infer<typeof searchFiltersSchema>;

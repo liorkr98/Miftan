@@ -44,6 +44,7 @@ function context(id: string): PropertyContext {
       listed: true,
       showExactAddress: false,
       notes: 'PRIVATE-OWNER-NOTE',
+      smokingAllowed: null, maxOccupants: null, minLeaseMonths: null,
       createdAt: new Date(), updatedAt: new Date(), deletedAt: null,
     },
     lease: {
@@ -59,6 +60,8 @@ function context(id: string): PropertyContext {
     tenant: { id: 'usr_tenant', name: 'PRIVATE-TENANT-NAME', phone: '0521104488' },
     owner: { id: 'usr_landlord', name: 'רן אלמוג', phone: '0524418890' },
     queueCount: 4,
+    viewCount: 12,
+    watchCount: 3,
     openTicketCount: 2,
   };
 }

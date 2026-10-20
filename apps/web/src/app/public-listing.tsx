@@ -8,7 +8,8 @@ import {
   formatSqm,
   t,
 } from '@miftan/shared';
-import { useProperty } from '@/api/hooks';
+import { useProperty, useRecordListingView } from '@/api/hooks';
+import { ListingStats } from '@/components/shared/listing-stats';
 import { useAuth } from '@/api/auth';
 import { Wordmark } from '@/components/shared/wordmark';
 import { AvailabilityChip } from '@/components/shared/status';
@@ -36,6 +37,7 @@ export function PublicListing() {
   const { id = '' } = useParams();
   const { user } = useAuth();
   const { data: property, isLoading, isError, error } = useProperty(id);
+  useRecordListingView(id, property?.scope === 'public');
   const [photo, setPhoto] = React.useState(0);
 
   React.useEffect(() => {
@@ -144,6 +146,8 @@ export function PublicListing() {
               confidence={property.availability.confidence}
               size="lg"
             />
+
+            <ListingStats viewCount={property.viewCount} watchCount={property.watchCount} />
 
             <dl className="grid grid-cols-3 gap-3 rounded-[var(--radius-card)] bg-surface p-4 text-center">
               <Fact label={t.properties.rooms} value={formatRooms(property.rooms)} />

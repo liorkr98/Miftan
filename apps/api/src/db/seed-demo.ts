@@ -1,5 +1,5 @@
 import { DEFAULT_CRITERIA, districtOf, toAgorot } from '@miftan/shared';
-import { daysAgo, monthKey, monthsOut, photo, slotAt } from '@miftan/fixtures';
+import { apartmentPhotos, daysAgo, monthKey, monthsOut, slotAt } from '@miftan/fixtures';
 import { schema as s } from './client.ts';
 import { seedId } from '../lib/ids.ts';
 
@@ -61,7 +61,7 @@ export async function seedDemoAccount(tx: Tx, passwordHash: string) {
       lat: '32.0854', lng: '34.7745',
       rooms: '3', sqm: 68, floor: 2, totalFloors: 4,
       amenities: ['balcony', 'ac', 'elevator'],
-      photos: [photo('miftan-demo-a1'), photo('miftan-demo-a2')],
+      photos: apartmentPhotos(31, 3),
       monthlyRentAgorot: money(9200), arnonaBimonthlyAgorot: money(880), vaadMonthlyAgorot: money(180),
       status: 'occupied', availableFrom: null, availabilityConfidence: 'unknown', listed: true,
     },
@@ -74,7 +74,7 @@ export async function seedDemoAccount(tx: Tx, passwordHash: string) {
       lat: '32.0897', lng: '34.7812',
       rooms: '2.5', sqm: 55, floor: 1, totalFloors: 3,
       amenities: ['balcony', 'ac', 'renovated'],
-      photos: [photo('miftan-demo-b1'), photo('miftan-demo-b2')],
+      photos: apartmentPhotos(32, 3),
       monthlyRentAgorot: money(8100), arnonaBimonthlyAgorot: money(710), vaadMonthlyAgorot: money(140),
       status: 'vacating', availableFrom: monthsOut(2, 15), availabilityConfidence: 'confirmed', listed: true,
     },
@@ -86,7 +86,7 @@ export async function seedDemoAccount(tx: Tx, passwordHash: string) {
       lat: '32.0631', lng: '34.7739',
       rooms: '1.5', sqm: 38, floor: 4, totalFloors: 6,
       amenities: ['ac', 'elevator'],
-      photos: [photo('miftan-demo-c1')],
+      photos: apartmentPhotos(33, 2),
       monthlyRentAgorot: money(6300), arnonaBimonthlyAgorot: money(520), vaadMonthlyAgorot: money(110),
       status: 'vacant', availableFrom: null, availabilityConfidence: 'confirmed', listed: true,
     },
@@ -98,7 +98,7 @@ export async function seedDemoAccount(tx: Tx, passwordHash: string) {
       lat: '32.0648', lng: '34.7761',
       rooms: '4', sqm: 92, floor: 3, totalFloors: 5,
       amenities: ['balcony', 'ac', 'elevator', 'parking'],
-      photos: [photo('miftan-demo-home1'), photo('miftan-demo-home2')],
+      photos: apartmentPhotos(34, 3),
       monthlyRentAgorot: money(11800), arnonaBimonthlyAgorot: money(1120), vaadMonthlyAgorot: money(260),
       status: 'occupied', availableFrom: null, availabilityConfidence: 'unknown', listed: false,
     },
@@ -123,7 +123,9 @@ export async function seedDemoAccount(tx: Tx, passwordHash: string) {
       /* Dana's own tenancy. This row is the whole reason the account has a
          דייר tab at all. */
       id: lid('demo-home'), propertyId: pid('demo-home'), tenantId: dana,
-      startDate: monthsOut(-8, 1), endDate: monthsOut(16, 1),
+      /* Ends inside the renewal window, so her tenant side shows the
+         "stay or leave?" question the first time she opens it. */
+      startDate: monthsOut(-21, 25), endDate: monthsOut(2, 25),
       monthlyRentAgorot: money(11800), depositAgorot: money(23600),
       paymentMethod: 'bank_transfer', hasExtensionOption: true, extensionMonths: 12, noticePeriodDays: 60,
     },

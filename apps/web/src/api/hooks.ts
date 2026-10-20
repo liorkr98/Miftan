@@ -1,5 +1,8 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import * as React from 'react';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
+  PortfolioAnalytics,
+  PortfolioSnapshot,
   AuditEntryView,
   BriefingView,
   BudgetPolicyView,
@@ -18,7 +21,11 @@ import type {
   ScreeningCriterion,
   ScreeningPresetView,
   SearchFilters,
+  SearchIntent,
   SearchResult,
+  RenewalView,
+  TimeWindow,
+  ListingRequirements,
   SeasonalTaskView,
   SlotView,
   ThreadView,
@@ -700,6 +707,53 @@ export function useRunSearch() {
   });
 }
 
+/**
+ * Every listing a seeker may see, unfiltered and unrecorded. It is the
+ * comparison set for the price insight: a search that narrows to two flats
+ * still has to be judged against the whole market we hold, and this read is
+ * not a search anyone performed, so it must not write a demand row.
+ */
+export function useSearchUniverse() {
+  return useQuery({
+    queryKey: keys.searchUniverse,
+    queryFn: () =>
+      api.request<{ results: SearchResult[]; total: number; totalIgnoringDate: number }>('/search', {
+        method: 'POST',
+        body: JSON.stringify({
+          filters: { includeOccupied: true, confirmedOnly: false, amenities: [], areas: [], sort: 'date' },
+          record: false,
+        }),
+      }),
+    staleTime: 60_000,
+  });
+}
+
+/** Free text → filters, read on the server. The caller falls back to the local parser if this fails. */
+export function useInterpretSearch() {
+  return useMutation({
+    mutationFn: (text: string) =>
+      api.request<{ intent: SearchIntent; source: 'model' | 'rules' }>('/search/interpret', {
+        method: 'POST',
+        body: JSON.stringify({ text }),
+      }),
+  });
+}
+
+/**
+ * Records that this listing was opened. The server counts each viewer once a
+ * day and ignores the owner, so firing it on every mount is safe.
+ */
+export function useRecordListingView(propertyId: string, enabled: boolean) {
+  const qc = useQueryClient();
+  React.useEffect(() => {
+    if (!enabled || !propertyId) return;
+    api
+      .request<void>(`/properties/${propertyId}/views`, { method: 'POST' })
+      .then(() => qc.invalidateQueries({ queryKey: keys.property(propertyId) }))
+      .catch(() => undefined);
+  }, [propertyId, enabled, qc]);
+}
+
 export function useMarket(district?: string) {
   const query = district ? `?district=${encodeURIComponent(district)}` : '';
   return useQuery({
@@ -708,9 +762,87 @@ export function useMarket(district?: string) {
   });
 }
 
+/* ── Lease turnover ──────────────────────────────────── */
+
+/** Every lease ending that this account is a party to, as owner or tenant. */
+export function useRenewals(opts: { live?: boolean } = {}) {
+  return useQuery({
+    queryKey: keys.renewals,
+    queryFn: () => api.request<{ renewals: RenewalView[] }>('/renewals').then((r) => r.renewals),
+    refetchInterval: opts.live ? 10_000 : false,
+  });
+}
+
+type RenewalWrite =
+  | { leaseId: string; action: 'open' }
+  | { leaseId: string; action: 'decision'; body: { decision: 'stay' | 'leave' } }
+  | { leaseId: string; action: 'questions'; body: { topics: string[]; text?: string | null } }
+  | { leaseId: string; action: 'answers'; body: { answers: { topic: string; answer: string }[]; deadline: string } }
+  | { leaseId: string; action: 'deadline'; body: { days: number } }
+  | { leaseId: string; action: 'meeting-slots'; body: { windows: TimeWindow[] } }
+  | { leaseId: string; action: 'requirements'; body: ListingRequirements }
+  | { leaseId: string; action: 'complete'; body: { newEndDate: string; monthlyRent: number } };
+
+/**
+ * One mutation for every step: they all change the same view, and the
+ * consequences reach the property, the search and the bell.
+ */
+export function useRenewalAction() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (w: RenewalWrite) =>
+      api.request<RenewalView>(`/renewals/${w.leaseId}/${w.action}`, {
+        method: 'POST',
+        body: 'body' in w ? JSON.stringify(w.body) : undefined,
+      }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: keys.renewals });
+      void qc.invalidateQueries({ queryKey: keys.properties });
+      void qc.invalidateQueries({ queryKey: keys.leads });
+      void qc.invalidateQueries({ queryKey: keys.portfolio });
+      void qc.invalidateQueries({ queryKey: keys.notifications });
+    },
+  });
+}
+
+export function useMeetingSlotAction() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, action, body }: { id: string; action: 'book' | 'cancel' | 'move'; body?: { reopen?: boolean } | { toSlotId: string } }) =>
+      api.request<RenewalView>(`/renewals/meeting-slots/${id}/${action}`, {
+        method: 'POST',
+        body: body ? JSON.stringify(body) : undefined,
+      }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: keys.renewals });
+      void qc.invalidateQueries({ queryKey: keys.portfolio });
+      void qc.invalidateQueries({ queryKey: keys.notifications });
+    },
+    /* A time that went while we looked: show the fresh list. */
+    onError: () => void qc.invalidateQueries({ queryKey: keys.renewals }),
+  });
+}
+
+/** A follower applying, with the profile they already have. */
+export function useApplyFromWatch() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (leadId: string) => api.request<LeadView>(`/leads/${leadId}/apply`, { method: 'POST' }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: keys.leads });
+      void qc.invalidateQueries({ queryKey: ['viewings'] });
+      void qc.invalidateQueries({ queryKey: keys.notifications });
+    },
+  });
+}
+
 /* ── Viewings ─────────────────────────────────────────── */
 
-export function useViewings(propertyId: string) {
+/**
+ * `live` polls while a booking screen is open, so a time somebody else just
+ * took disappears within seconds instead of failing on tap.
+ */
+export function useViewings(propertyId: string, opts: { live?: boolean } = {}) {
   return useQuery({
     queryKey: keys.viewings(propertyId),
     queryFn: () =>
@@ -718,6 +850,20 @@ export function useViewings(propertyId: string) {
         `/viewings/${propertyId}`,
       ),
     enabled: Boolean(propertyId),
+    refetchInterval: opts.live ? 6000 : false,
+  });
+}
+
+export function usePublishWindows() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { propertyId: string; windows: TimeWindow[] }) =>
+      api.request<{ slots: SlotView[] }>('/viewings/windows', { method: 'POST', body: JSON.stringify(body) }),
+    onSuccess: (_d, v) => {
+      void qc.invalidateQueries({ queryKey: keys.viewings(v.propertyId) });
+      void qc.invalidateQueries({ queryKey: keys.renewals });
+      void qc.invalidateQueries({ queryKey: keys.portfolio });
+    },
   });
 }
 
@@ -748,7 +894,7 @@ export function useViewingAction() {
       body,
     }: {
       id: string;
-      action: 'book' | 'invite' | 'cancel' | 'attendance';
+      action: 'book' | 'invite' | 'cancel' | 'attendance' | 'move';
       body?: unknown;
     }) =>
       api.request<SlotView>(`/viewings/${id}/${action}`, {
@@ -759,7 +905,32 @@ export function useViewingAction() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['viewings'] });
       void qc.invalidateQueries({ queryKey: keys.leads });
+      void qc.invalidateQueries({ queryKey: keys.renewals });
+      void qc.invalidateQueries({ queryKey: keys.portfolio });
     },
+    /* Somebody took it first: show what is actually left. */
+    onError: () => void qc.invalidateQueries({ queryKey: ['viewings'] }),
+  });
+}
+
+/* ── Portfolio ────────────────────────────────────────── */
+
+/** What is happening across the owner's flats right now. */
+export function usePortfolioSnapshot(opts: { live?: boolean } = {}) {
+  return useQuery({
+    queryKey: keys.portfolio,
+    queryFn: () => api.request<PortfolioSnapshot>('/portfolio/snapshot'),
+    refetchInterval: opts.live ? 15_000 : false,
+  });
+}
+
+/** Views and the funnel over a period. Keeps the last answer on screen while a new range loads. */
+export function usePortfolioAnalytics(from: string, to: string) {
+  return useQuery({
+    queryKey: keys.portfolioAnalytics(from, to),
+    queryFn: () => api.request<PortfolioAnalytics>(`/portfolio/analytics?from=${from}&to=${to}`),
+    placeholderData: keepPreviousData,
+    enabled: Boolean(from && to && from <= to),
   });
 }
 
