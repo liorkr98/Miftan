@@ -7,6 +7,7 @@ import {
   cityEntry,
   createPropertySchema,
   districtOf,
+  israelToday,
   propertyListSchema,
   propertyViewSchema,
   setPhotosSchema,
@@ -19,6 +20,10 @@ import { ANONYMOUS, resolveViewer, scopeFor, type Viewer } from '../policy/viewe
 import { loadPropertyContexts, projectProperty } from '../policy/properties.ts';
 import { toStoredKey } from '../storage/files.ts';
 import { geocodeAddress } from '../lib/geocode.ts';
+import { createHash } from 'node:crypto';
+import { env } from '../lib/env.ts';
+import { clientIp } from '../lib/http.ts';
+import { viewBurst } from '../lib/rate-limit.ts';
 
 async function viewerFor(request: FastifyRequest): Promise<Viewer> {
   return request.currentUser ? resolveViewer(request.currentUser.id) : ANONYMOUS;
@@ -102,6 +107,43 @@ export async function propertyRoutes(app: FastifyInstance) {
       return projectProperty(viewer, ctx);
     },
   );
+  /**
+   * Someone opened a listing. Recorded once per viewer per day; the owner
+   * looking at their own flat and anyone with a lease on it are not views.
+   *
+   * An anonymous visitor is keyed by a salted hash of address and browser —
+   * enough to stop a refresh counting twice, and not reversible to an IP.
+   */
+  r.post(
+    '/properties/:id/views',
+    {
+      onRequest: [viewBurst, app.optionalAuth],
+      schema: { params: z.object({ id: z.string() }) },
+    },
+    async (request, reply) => {
+      const viewer = await viewerFor(request);
+      const [row] = await db
+        .select({ id: s.properties.id, listed: s.properties.listed })
+        .from(s.properties)
+        .where(and(eq(s.properties.id, request.params.id), isNull(s.properties.deletedAt)));
+      if (!row || !row.listed) throw new ApiError('not_found', 'no such property');
+
+      if (scopeFor(viewer, row.id) === 'public') {
+        const viewerKey = request.currentUser
+          ? `u:${request.currentUser.id}`
+          : `a:${createHash('sha256')
+              .update(`${env.JWT_SECRET}|${clientIp(request)}|${request.headers['user-agent'] ?? ''}`)
+              .digest('hex')
+              .slice(0, 32)}`;
+        await db
+          .insert(s.listingViews)
+          .values({ id: newId('listingView'), propertyId: row.id, viewerKey, day: israelToday() })
+          .onConflictDoNothing();
+      }
+      return reply.code(204).send();
+    },
+  );
+
   /**
    * Replacing a listing's photos.
    *

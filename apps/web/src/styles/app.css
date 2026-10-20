@@ -306,6 +306,9 @@
 
     .touch-field {
       min-height: 44px;
+      /* iOS Safari zooms the whole page into any field under 16px when it is
+         tapped, and does not zoom back out — the page then no longer fits. */
+      font-size: 16px;
     }
   }
 

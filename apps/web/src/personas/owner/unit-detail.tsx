@@ -1,22 +1,21 @@
 import * as React from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useStore } from '@/data/store';
 import {
   t,
+  DEMAND_PHASES,
+  SCHEDULING_PHASES,
   daysUntil,
   expenseCategoryLabel,
   formatAge,
   formatDate,
-  formatDateTime,
   formatFloor,
   formatRooms,
   formatSqm,
-  formatUntil,
   type Amenity,
   type ExpenseView,
   type OwnerLead,
   type OwnerProperty,
-  type OwnerSlot,
   type TicketView,
   type TrackRow,
 } from '@miftan/shared';
@@ -24,13 +23,18 @@ import { AVAILABILITY_TONE } from '@/data/selectors';
 import {
   useExpenses,
   useLeads,
+  usePortfolioSnapshot,
   useProperty,
-  usePublishSlots,
+  useRenewals,
   useTickets,
   useUpdateProperty,
-  useViewingAction,
-  useViewings,
 } from '@/api/hooks';
+import { TurnoverPanel } from './turnover';
+import { ApplicantsTab } from './applicants';
+import { PropertyCalendar } from './calendar';
+import { PerformanceSection } from './performance';
+import { rowFor, type PortfolioRow } from './portfolio-model';
+import { PhaseChip, TurnBadge } from '@/components/shared/phase';
 import { DepartureTrack } from '@/components/shared/departure-track';
 import { ProtocolPanel } from '@/components/shared/protocol';
 import { OfferRail } from '@/components/shared/revenue';
@@ -41,25 +45,23 @@ import { ErrorState } from '@/components/shared/error-state';
 import { ListSkeleton } from '@/components/shared/skeleton';
 import {
   AvailabilityChip,
-  LeadStageBadge,
   SeverityBadge,
   TicketStatusBadge,
-  UnitStatusBadge,
 } from '@/components/shared/status';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Field, Input, Switch } from '@/components/ui/field';
+import { Switch } from '@/components/ui/field';
 import { Meter } from '@/components/shared/meter';
 import { cn } from '@/lib/utils';
 import { parseISO, subDays } from 'date-fns';
 import {
+  ArrowLeft,
   ArrowRight,
   CalendarClock,
   FileText,
   MapPin,
   Receipt,
-  Users,
   Wrench,
   Pencil,
   Share2,
@@ -72,17 +74,43 @@ function amenityLabel(key: string): string {
 }
 
 export function OwnerUnitDetail() {
-  /* ?tab=lease lets the properties list link straight to the invite. */
-  const [searchParams] = useSearchParams();
+  /* ?tab=… opens a tab directly; ?do=… opens a renewal step; ?add=1 opens
+     "add times" on the calendar. Attention items link here with them. */
+  const [searchParams, setSearchParams] = useSearchParams();
   const { id = '' } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { data: property, isLoading, isError, refetch } = useProperty(id);
   const { data: tickets = [] } = useTickets({ propertyId: id });
   const { data: leads = [] } = useLeads(id);
+  const { data: renewals = [] } = useRenewals({ live: true });
+  const { data: snapshot } = usePortfolioSnapshot({ live: true });
+  const requestedTab = searchParams.get('tab');
+  const [tab, setTab] = React.useState<string | null>(requestedTab === 'viewings' ? 'schedule' : requestedTab);
+  /* Read once: a step opened from a link should not reopen on every render. */
+  const [autoOpen] = React.useState(() => searchParams.get('do'));
+  const [autoAdd] = React.useState(() => searchParams.get('add') === '1');
+  React.useEffect(() => {
+    if (searchParams.has('do') || searchParams.has('add')) {
+      const next = new URLSearchParams(searchParams);
+      next.delete('do');
+      next.delete('add');
+      setSearchParams(next, { replace: true, state: location.state });
+    }
+  }, [searchParams, setSearchParams, location.state]);
   const { data: expenseData } = useExpenses(id);
   const updateProperty = useUpdateProperty();
   const [editOpen, setEditOpen] = React.useState(false);
   const pushToast = useStore((s) => s.pushToast);
+  /* Captured on arrival: cleaning ?do= out of the URL replaces the history
+     entry, and the origin would go with it. */
+  const [from] = React.useState(() => (location.state as { from?: string } | null)?.from);
+  const back =
+    from === 'activity'
+      ? { to: '/owner/activity', label: t.control.backActivity }
+      : from === 'dashboard'
+        ? { to: '/owner', label: t.control.backDashboard }
+        : { to: '/owner/properties', label: t.control.backProperties };
 
   const owned = property?.scope === 'owner' ? property : undefined;
   const unitTickets = tickets.filter((tk): tk is TicketView & { scope: 'owner' } => tk.scope === 'owner');
@@ -91,6 +119,8 @@ export function OwnerUnitDetail() {
     .filter((l): l is OwnerLead => l.scope === 'owner')
     .sort((a, b) => b.score - a.score);
   const unitExpenses = [...(expenseData?.expenses ?? [])].sort((a, b) => b.date.localeCompare(a.date));
+  /* People who applied — not the ones only waiting for an alert. */
+  const applications = unitLeads.filter((l) => !l.watchOnly).length;
 
   if (isError) return <ErrorState onRetry={() => void refetch()} />;
   if (isLoading) return <ListSkeleton rows={8} />;
@@ -105,6 +135,53 @@ export function OwnerUnitDetail() {
       />
     );
   }
+
+  const row = rowFor(owned, renewals, snapshot?.properties.find((x) => x.propertyId === owned.id) ?? null);
+  const renewal = row.renewal;
+  const showPanel = renewal && (renewal.stage !== 'upcoming' || daysUntil(renewal.opensOn) <= 30) && renewal.stage !== 'closed';
+  const snap = row.snapshot;
+
+  /* Which tabs belong here right now. The page answers to the flat's phase:
+     a quiet lease keeps to the basics; a search puts applicants and the
+     calendar first. */
+  const hasSchedule =
+    (SCHEDULING_PHASES.includes(row.phase) && (row.phase !== 'renewal' || renewal?.stage === 'staying')) ||
+    (snap?.openSlots ?? 0) + (snap?.upcomingViewings ?? 0) > 0 ||
+    (renewal?.meetingSlots.length ?? 0) > 0;
+  const hasApplicants = DEMAND_PHASES.includes(row.phase) || unitLeads.length > 0;
+  const hasPerformance = owned.listed || (snap?.views7d ?? 0) > 0;
+  const lead: { value: string; label: React.ReactNode }[] = [
+    ...(hasSchedule ? [{ value: 'schedule', label: t.control.tabs.schedule }] : []),
+    ...(hasApplicants
+      ? [{ value: 'leads', label: <>{t.unit.tabs.leads}{applications ? <Num className="ms-1.5 text-2xs text-muted">{applications}</Num> : null}</> }]
+      : []),
+  ];
+  const demandFirst = DEMAND_PHASES.includes(row.phase) || row.phase === 'renewal_agreed';
+  const tabs: { value: string; label: React.ReactNode }[] = [
+    ...(demandFirst ? lead : []),
+    { value: 'details', label: t.unit.tabs.details },
+    { value: 'lease', label: t.unit.tabs.lease },
+    ...(!demandFirst ? lead : []),
+    ...(hasPerformance ? [{ value: 'performance', label: t.control.tabs.performance }] : []),
+    { value: 'tickets', label: <>{t.unit.tabs.tickets}{unitTickets.length ? <Num className="ms-1.5 text-2xs text-muted">{unitTickets.length}</Num> : null}</> },
+    { value: 'expenses', label: <>{t.unit.tabs.expenses}{unitExpenses.length ? <Num className="ms-1.5 text-2xs text-muted">{unitExpenses.length}</Num> : null}</> },
+    { value: 'protocol', label: t.protocol.tab },
+  ];
+  const defaultTab =
+    row.phase === 'viewings' || row.phase === 'renewal_agreed'
+      ? 'schedule'
+      : row.phase === 'searching'
+        ? row.turn === 'you' && (snap?.openSlots ?? 0) === 0 && (snap?.relevantWithoutViewing ?? 0) > 0
+          ? 'schedule'
+          : 'leads'
+        : row.phase === 'renewal' || row.phase === 'renewal_soon'
+          ? 'lease'
+          : 'details';
+  const activeTab = tab && tabs.some((x) => x.value === tab) ? tab : tabs.some((x) => x.value === defaultTab) ? defaultTab : 'details';
+  const goTab = (v: string) => {
+    setTab(v);
+    requestAnimationFrame(() => document.getElementById('unit-tabs')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  };
 
   const lease = owned.lease;
   const kind = owned.availability.kind;
@@ -133,9 +210,15 @@ export function OwnerUnitDetail() {
   return (
     <div className="space-y-5">
       <div>
-        <Button variant="quiet" size="sm" className="-ms-2 mb-1" onClick={() => navigate('/owner/properties')}>
+        {/* Where you are: one level up is the portfolio you came from. */}
+        <Button
+          variant="quiet"
+          size="sm"
+          className="-ms-2 mb-1"
+          onClick={() => navigate(back.to)}
+        >
           <ArrowRight className="h-3.5 w-3.5" />
-          {t.properties.title}
+          {back.label}
         </Button>
         <PageHeader
           title={`${owned.address.street} ${owned.address.number}`}
@@ -186,19 +269,29 @@ export function OwnerUnitDetail() {
 
       <PropertyFormDialog open={editOpen} onOpenChange={setEditOpen} property={owned} />
 
-      <div className="flex flex-wrap items-center gap-2">
-        <UnitStatusBadge status={owned.status} />
-        <AvailabilityChip
-          kind={kind}
-          date={owned.availability.date ?? undefined}
-          confidence={owned.availability.confidence}
-          withCountdown
-        />
-        <Money agorot={owned.monthlyRentAgorot} board className="text-lg font-bold text-ink" />
-        <span className="text-xs text-muted">{t.ui.perMonth}</span>
-      </div>
+      {/* The flat at a glance: who lives here, until when, for how much, and where it is in its life. */}
+      <FactStrip property={owned} row={row} />
 
-      {trackRows.length > 0 ? (
+      {/* What is happening, and the one thing to do next. */}
+      {showPanel && renewal ? (
+        <TurnoverPanel
+          key={renewal.leaseId}
+          view={renewal}
+          property={owned}
+          autoOpen={autoOpen}
+          onShowApplicants={() => goTab('leads')}
+        />
+      ) : (
+        <CalmCard
+          row={row}
+          onSchedule={() => goTab('schedule')}
+          onApplicants={() => goTab('leads')}
+          onPublish={() => updateProperty.mutate({ id: owned.id, listed: true })}
+          publishing={updateProperty.isPending}
+        />
+      )}
+
+      {trackRows.length > 0 && !DEMAND_PHASES.includes(row.phase) ? (
         <DepartureTrack
           rows={trackRows}
           months={Math.max(6, Math.ceil(daysUntil(lease!.endDate) / 30) + 3)}
@@ -206,26 +299,24 @@ export function OwnerUnitDetail() {
         />
       ) : null}
 
-      <Tabs defaultValue={searchParams.get('tab') ?? 'details'}>
+      <Tabs value={activeTab} onValueChange={setTab} id="unit-tabs" className="scroll-mt-4">
         <TabsList>
-          <TabsTrigger value="details">{t.unit.tabs.details}</TabsTrigger>
-          <TabsTrigger value="lease">{t.unit.tabs.lease}</TabsTrigger>
-          <TabsTrigger value="tickets">
-            {t.unit.tabs.tickets}
-            {unitTickets.length ? <Num className="ms-1.5 text-2xs text-muted">{unitTickets.length}</Num> : null}
-          </TabsTrigger>
-          <TabsTrigger value="expenses">
-            {t.unit.tabs.expenses}
-            {unitExpenses.length ? <Num className="ms-1.5 text-2xs text-muted">{unitExpenses.length}</Num> : null}
-          </TabsTrigger>
-          <TabsTrigger value="protocol">{t.protocol.tab}</TabsTrigger>
-          <TabsTrigger value="viewings">{t.unit.tabs.viewings}</TabsTrigger>
-          <TabsTrigger value="leads">
-            {t.unit.tabs.leads}
-            {unitLeads.length ? <Num className="ms-1.5 text-2xs text-muted">{unitLeads.length}</Num> : null}
-          </TabsTrigger>
+          {tabs.map((x) => (
+            <TabsTrigger key={x.value} value={x.value}>
+              {x.label}
+            </TabsTrigger>
+          ))}
         </TabsList>
 
+        <TabsContent value="schedule">
+          <PropertyCalendar propertyId={owned.id} renewal={renewal} leads={unitLeads} autoAdd={autoAdd} />
+        </TabsContent>
+        <TabsContent value="leads">
+          <ApplicantsTab property={owned} leads={unitLeads} />
+        </TabsContent>
+        <TabsContent value="performance">
+          <PerformanceSection rows={[row]} fixedPropertyId={owned.id} />
+        </TabsContent>
         <TabsContent value="details" className="space-y-5">
           <DetailsTab property={owned} />
         </TabsContent>
@@ -241,14 +332,139 @@ export function OwnerUnitDetail() {
         <TabsContent value="expenses">
           <ExpensesTab expenses={unitExpenses} />
         </TabsContent>
-        <TabsContent value="viewings">
-          <ViewingsTab propertyId={owned.id} />
-        </TabsContent>
-        <TabsContent value="leads">
-          <LeadsTab property={owned} leads={unitLeads} />
-        </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+const F = t.control.facts;
+
+function FactStrip({ property, row }: { property: OwnerProperty; row: PortfolioRow }) {
+  const lease = property.lease;
+  return (
+    <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-[var(--radius-card)] border border-line bg-line sm:grid-cols-4">
+      <Fact label={F.status}>
+        <span className="flex flex-wrap items-center gap-1.5">
+          <PhaseChip phase={row.phase} size="sm" />
+          <TurnBadge turn={row.turn} size="sm" />
+        </span>
+      </Fact>
+      <Fact label={F.tenant}>
+        {property.tenant ? (
+          <span className="flex flex-col">
+            <span className="font-bold text-ink">{property.tenant.name}</span>
+            {property.tenant.phone ? <Phone value={property.tenant.phone} className="text-2xs text-muted" /> : null}
+          </span>
+        ) : (
+          <span className="text-ink-soft">{F.noTenant}</span>
+        )}
+      </Fact>
+      <Fact label={F.leaseEnd}>
+        {lease ? (
+          <span className="flex flex-col">
+            <Num board className="font-bold text-ink">{formatDate(lease.endDate)}</Num>
+            <span className="text-2xs text-muted">{F.inDays.replace('{n}', String(Math.max(0, daysUntil(lease.endDate))))}</span>
+          </span>
+        ) : (
+          <AvailabilityChip
+            kind={property.availability.kind}
+            date={property.availability.date ?? undefined}
+            confidence={property.availability.confidence}
+          />
+        )}
+      </Fact>
+      <Fact label={F.rent}>
+        <span className="flex items-baseline gap-1">
+          <Money agorot={lease?.monthlyRentAgorot ?? property.monthlyRentAgorot} board className="font-bold text-ink" />
+          <span className="text-2xs text-muted">{t.ui.perMonth}</span>
+        </span>
+      </Fact>
+    </dl>
+  );
+}
+
+function Fact({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="bg-bg px-3.5 py-3">
+      <dt className="mb-1 text-2xs text-muted">{label}</dt>
+      <dd className="text-sm">{children}</dd>
+    </div>
+  );
+}
+
+/**
+ * The status card for a flat with no renewal under way — so every property
+ * page still answers: what is happening, do I need to do anything, what next.
+ */
+function CalmCard({
+  row,
+  onSchedule,
+  onApplicants,
+  onPublish,
+  publishing,
+}: {
+  row: PortfolioRow;
+  onSchedule: () => void;
+  onApplicants: () => void;
+  onPublish: () => void;
+  publishing: boolean;
+}) {
+  const K = t.control.calm;
+  const p = row.property;
+  const snap = row.snapshot;
+  const fill = (s: string, vars: Record<string, string | number>) =>
+    s.replace(/\{(\w+)\}/g, (_, k: string) => String(vars[k] ?? ''));
+
+  let title: string = K.stableTitle;
+  let hint = '';
+  let action: { label: string; onClick: () => void } | null = null;
+
+  switch (row.phase) {
+    case 'vacant':
+      title = K.vacantTitle;
+      hint = K.vacantHint;
+      action = { label: K.publish, onClick: onPublish };
+      break;
+    case 'renovating':
+      title = K.renovatingTitle;
+      hint = K.renovatingHint;
+      break;
+    case 'searching':
+    case 'viewings': {
+      const needTimes = (snap?.relevantWithoutViewing ?? 0) > 0 && (snap?.openSlots ?? 0) === 0;
+      const next = needTimes ? K.nextTimes : (snap?.applicants ?? 0) > 0 ? K.nextReview : K.nextWait;
+      title = t.lifecycle.phase[row.phase];
+      hint = fill(K.searchingHint, { applicants: snap?.applicants ?? 0, alerts: snap?.alerts ?? 0, next });
+      action = needTimes
+        ? { label: K.nextTimes, onClick: onSchedule }
+        : row.phase === 'viewings'
+          ? { label: K.openSchedule, onClick: onSchedule }
+          : (snap?.applicants ?? 0) > 0
+            ? { label: K.openApplicants, onClick: onApplicants }
+            : null;
+      break;
+    }
+    default: {
+      const opens = row.renewal?.opensOn;
+      hint = p.lease
+        ? fill(K.stableHint, { tenant: p.tenant?.name ?? '', date: formatDate(p.lease.endDate), opens: opens ? formatDate(opens) : '' })
+        : '';
+    }
+  }
+
+  return (
+    <section className="flex flex-wrap items-center gap-3 rounded-[var(--radius-card)] border border-line p-4">
+      <div className="min-w-0 flex-1">
+        <h2 className="text-base font-extrabold text-ink">{title}</h2>
+        {hint ? <p className="mt-0.5 text-sm leading-6 text-ink-soft">{hint}</p> : null}
+      </div>
+      {action ? (
+        <Button size="lg" loading={publishing && action.onClick === onPublish} onClick={action.onClick}>
+          {action.label}
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
+      ) : null}
+    </section>
   );
 }
 
@@ -510,159 +726,6 @@ function ExpensesTab({ expenses }: { expenses: ExpenseView[] }) {
           ))}
         </tbody>
       </table>
-    </div>
-  );
-}
-
-function LeadsTab({ property, leads }: { property: OwnerProperty; leads: OwnerLead[] }) {
-  const navigate = useNavigate();
-  if (leads.length === 0) {
-    return <EmptyState icon={Users} title={t.crm.noLeadsOnUnit} hint={t.crm.noLeadsOnUnitHint} />;
-  }
-  return (
-    <>
-      <p className="mb-3 text-xs text-muted">
-        <Num board className="font-bold text-ink">
-          {leads.length}
-        </Num>{' '}
-        {t.crm.leadsOnUnit}
-        {property.availability.date ? ` · ${formatUntil(property.availability.date)}` : ''}
-      </p>
-      <ul className="divide-y divide-line overflow-hidden rounded-[var(--radius-card)] border border-line">
-        {leads.map((lead) => {
-          const failed = lead.flags.filter((f) => !f.passed);
-          return (
-            <li key={lead.id}>
-              <button
-                type="button"
-                onClick={() => navigate(`/owner/crm?lead=${lead.id}`)}
-                className="flex w-full items-center gap-3 px-3.5 py-3 text-start transition-colors duration-150 hover:bg-surface"
-              >
-                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-surface-sunk">
-                  <Num board className="text-xs font-bold text-ink-soft">
-                    {lead.score}
-                  </Num>
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-bold text-ink">{lead.seeker.name}</span>
-                  <span className="block truncate text-2xs text-muted">
-                    {t.crm.moveIn} {formatDate(lead.desiredMoveIn)} ·{' '}
-                    {failed.length === 0 ? t.crm.flagsPassed : `${failed.length} ${t.crm.flagsFailed}`}
-                  </span>
-                </span>
-                <LeadStageBadge stage={lead.stage} size="sm" />
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-    </>
-  );
-}
-
-function ViewingsTab({ propertyId }: { propertyId: string }) {
-  const pushToast = useStore((s) => s.pushToast);
-  const { data, isLoading, isError, refetch } = useViewings(propertyId);
-  const publish = usePublishSlots();
-  const action = useViewingAction();
-  const [date, setDate] = React.useState('');
-  const [from, setFrom] = React.useState('16:00');
-  const [until, setUntil] = React.useState('18:00');
-
-  const slots = (data?.slots ?? []).filter((s): s is OwnerSlot => s.scope === 'owner');
-
-  if (isError) return <ErrorState onRetry={() => void refetch()} />;
-  if (isLoading) return <ListSkeleton rows={4} />;
-
-  return (
-    <div className="space-y-4">
-      <section className="rounded-[var(--radius-card)] border border-line p-4">
-        <SectionTitle>{t.viewings.publish}</SectionTitle>
-        <div className="grid gap-3 sm:grid-cols-3">
-          <Field label={t.viewings.date} htmlFor="slot-date">
-            <Input
-              id="slot-date"
-              type="date"
-              dir="ltr"
-              className="num"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-            />
-          </Field>
-          <Field label={t.viewings.from} htmlFor="slot-from">
-            <Input
-              id="slot-from"
-              type="time"
-              dir="ltr"
-              className="num"
-              value={from}
-              onChange={(e) => setFrom(e.target.value)}
-            />
-          </Field>
-          <Field label={t.viewings.until} htmlFor="slot-until">
-            <Input
-              id="slot-until"
-              type="time"
-              dir="ltr"
-              className="num"
-              value={until}
-              onChange={(e) => setUntil(e.target.value)}
-            />
-          </Field>
-        </div>
-        <Button
-          className="mt-3"
-          loading={publish.isPending}
-          disabled={!date}
-          onClick={() =>
-            publish.mutate(
-              { propertyId, date, from, until, durationMinutes: 15, gapMinutes: 5 },
-              { onSuccess: () => pushToast(t.viewings.published, 'success') },
-            )
-          }
-        >
-          {t.viewings.publish}
-        </Button>
-      </section>
-
-      {slots.length === 0 ? (
-        <EmptyState icon={CalendarClock} title={t.viewings.empty} hint={t.viewings.emptyHint} />
-      ) : (
-        <ul className="divide-y divide-line overflow-hidden rounded-[var(--radius-card)] border border-line">
-          {slots.map((slot) => (
-            <li key={slot.id} className="flex flex-wrap items-center gap-3 px-3.5 py-3">
-              <span className="min-w-0 flex-1">
-                <span className="block text-sm font-bold text-ink">
-                  <Num board>{formatDateTime(slot.startsAt)}</Num>
-                </span>
-                <span className="block text-2xs text-muted">
-                  {slot.applicant
-                    ? `${t.viewings.applicant}: ${slot.applicant.name}`
-                    : t.viewings.status.open}
-                </span>
-              </span>
-              <Badge tone={slot.status === 'open' ? 'openSoft' : slot.status === 'cancelled' ? 'neutral' : 'liveSoft'} size="sm">
-                {t.viewings.status[slot.status]}
-              </Badge>
-              {slot.status === 'open' || slot.status === 'booked' ? (
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  loading={action.isPending}
-                  onClick={() =>
-                    action.mutate(
-                      { id: slot.id, action: 'cancel' },
-                      { onSuccess: () => pushToast(t.viewings.cancelled, 'success') },
-                    )
-                  }
-                >
-                  {t.ui.cancel}
-                </Button>
-              ) : null}
-            </li>
-          ))}
-        </ul>
-      )}
     </div>
   );
 }

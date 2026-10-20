@@ -5,9 +5,15 @@ import { z } from 'zod';
 import {
   deriveAvailability,
   districtOf,
+  interpretRequestSchema,
+  interpretResponseSchema,
+  normalizeModelIntent,
+  parseSearchIntent,
   marketResponseSchema,
   searchRequestSchema,
   searchResponseSchema,
+  TEL_AVIV,
+  TEL_AVIV_AREA_NAMES,
   toAgorot,
   type District,
   type SearchFilters,
@@ -15,7 +21,9 @@ import {
 } from '@miftan/shared';
 import { db, schema as s } from '../db/client.ts';
 import { newId } from '../lib/ids.ts';
-import { searchBurst } from '../lib/rate-limit.ts';
+import { interpretBurst, searchBurst } from '../lib/rate-limit.ts';
+import { env } from '../lib/env.ts';
+import { interpretWithModel } from '../lib/deepseek.ts';
 import { fileLinks } from '../storage/files.ts';
 import { publicLocation } from '../policy/address.ts';
 
@@ -29,8 +37,15 @@ const MINIMUM_SAMPLE = 5;
 function conditions(f: SearchFilters): SQL[] {
   const where: SQL[] = [eq(s.properties.listed, true), isNull(s.properties.deletedAt)];
 
-  if (f.district) where.push(eq(s.properties.district, f.district));
-  if (f.city) where.push(eq(s.properties.city, f.city));
+  /* Tel Aviv only, whatever the client sends. The product searches one city in
+     this version; the owner's other cities stay in their own portfolio views
+     and simply never appear to a seeker. */
+  where.push(eq(s.properties.city, TEL_AVIV));
+  if (f.areas.length) {
+    const known = f.areas.filter((a) => TEL_AVIV_AREA_NAMES.includes(a));
+    /* An unrecognised area matches nothing rather than everything. */
+    where.push(known.length ? inArray(s.properties.neighborhood, known) : sql`false`);
+  }
   if (f.neighborhood) where.push(eq(s.properties.neighborhood, f.neighborhood));
 
   if (f.minRooms != null) where.push(gte(s.properties.rooms, String(f.minRooms)));
@@ -160,6 +175,38 @@ export async function searchRoutes(app: FastifyInstance) {
            "nothing in October, four in November" is more useful than "nothing". */
         totalIgnoringDate: projected.length,
       };
+    },
+  );
+
+  /**
+   * Free text → filters. The language model answers when it is configured
+   * and behaves; the rule parser answers otherwise. The text itself is not
+   * stored or logged — a search event records filters, not sentences.
+   */
+  r.post(
+    '/search/interpret',
+    {
+      onRequest: [interpretBurst, app.optionalAuth],
+      schema: { body: interpretRequestSchema, response: { 200: interpretResponseSchema } },
+    },
+    async (request) => {
+      const { text } = request.body;
+      if (env.DEEPSEEK_API_KEY) {
+        try {
+          const raw = await interpretWithModel(text, {
+            apiKey: env.DEEPSEEK_API_KEY,
+            baseUrl: env.DEEPSEEK_BASE_URL,
+            model: env.DEEPSEEK_MODEL,
+          });
+          const intent = normalizeModelIntent(raw);
+          if (intent.recognized > 0 || intent.unsupported.length > 0) {
+            return { intent, source: 'model' as const };
+          }
+        } catch (err) {
+          request.log.warn({ err: (err as Error).message }, 'search interpret fell back to rules');
+        }
+      }
+      return { intent: parseSearchIntent(text, {}), source: 'rules' as const };
     },
   );
 

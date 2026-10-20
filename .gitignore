@@ -30,3 +30,6 @@ dist-ssr
 
 # local upload storage
 apps/api/uploads/
+
+# local Postgres data directory (embedded-postgres)
+.pgdata/

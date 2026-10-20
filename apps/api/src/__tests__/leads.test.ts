@@ -97,17 +97,22 @@ async function queueUp(who: typeof alice, watchOnly = false) {
 }
 
 describe('joining a queue', () => {
-  it('places you at the back and tells you how long the line is', async () => {
+  it('places each applicant at the back, and only the owner can see the order', async () => {
     const first = await queueUp(alice);
     expect(first.scope).toBe('seeker');
-    expect(first.queuePosition).toBe(1);
-
     const second = await queueUp(bob);
-    expect(second.queuePosition).toBe(2);
 
-    const mine = (await req('GET', '/leads', bob.token)).json();
-    expect(mine.leads).toHaveLength(1);
-    expect(mine.leads[0].queueLength).toBe(2);
+    /* The seeker's own answer says nothing about where they stand. Asserted on
+       the raw body so a widened schema fails here rather than leaking. */
+    const raw = JSON.stringify((await req('GET', '/leads', bob.token)).json());
+    expect(raw).not.toMatch(/queuePosition|queueLength|queue_position/);
+    expect(first.queuePosition).toBeUndefined();
+    expect(second.queuePosition).toBeUndefined();
+
+    const ownerView = (await req('GET', '/leads', owner.token)).json();
+    const byId = new Map(ownerView.leads.map((l: { id: string; queuePosition: number }) => [l.id, l.queuePosition]));
+    expect(byId.get(first.id)).toBe(1);
+    expect(byId.get(second.id)).toBe(2);
   });
 
   it('freezes the profile at application time, so later edits do not rewrite history', async () => {
@@ -142,12 +147,13 @@ describe('joining a queue', () => {
 
   it('closes the gap behind someone who leaves', async () => {
     const a = await queueUp(alice);
-    await queueUp(bob);
+    const b = await queueUp(bob);
     expect((await req('DELETE', `/leads/${a.id}`, alice.token)).statusCode).toBe(200);
 
-    const left = (await req('GET', '/leads', bob.token)).json();
-    expect(left.leads[0].queuePosition).toBe(1);
-    expect(left.leads[0].queueLength).toBe(1);
+    const ownerView = (await req('GET', '/leads', owner.token)).json();
+    expect(ownerView.leads).toHaveLength(1);
+    expect(ownerView.leads[0].id).toBe(b.id);
+    expect(ownerView.leads[0].queuePosition).toBe(1);
   });
 });
 

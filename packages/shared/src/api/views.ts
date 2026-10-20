@@ -45,6 +45,10 @@ export const publicPropertySchema = z.object({
   availability: availabilitySignalSchema,
   /** Aggregate only — never who is queueing */
   queueCount: z.number().int(),
+  /** People-days that opened the listing. A count, never who. */
+  viewCount: z.number().int(),
+  /** People waiting for a notification when the flat frees up. A count, never who. */
+  watchCount: z.number().int(),
 });
 
 export const leaseTermsSchema = z.object({
@@ -81,6 +85,10 @@ export const ownerPropertySchema = publicPropertySchema.extend({
   listed: z.boolean(),
   showExactAddress: z.boolean(),
   notes: z.string().nullable(),
+  /** This flat's own requirements; null = the owner's general preset decides */
+  smokingAllowed: z.boolean().nullable(),
+  maxOccupants: z.number().int().nullable(),
+  minLeaseMonths: z.number().int().nullable(),
   lease: leaseTermsSchema.nullable(),
   tenant: contactSchema.nullable(),
   openTicketCount: z.number().int(),

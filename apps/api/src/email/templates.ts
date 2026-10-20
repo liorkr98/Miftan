@@ -39,3 +39,8 @@ export function alreadyRegisteredMail(href: string) {
 export function emailChangeMail(href: string) {
   return wrap(t.email.changeSubject, t.email.changeBody, href, t.email.changeCta);
 }
+
+/** A short "something happened, here is the next step" mail. */
+export function actionMail(subject: string, body: string, href: string) {
+  return wrap(subject, body, href, t.turnoverMail.cta);
+}

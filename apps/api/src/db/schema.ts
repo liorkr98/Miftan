@@ -54,6 +54,9 @@ export const protocolKind = pgEnum('protocol_kind', ['move_in', 'move_out']);
 export const seasonalTaskStatus = pgEnum('seasonal_task_status', ['due', 'scheduled', 'done', 'skipped']);
 export const contractScanStatus = pgEnum('contract_scan_status', ['uploading', 'scanning', 'review', 'committed', 'failed']);
 export const auditAction = pgEnum('audit_action', ['ranked', 'stage_changed', 'preset_applied', 'exported']);
+export const renewalStage = pgEnum('renewal_stage', ['awaiting_tenant', 'questions', 'answered', 'staying', 'leaving', 'renewed', 'closed']);
+export const renewalDecision = pgEnum('renewal_decision', ['stay', 'leave']);
+export const meetingSlotStatus = pgEnum('meeting_slot_status', ['open', 'booked', 'cancelled']);
 
 /* ── Shared column shapes ──────────────────────────────── */
 
@@ -204,6 +207,11 @@ export const properties = pgTable(
     /** Public listing shows the house number and the exact pin. Off by default. */
     showExactAddress: boolean('show_exact_address').notNull().default(false),
     notes: text('notes'),
+    /* Requirements for this apartment, layered over the owner's screening
+       preset. Null = the preset decides. Pets and furnished are amenities. */
+    smokingAllowed: boolean('smoking_allowed'),
+    maxOccupants: integer('max_occupants'),
+    minLeaseMonths: integer('min_lease_months'),
 
     createdAt,
     updatedAt,
@@ -717,6 +725,90 @@ export const searchEvents = pgTable(
     index('search_events_city_at_idx').on(t.city, t.at),
     index('search_events_district_at_idx').on(t.district, t.at),
   ],
+);
+
+/**
+ * Who looked at a listing, coarsely. One row per viewer per day, so a refresh
+ * or a second visit the same day is not a second view, and the count means
+ * "people-days", not page loads.
+ *
+ * The viewer is a key, never a person: a signed-in user is keyed by id, an
+ * anonymous visitor by a salted hash of address and browser that cannot be
+ * reversed back to an IP. Nothing here is shown per viewer — only the count.
+ */
+export const listingViews = pgTable(
+  'listing_views',
+  {
+    id: text('id').primaryKey(),
+    propertyId: text('property_id')
+      .notNull()
+      .references(() => properties.id, { onDelete: 'cascade' }),
+    viewerKey: text('viewer_key').notNull(),
+    day: date('day').notNull(),
+    at: timestamp('at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('listing_views_property_viewer_day_key').on(t.propertyId, t.viewerKey, t.day),
+    index('listing_views_property_idx').on(t.propertyId),
+  ],
+);
+
+/**
+ * One lease ending: the tenant's decision and everything that follows it —
+ * questions and answers, a renewal signing, or the search for the next tenant.
+ *
+ * Created the first time anyone reads the lease after `opensOn`, not by a
+ * cron. Every notification, reminder and "your turn" card is derived from
+ * this row and its slots; nothing is stored twice.
+ */
+export const renewalCycles = pgTable(
+  'renewal_cycles',
+  {
+    id: text('id').primaryKey(),
+    leaseId: text('lease_id').notNull().references(() => leases.id, { onDelete: 'cascade' }),
+    propertyId: text('property_id').notNull().references(() => properties.id),
+    stage: renewalStage('stage').notNull().default('awaiting_tenant'),
+    openedAt: timestamp('opened_at', { withTimezone: true }).notNull().defaultNow(),
+
+    /** [{ topic, text }] — what the tenant asked */
+    questions: jsonb('questions').notNull().default([]),
+    questionsAt: timestamp('questions_at', { withTimezone: true }),
+    /** [{ topic, answer }] — the owner's own words */
+    answers: jsonb('answers').notNull().default([]),
+    answersAt: timestamp('answers_at', { withTimezone: true }),
+    decisionDeadline: timestamp('decision_deadline', { withTimezone: true }),
+
+    decision: renewalDecision('decision'),
+    decidedAt: timestamp('decided_at', { withTimezone: true }),
+    moveOutDate: date('move_out_date'),
+
+    requirementsConfirmedAt: timestamp('requirements_confirmed_at', { withTimezone: true }),
+    /** Set when the apply invitation has been sent to people following the flat */
+    watchersInvitedAt: timestamp('watchers_invited_at', { withTimezone: true }),
+
+    renewedAt: timestamp('renewed_at', { withTimezone: true }),
+    newEndDate: date('new_end_date'),
+
+    createdAt,
+    updatedAt,
+  },
+  (t) => [uniqueIndex('renewal_cycles_lease_key').on(t.leaseId), index('renewal_cycles_property_idx').on(t.propertyId)],
+);
+
+/** Times the owner offered for signing the renewal; the tenant takes one. */
+export const renewalMeetingSlots = pgTable(
+  'renewal_meeting_slots',
+  {
+    id: text('id').primaryKey(),
+    cycleId: text('cycle_id').notNull().references(() => renewalCycles.id, { onDelete: 'cascade' }),
+    startsAt: timestamp('starts_at', { withTimezone: true }).notNull(),
+    durationMinutes: integer('duration_minutes').notNull().default(30),
+    status: meetingSlotStatus('status').notNull().default('open'),
+    bookedAt: timestamp('booked_at', { withTimezone: true }),
+    createdAt,
+    updatedAt,
+  },
+  (t) => [uniqueIndex('renewal_meeting_slots_cycle_starts_key').on(t.cycleId, t.startsAt)],
 );
 
 export const budgetPolicies = pgTable('budget_policies', {

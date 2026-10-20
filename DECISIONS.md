@@ -341,3 +341,86 @@ watching.
 - **Recharts clipped the Hebrew category labels** on a right-oriented axis down
   to one character each — and on a revenue-mix chart the label *is* the point.
   Replaced with a plain CSS bar list: same information, no library RTL quirks.
+
+## Lease turnover: renewal or a new tenant
+
+- **One record per lease, everything else derived.** A `renewal_cycles` row holds
+  only what people said and when (questions, answers, decision, deadline,
+  confirmations). Stage, whose turn it is, reminders and "overdue" are computed
+  on read by `nextStep()` in `packages/shared/src/lib/renewal.ts`, so the
+  tenant card, the owner panel, the dashboard and the bell can never disagree.
+- **No cron.** Reading `/renewals` or the notification feed materialises cycles
+  that are due and applies the timed transitions (the 48-hour auto-open). Every
+  screen that could show the state is also what advances it.
+- **When it opens:** `end − max(90 days, notice + 30)`. A long notice period
+  still leaves a month to talk before the contractual deadline. With no notice
+  period in the contract, the deadline is 30 days before the end.
+- **The tenant decides; the owner waits until the deadline.** The owner can only
+  answer "leaving" for an overdue tenant, or bring back a tenant who left.
+  The tenant can change their mind until applicants are opened. After that the
+  card says so in words instead of hiding the button.
+- **"Leaving" doesn't wait for the owner.** After 48 hours without a
+  requirements review, the search opens with the existing requirements. The
+  review sheet's main action is "no changes — start". Requirements live on the
+  apartment (`smoking_allowed`, `max_occupants`, `min_lease_months`) and are
+  layered over the owner's preset by `effectiveCriteria()`.
+- **Watchers apply in one tap.** Their saved profile is re-snapshotted as the
+  application, so nothing is re-typed.
+- **Applicants are ranked, never hidden.** Strong matches first. Partial matches
+  sit behind one disclosure, with every met or missed requirement shown with an
+  icon and words.
+- **"Real-time" booking is an atomic claim plus polling.** `UPDATE … WHERE
+  status = 'open'` decides races; screens with slots poll every 6–10s. A taken
+  time stays in the grid, struck through and locked, so the list never jumps.
+  Losing a race is a toast and a refetch, not an error page. Moving to another
+  time gives the old one back first and re-books it if the new one is gone.
+- **The owner never types times.** A day plus a range is split into 30-minute
+  meeting slots or 15-minute viewing slots.
+- **A seeker's pending availability question is answered by the tenant's
+  decision**, so no tenant is asked the same thing twice.
+
+## The landlord's portfolio: activity, the property as control centre, the calendar
+
+- **"Leads & inquiries" became "Activity" (פעילות).** It is now the portfolio
+  level: five headline numbers, what is waiting on you (by urgency), your week,
+  every flat with its phase, and performance. Applicants, availability
+  questions and messages are still there as tabs, unchanged. "Portfolio" and
+  "My properties" were rejected because they collide with the existing
+  "Properties" (נכסים) inventory tab. Old paths (`/owner/leads`, `/crm`,
+  `/inquiries`, `/messages`) still land here.
+- **Portfolio → property → action.** Every number, row and attention item opens
+  the property it is about, and the action happens on the property page. Attention
+  items deep-link to the exact step (`?do=answers`, `?do=requirements`,
+  `?tab=schedule&add=1`). The back link names the level you came from.
+- **Phase and turn are two facts, computed once.** `propertyPhase()` (shared)
+  says what is happening (active lease, renewal approaching, renewal, meeting
+  booked, leaving, searching, viewings, vacant, renovating) and whose move it is
+  (you / tenant / applicants). The list, the property page, the attention list
+  and the nav badge all read it, so they cannot disagree. Every phase and turn
+  carries an icon and a word; colour only repeats them.
+- **The property page adapts.** A fact strip (status, tenant, lease end, rent),
+  then one action card (the turnover panel, or a status card that still says
+  what is happening and what comes next), then tabs chosen by phase: a search
+  opens on the calendar or applicants; a quiet lease keeps to details and lease.
+- **One calendar per property, two kinds of time.** Booked appointments are
+  solid cards with a person and a type (viewing / renewal meeting) and a
+  "booked" badge; free times are dashed outlines that say "free". Owners can add,
+  remove, clear a day, open, move (one atomic step — `POST /viewings/:id/move`,
+  `/renewals/meeting-slots/:id/move`) and cancel either keeping the time free
+  (`reopen: true`) or withdrawing it. The applicant or tenant is emailed on every
+  owner-side change. It polls, like the rest of the live booking.
+- **Analytics answer two questions.** "Is interest rising?" — one line of views
+  for the chosen flat or all flats, over 7/30/90 days or a custom range, with the
+  change against the previous period in words. "Where do people stop?" — a
+  funnel where each bar is the share of the stage before; the weakest step from
+  applications onward is marked with a suggestion (view → alert is skipped: most
+  viewers of an occupied flat never ask for an alert, and that is normal). A
+  table view sits under the chart. `GET /portfolio/snapshot` is "now";
+  `GET /portfolio/analytics?from&to` is "over a period".
+- **Demo scenarios are data, not mockups.** `seed-scenarios.ts` parks each of
+  דנה's flats at a different moment of the lifecycle — normal, renewal soon,
+  question waiting on you, answered with 3 days left, meeting booked, tenant just
+  leaving, search with real demand and viewings, vacant search, renovation — plus
+  three months of listing views. Every screen reads it through the normal API;
+  removing the call is the whole migration to real data. The sign-in page lists
+  the tenants and seekers on the other side of each scenario.
