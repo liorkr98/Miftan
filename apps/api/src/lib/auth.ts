@@ -1,6 +1,6 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { hash as argonHash, verify as argonVerify } from '@node-rs/argon2';
-import { SignJWT, jwtVerify } from 'jose';
+import { SignJWT, createRemoteJWKSet, jwtVerify } from 'jose';
 import { and, eq, gt, isNull } from 'drizzle-orm';
 import { ApiError } from '@miftan/shared';
 import { db, schema as s } from '../db/client.ts';
@@ -65,6 +65,40 @@ export async function verifyAccessToken(token: string): Promise<string> {
     return payload.sub;
   } catch {
     throw new ApiError('not_authenticated', 'invalid or expired access token');
+  }
+}
+
+/* ── Supabase Auth ─────────────────────────────────────── */
+
+/**
+ * Verify a token Supabase Auth issued, and return its subject — the Supabase
+ * user id, which `users.supabaseUserId` maps to a row here.
+ *
+ * Supabase signs with a rotating key pair and publishes the public half at a
+ * JWKS endpoint, so there is no shared secret to hold. `createRemoteJWKSet`
+ * fetches that set once and caches it, which is what keeps this cheap enough
+ * to run per request: a signature check is under a millisecond, against the
+ * 50-150ms argon2 costs on purpose. That difference is the whole reason this
+ * path exists — Cloudflare's free plan allows 10ms of CPU per request, so the
+ * password itself has to be checked somewhere that is not a Worker.
+ */
+let jwks: ReturnType<typeof createRemoteJWKSet> | null = null;
+
+export function supabaseAuthEnabled(): boolean {
+  return Boolean(env.SUPABASE_JWKS_URL);
+}
+
+export async function verifySupabaseToken(token: string): Promise<string> {
+  if (!env.SUPABASE_JWKS_URL) {
+    throw new ApiError('not_authenticated', 'supabase auth is not configured');
+  }
+  jwks ??= createRemoteJWKSet(new URL(env.SUPABASE_JWKS_URL));
+  try {
+    const { payload } = await jwtVerify(token, jwks, { audience: 'authenticated' });
+    if (!payload.sub) throw new Error('no subject');
+    return payload.sub;
+  } catch {
+    throw new ApiError('not_authenticated', 'invalid or expired supabase token');
   }
 }
 

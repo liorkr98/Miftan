@@ -71,8 +71,20 @@ export const users = pgTable(
     email: text('email').notNull(),
     phone: text('phone'),
     name: text('name').notNull(),
-    /** argon2. Null while an account is invite-pending and has no password yet. */
+    /** argon2. Null while an account is invite-pending and has no password yet,
+        and null for an account whose passwords live in Supabase Auth. */
     passwordHash: text('password_hash'),
+    /**
+     * The Supabase Auth user this row belongs to, when passwords are handled
+     * there rather than here.
+     *
+     * Cloudflare's free plan allows 10ms of CPU per request and argon2 needs
+     * 50-150ms by design, so a Worker cannot check a password itself. Supabase
+     * checks it and signs a token; this column is how that token's subject
+     * finds its row. Nullable because every account created before this, and
+     * every seeded one, authenticates the old way.
+     */
+    supabaseUserId: text('supabase_user_id').unique(),
     emailVerifiedAt: timestamp('email_verified_at', { withTimezone: true }),
     /**
      * What this account has paid for. 'free' until a billing provider says

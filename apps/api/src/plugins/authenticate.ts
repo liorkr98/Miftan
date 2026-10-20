@@ -3,7 +3,7 @@ import fp from 'fastify-plugin';
 import { and, eq, isNull } from 'drizzle-orm';
 import { ApiError } from '@miftan/shared';
 import { db, schema as s } from '../db/client.ts';
-import { verifyAccessToken } from '../lib/auth.ts';
+import { supabaseAuthEnabled, verifyAccessToken, verifySupabaseToken } from '../lib/auth.ts';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -15,6 +15,40 @@ declare module 'fastify' {
     /** Populates currentUser when a token is present; never rejects. */
     optionalAuth: (request: FastifyRequest) => Promise<void>;
   }
+}
+
+const USER_COLUMNS = { id: s.users.id, name: s.users.name, email: s.users.email };
+
+/**
+ * Resolve a bearer token to the row it speaks for, whichever system issued it.
+ *
+ * Two issuers are accepted. This API's own tokens are tried first: they are
+ * verified against a local secret with no network call, and they are what every
+ * existing session and every test uses. A token that is not ours is then tried
+ * against Supabase Auth, whose subject is matched on `supabaseUserId` rather
+ * than `id` — Supabase mints its own uuids and knows nothing about ours.
+ *
+ * Accepting both is what makes the move to Supabase Auth survivable: accounts
+ * migrate one at a time instead of everyone being signed out at once.
+ */
+async function userForToken(token: string) {
+  try {
+    const userId = await verifyAccessToken(token);
+    const [user] = await db
+      .select(USER_COLUMNS)
+      .from(s.users)
+      .where(and(eq(s.users.id, userId), isNull(s.users.deletedAt)));
+    return user ?? null;
+  } catch (err) {
+    if (!supabaseAuthEnabled()) throw err;
+  }
+
+  const subject = await verifySupabaseToken(token);
+  const [user] = await db
+    .select(USER_COLUMNS)
+    .from(s.users)
+    .where(and(eq(s.users.supabaseUserId, subject), isNull(s.users.deletedAt)));
+  return user ?? null;
 }
 
 /**
@@ -30,11 +64,7 @@ export const authenticatePlugin = fp(async (app: FastifyInstance) => {
       throw new ApiError('not_authenticated', 'missing bearer token');
     }
 
-    const userId = await verifyAccessToken(header.slice(7));
-    const [user] = await db
-      .select({ id: s.users.id, name: s.users.name, email: s.users.email })
-      .from(s.users)
-      .where(and(eq(s.users.id, userId), isNull(s.users.deletedAt)));
+    const user = await userForToken(header.slice(7));
 
     if (!user) throw new ApiError('not_authenticated', 'user no longer exists');
     request.currentUser = user;
@@ -48,11 +78,7 @@ export const authenticatePlugin = fp(async (app: FastifyInstance) => {
     const header = request.headers.authorization;
     if (!header?.startsWith('Bearer ')) return;
     try {
-      const userId = await verifyAccessToken(header.slice(7));
-      const [user] = await db
-        .select({ id: s.users.id, name: s.users.name, email: s.users.email })
-        .from(s.users)
-        .where(and(eq(s.users.id, userId), isNull(s.users.deletedAt)));
+      const user = await userForToken(header.slice(7));
       if (user) request.currentUser = user;
     } catch {
       /* treated as anonymous */

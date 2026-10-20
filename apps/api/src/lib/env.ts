@@ -39,6 +39,18 @@ const schema = z.object({
    */
   COOKIE_SAMESITE: z.enum(['lax', 'strict', 'none']).default('lax'),
   /**
+   * Supabase Auth's public signing keys, e.g.
+   * https://<ref>.supabase.co/auth/v1/.well-known/jwks.json
+   *
+   * Unset means the Supabase sign-in path is simply off and only this API's
+   * own tokens are accepted, which is how development and the tests run. An
+   * empty string counts as unset: a GitHub Actions secret that was never
+   * added arrives as `''`, and refusing to boot over that would turn a feature
+   * nobody configured into a dead API.
+   */
+  SUPABASE_JWKS_URL: z
+    .preprocess((v) => (v === '' ? undefined : v), z.string().url().optional()),
+  /**
    * Set only on the demo API. Production leaves it unset, and seeded account
    * ids are then ordinary users — the demo badge and the revenue lens stay off.
    */
