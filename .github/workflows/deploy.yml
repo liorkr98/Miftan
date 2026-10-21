@@ -131,9 +131,17 @@ jobs:
 
       # Migrations run here, once, over the direct URL — before the new
       # version takes traffic. They only ever add.
+      # On failure the error also goes out as annotations, readable through
+      # the API without the log. Connection strings are masked by GitHub.
       - name: Migrate
         if: steps.configured.outputs.ready == 'true'
-        run: npm run db:migrate -w @miftan/api
+        run: |
+          npm run db:migrate -w @miftan/api > migrate.log 2>&1 || {
+            cat migrate.log
+            grep -iE 'error|fail|refused|timeout|denied|exist|relation|column|ENOTFOUND|ECONN' migrate.log | grep -v '^    at ' | head -n 8 | sed 's/^/::error::/'
+            exit 1
+          }
+          cat migrate.log
         env:
           DATABASE_URL: ${{ env.DIRECT_URL }}
 
