@@ -51,6 +51,12 @@ const schema = z.object({
   SUPABASE_JWKS_URL: z
     .preprocess((v) => (v === '' ? undefined : v), z.string().url().optional()),
   /**
+   * The project's public anon key. Used only to ask Supabase whether an
+   * address is confirmed before a Supabase login may adopt an existing
+   * account. Unset = no adoption (fail closed).
+   */
+  SUPABASE_ANON_KEY: z.preprocess((v) => (v === '' ? undefined : v), z.string().optional()),
+  /**
    * Set only on the demo API. Production leaves it unset, and seeded account
    * ids are then ordinary users — the demo badge and the revenue lens stay off.
    */

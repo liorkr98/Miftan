@@ -108,16 +108,43 @@ export async function verifySupabaseToken(token: string): Promise<SupabaseIdenti
     const { payload } = await jwtVerify(token, jwks, { audience: 'authenticated' });
     if (!payload.sub) throw new Error('no subject');
 
-    /* Supabase has carried this flag both at the top level and inside
-       user_metadata across versions, so read either and treat anything that is
-       not exactly true as unverified. */
-    const metadata = (payload.user_metadata ?? {}) as Record<string, unknown>;
-    const verified = payload.email_verified === true || metadata.email_verified === true;
+    /* Never user_metadata: a Supabase user can write their own metadata
+       (auth.updateUser({ data })), so "email_verified: true" there proves
+       nothing — it was the way to sign up with a landlord's address and adopt
+       their portfolio. Only a top-level claim counts here, and the claim route
+       asks Supabase itself (supabaseEmailConfirmed) before linking anything. */
+    const verified = payload.email_verified === true;
     const email = typeof payload.email === 'string' ? payload.email : null;
 
     return { sub: payload.sub, email, emailVerified: verified };
   } catch {
     throw new ApiError('not_authenticated', 'invalid or expired supabase token');
+  }
+}
+
+/**
+ * Whether Supabase itself has confirmed this account's address, asked of
+ * Supabase rather than read from the token. HUMAN REVIEW: this is what lets a
+ * Supabase login take over an existing account.
+ *
+ * GET /auth/v1/user returns the server's record, including email_confirmed_at,
+ * which the user cannot edit. Needs the project's public anon key. Anything
+ * that goes wrong — no key, a timeout, an error — answers false: an unconfirmed
+ * address can still sign up, it just cannot adopt someone else's account.
+ */
+export async function supabaseEmailConfirmed(token: string): Promise<boolean> {
+  if (!env.SUPABASE_JWKS_URL || !env.SUPABASE_ANON_KEY) return false;
+  const base = env.SUPABASE_JWKS_URL.replace(/\/\.well-known\/jwks\.json$/, '').replace(/\/$/, '');
+  try {
+    const res = await fetch(`${base}/user`, {
+      headers: { authorization: `Bearer ${token}`, apikey: env.SUPABASE_ANON_KEY },
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!res.ok) return false;
+    const user = (await res.json()) as { email_confirmed_at?: string | null };
+    return typeof user.email_confirmed_at === 'string' && user.email_confirmed_at.length > 0;
+  } catch {
+    return false;
   }
 }
 

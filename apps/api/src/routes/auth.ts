@@ -25,6 +25,7 @@ import {
   rotateSession,
   signAccessToken,
   verifyPassword,
+  supabaseEmailConfirmed,
   verifySupabaseToken,
   wasteTimeLikeAVerify,
 } from '../lib/auth.ts';
@@ -293,7 +294,8 @@ export async function authRoutes(app: FastifyInstance) {
       if (!header?.startsWith('Bearer ')) {
         throw new ApiError('not_authenticated', 'missing supabase token');
       }
-      const identity = await verifySupabaseToken(header.slice(7));
+      const token = header.slice(7);
+      const identity = await verifySupabaseToken(token);
 
       /* Already claimed. */
       const [linked] = await db
@@ -330,7 +332,7 @@ export async function authRoutes(app: FastifyInstance) {
            and inherit their portfolio — the password here would never be
            tested, because Supabase is the thing being trusted. A confirmed
            address is the only evidence that the person holds the mailbox. */
-        if (!identity.emailVerified) {
+        if (!(await supabaseEmailConfirmed(token))) {
           throw new ApiError('forbidden', 'confirm your email address before signing in this way');
         }
         /* Another Supabase account got here first. Reassigning would hand one
@@ -357,7 +359,7 @@ export async function authRoutes(app: FastifyInstance) {
           phone: request.body.phone ?? null,
           supabaseUserId: identity.sub,
           termsAcceptedAt: new Date(),
-          emailVerifiedAt: identity.emailVerified ? new Date() : null,
+          emailVerifiedAt: (await supabaseEmailConfirmed(token)) ? new Date() : null,
         })
         .returning();
 

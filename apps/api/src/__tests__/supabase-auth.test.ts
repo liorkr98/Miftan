@@ -36,7 +36,17 @@ beforeAll(async () => {
   /* A key Supabase never published, for the forgery case below. */
   otherPrivateKey = (await generateKeyPair('ES256')).privateKey;
 
-  server = createServer((_req, res) => {
+  server = createServer((req, res) => {
+    /* Stands in for Supabase's GET /auth/v1/user: the server's own record of
+       whether the address is confirmed, which a user cannot edit. The test
+       tokens carry that answer in a claim only this fake server reads. */
+    if (req.url?.endsWith('/user')) {
+      const bearer = String(req.headers.authorization ?? '').slice(7);
+      const payload = JSON.parse(Buffer.from(bearer.split('.')[1] ?? '', 'base64url').toString() || '{}');
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ email_confirmed_at: payload.test_confirmed ? '2026-01-01T00:00:00Z' : null }));
+      return;
+    }
     res.writeHead(200, { 'content-type': 'application/json' });
     res.end(JSON.stringify({ keys: [publicJwk] }));
   });
@@ -135,6 +145,7 @@ describe('claiming a row for a supabase account', () => {
   beforeAll(async () => {
     vi.resetModules();
     vi.stubEnv('SUPABASE_JWKS_URL', jwksUrl);
+    vi.stubEnv('SUPABASE_ANON_KEY', 'test-anon-key');
     ({ db, schema: s, sql } = await import('../db/client.ts'));
     ({ newId } = await import('../lib/ids.ts'));
     const { buildApp } = await import('../app.ts');
@@ -162,8 +173,13 @@ describe('claiming a row for a supabase account', () => {
       headers: { authorization: `Bearer ${token}` },
     });
 
+  /* verified = what Supabase's server says (see the fake /user above). The
+     user-editable metadata always claims verified, as an attacker's would. */
   function token(sub: string, email: string | null, verified: boolean) {
-    const claims: Record<string, unknown> = { user_metadata: { email_verified: verified } };
+    const claims: Record<string, unknown> = {
+      test_confirmed: verified,
+      user_metadata: { email_verified: true },
+    };
     if (email) claims.email = email;
     return new SignJWT(claims)
       .setProtectedHeader({ alg: 'ES256', kid: 'test-key' })
@@ -269,5 +285,13 @@ describe('claiming a row for a supabase account', () => {
       .from(s.users)
       .where(and(eq(s.users.id, id)));
     expect(old.supabaseUserId).toBeNull();
+  });
+
+  it('ignores email_verified in user metadata, which the user can write', async () => {
+    const id = await seedUser('landlord@example.co.il');
+    const res = await claim(await token('sub-forger', 'landlord@example.co.il', false));
+    expect(res.statusCode).toBe(403);
+    const [row] = await db.select().from(s.users).where(eq(s.users.id, id));
+    expect(row!.supabaseUserId).toBeNull();
   });
 });
