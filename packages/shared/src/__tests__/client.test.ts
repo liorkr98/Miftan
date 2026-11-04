@@ -85,6 +85,32 @@ describe('a non-JSON error response', () => {
       code: 'api_unreachable',
     });
   });
+
+  it('reports api_unreachable for JSON that is not our error shape — a host whose app is gone', async () => {
+    /* What the live site got for every sign-in once the API left Fly.io:
+       Fly's edge answering for an app that no longer exists. */
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ok({ detail: 'Not Found' }, { status: 404 })),
+    );
+
+    await expect(client().request('/auth/login', {}, false)).rejects.toMatchObject({
+      code: 'api_unreachable',
+    });
+  });
+
+  it('reports api_unreachable when fetch itself fails', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new TypeError('Failed to fetch');
+      }),
+    );
+
+    await expect(client().request('/auth/login', {}, false)).rejects.toMatchObject({
+      code: 'api_unreachable',
+    });
+  });
 });
 
 describe('a genuine API error', () => {

@@ -4,14 +4,19 @@
   "compatibility_date": "2026-08-01",
 
   /**
-   * A small Worker in front of the files, for one job: writing the preview
-   * card (og: tags) into public listing pages, which WhatsApp reads without
-   * running any JavaScript. Every other path goes straight to the files.
+   * A small Worker in front of the files, for two jobs: passing /api/* to the
+   * API, so the app and the API share one origin, and writing the preview card
+   * (og: tags) into public listing pages, which WhatsApp reads without running
+   * any JavaScript. Every other path goes straight to the files.
    */
   "main": "./apps/web/worker/index.js",
-  "vars": {
-    "API_URL": "https://miftan.fly.dev"
-  },
+  /**
+   * API_URL (the API's address, e.g. the Cloud Run service URL) and the secret
+   * PROXY_SECRET are set in the Cloudflare dashboard — Workers → miftan-web →
+   * Settings → Variables and Secrets — not here. keep_vars stops each deploy
+   * from wiping them, so moving the API never needs a commit or a rebuild.
+   */
+  "keep_vars": true,
 
   /**
    * Cloudflare ran `wrangler deploy` from the repository root and could not
@@ -21,8 +26,8 @@
   "assets": {
     "directory": "./apps/web/dist",
     "binding": "ASSETS",
-    /* Only the public listing pages reach the Worker. */
-    "run_worker_first": ["/l/*"],
+    /* Only the API and the public listing pages reach the Worker. */
+    "run_worker_first": ["/api/*", "/l/*"],
     /**
      * The app is a single-page app with client-side routing. Without this,
      * every deep link — /owner/properties, /search/prop_x — would 404 on a

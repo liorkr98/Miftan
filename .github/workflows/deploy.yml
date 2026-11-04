@@ -37,6 +37,12 @@
 #   S3_PUBLIC_URL         optional: the old public bucket address, so photos
 #                         saved before the bucket went private still show
 #   RESEND_API_KEY        optional until email is set up
+#   PROXY_SECRET          32+ random characters, the same value as the web
+#                         Worker's PROXY_SECRET secret. Lets the API rate-limit
+#                         per user rather than per Cloudflare address.
+#
+# The web Worker needs, in the Cloudflare dashboard: API_URL = the address the
+# Health check step prints, and the PROXY_SECRET secret.
 #
 # Until a secret a job needs exists, that job explains what is missing and
 # stops without failing.
@@ -211,6 +217,7 @@ jobs:
           S3_REGION: ${{ secrets.S3_REGION }}
           S3_PUBLIC_URL: ${{ secrets.S3_PUBLIC_URL }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          PROXY_SECRET: ${{ secrets.PROXY_SECRET }}
           WEB_ORIGIN_INPUT: ${{ inputs.web_origin }}
         run: |
           node -e '
@@ -221,15 +228,15 @@ jobs:
               DATABASE_URL: process.env.DATABASE_URL,
               JWT_SECRET: process.env.JWT_SECRET,
               WEB_ORIGIN: origin,
-              COOKIE_PATH: "/auth",
-              // The app is on workers.dev and this API on run.app — different
-              // sites, so the refresh cookie has to be SameSite=none or the
-              // browser never sends it back and every reload looks signed out.
-              COOKIE_SAMESITE: "none",
+              // The browser reaches this API through the web Worker's /api
+              // proxy (apps/web/worker), on the app's own origin. So the
+              // refresh cookie is first-party: SameSite=lax (the default)
+              // holds, and its path is the one the browser sees.
+              COOKIE_PATH: "/api/auth",
               DEMO_MODE: "true",
               TZ: "Asia/Jerusalem",
             };
-            for (const k of ["S3_ENDPOINT", "S3_BUCKET", "S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY", "S3_REGION", "S3_PUBLIC_URL", "RESEND_API_KEY"]) {
+            for (const k of ["S3_ENDPOINT", "S3_BUCKET", "S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY", "S3_REGION", "S3_PUBLIC_URL", "RESEND_API_KEY", "PROXY_SECRET"]) {
               if (process.env[k]) env[k] = process.env[k];
             }
             const missing = ["DATABASE_URL", "JWT_SECRET", "S3_ENDPOINT", "S3_BUCKET", "S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY"].filter((k) => !env[k]);
