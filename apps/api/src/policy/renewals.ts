@@ -86,7 +86,7 @@ export async function openDueCycles(leases: LeaseRow[], now: Date = new Date()):
     const opensOn = renewalOpensOn(lease.endDate, lease.noticePeriodDays);
 
     /* A renewed lease starts its next round when its new window opens. */
-    if (cycle?.stage === 'renewed' && today >= opensOn && (cycle.renewedAt?.toISOString().slice(0, 10) ?? '') < opensOn) {
+    if (cycle?.stage === 'renewed' && today >= opensOn && (cycle.renewedAt ? israelToday(cycle.renewedAt) : '') < opensOn) {
       await db.delete(s.renewalCycles).where(eq(s.renewalCycles.id, cycle.id));
       byLease.delete(lease.id);
     }
@@ -332,9 +332,32 @@ export async function cycleForWrite(viewer: Viewer, leaseId: string, opts: { ope
   const role = scopeFor(viewer, property.id) === 'owner' ? 'owner' : lease.tenantId === viewer.userId ? 'tenant' : null;
   if (!role) throw new ApiError('not_found', 'no such lease');
 
+  /* HUMAN REVIEW: the same window GET /renewals shows (leasesFor). Without it
+     a former — or not-yet-started — tenant could run this flow on a lease the
+     list does not show, and a "leave" would flip the flat someone else now
+     rents to vacating. Every check here runs before anything is written. */
+  const today = israelToday();
+  if (lease.startDate > today || lease.endDate < shiftDays(today, -TRAILING_DAYS)) {
+    throw new ApiError('not_found', 'no such lease');
+  }
+  if (role === 'tenant') {
+    const [newer] = await db
+      .select({ id: s.leases.id })
+      .from(s.leases)
+      .where(
+        and(
+          eq(s.leases.propertyId, lease.propertyId),
+          isNull(s.leases.deletedAt),
+          gt(s.leases.startDate, lease.startDate),
+        ),
+      )
+      .limit(1);
+    if (newer) throw new ApiError('not_found', 'no such lease');
+  }
+
   await openDueCycles([lease]);
   let [cycle] = await db.select().from(s.renewalCycles).where(eq(s.renewalCycles.leaseId, lease.id));
-  if (!cycle && opts.openEarly) {
+  if (!cycle && opts.openEarly && lease.endDate >= today) {
     [cycle] = await db
       .insert(s.renewalCycles)
       .values({ id: newId('renewalCycle'), leaseId: lease.id, propertyId: lease.propertyId })

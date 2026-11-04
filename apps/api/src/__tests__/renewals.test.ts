@@ -101,6 +101,37 @@ describe('opening', () => {
     const stranger = await makeUser('stranger');
     expect((await req('POST', `/renewals/${leaseId}/decision`, stranger, { decision: 'stay' })).statusCode).toBe(404);
   });
+
+  it('gives a former tenant no hold over the flat the next tenant now rents', async () => {
+    await makeLease(-200);
+    const oldLease = leaseId;
+    const next = await makeUser('next');
+    await db.insert(s.leases).values({
+      id: newId('lease'), propertyId, tenantId: next.id, startDate: day(-199), endDate: day(166),
+      monthlyRentAgorot: 900_000, depositAgorot: 1_800_000, paymentMethod: 'bank_transfer', noticePeriodDays: 60,
+    });
+
+    expect((await req('POST', `/renewals/${oldLease}/open`, tenant)).statusCode).toBe(404);
+    expect((await req('POST', `/renewals/${oldLease}/decision`, tenant, { decision: 'leave' })).statusCode).toBe(404);
+
+    const [flat] = await db.select().from(s.properties).where(eq(s.properties.id, propertyId));
+    expect(flat.status).toBe('occupied');
+    expect(flat.availabilityConfidence).toBe('unknown');
+    const cycles = await db.select().from(s.renewalCycles).where(eq(s.renewalCycles.leaseId, oldLease));
+    expect(cycles).toHaveLength(0);
+  });
+
+  it('gives a tenant whose lease has not started yet nothing to write to', async () => {
+    await makeLease(80);
+    const future = newId('lease');
+    const next = await makeUser('next');
+    await db.insert(s.leases).values({
+      id: future, propertyId, tenantId: next.id, startDate: day(81), endDate: day(446),
+      monthlyRentAgorot: 900_000, depositAgorot: 1_800_000, paymentMethod: 'bank_transfer', noticePeriodDays: 60,
+    });
+    expect((await req('POST', `/renewals/${future}/open`, next)).statusCode).toBe(404);
+    expect(await db.select().from(s.renewalCycles).where(eq(s.renewalCycles.leaseId, future))).toHaveLength(0);
+  });
 });
 
 describe('the tenant stays', () => {
@@ -129,6 +160,21 @@ describe('the tenant stays', () => {
     const [lease] = await db.select().from(s.leases).where(eq(s.leases.id, leaseId));
     expect(lease.endDate).toBe(day(445));
     expect(lease.monthlyRentAgorot).toBe(860_000);
+  });
+
+  it('does not let the tenant bring back a time the owner withdrew', async () => {
+    await makeLease(80);
+    await req('POST', `/renewals/${leaseId}/decision`, tenant, { decision: 'stay' });
+    const offered = await req('POST', `/renewals/${leaseId}/meeting-slots`, owner, {
+      windows: [{ date: day(3), from: '18:00', until: '18:30' }],
+    });
+    const [slot] = offered.json().meetingSlots;
+    await req('POST', `/renewals/meeting-slots/${slot.id}/cancel`, owner, { reopen: false });
+
+    expect((await req('POST', `/renewals/meeting-slots/${slot.id}/cancel`, tenant, {})).statusCode).toBe(403);
+    expect((await req('POST', `/renewals/meeting-slots/${slot.id}/book`, tenant)).statusCode).toBe(403);
+    const [row] = await db.select().from(s.renewalMeetingSlots).where(eq(s.renewalMeetingSlots.id, slot.id));
+    expect(row.status).toBe('cancelled');
   });
 
   it('only the tenant decides while they are within their deadline', async () => {

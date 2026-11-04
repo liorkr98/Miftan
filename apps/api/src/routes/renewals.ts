@@ -341,12 +341,22 @@ export async function renewalRoutes(app: FastifyInstance) {
       if (!slot) throw new ApiError('not_found', 'no such time');
       const [cycle] = await db.select().from(s.renewalCycles).where(eq(s.renewalCycles.id, slot.cycleId));
       const access = await cycleForWrite(viewer, cycle.leaseId);
+      requireStage(access, ['staying']);
       const reopen = access.role === 'tenant' || Boolean(request.body?.reopen);
 
-      await db
+      /* A tenant can only give back the time they booked. Without the status
+         condition, "cancel" on a time the owner withdrew reopened it. */
+      const changed = await db
         .update(s.renewalMeetingSlots)
         .set(reopen ? { status: 'open', bookedAt: null, updatedAt: new Date() } : { status: 'cancelled', updatedAt: new Date() })
-        .where(eq(s.renewalMeetingSlots.id, slot.id));
+        .where(
+          and(
+            eq(s.renewalMeetingSlots.id, slot.id),
+            access.role === 'tenant' ? eq(s.renewalMeetingSlots.status, 'booked') : undefined,
+          ),
+        )
+        .returning({ id: s.renewalMeetingSlots.id });
+      if (changed.length === 0) throw new ApiError('forbidden', 'that time is not booked');
 
       if (access.role === 'owner' && slot.status === 'booked') {
         await mailUser(access.lease.tenantId, t.turnoverMail.meetingCancelled, '/tenant/renewal', {});
