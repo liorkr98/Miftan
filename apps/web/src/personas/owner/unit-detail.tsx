@@ -18,6 +18,7 @@ import {
   type OwnerProperty,
   type TicketView,
   type TrackRow,
+  israelToday,
 } from '@miftan/shared';
 import { AVAILABILITY_TONE } from '@/data/selectors';
 import {
@@ -54,7 +55,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/field';
 import { Meter } from '@/components/shared/meter';
 import { cn } from '@/lib/utils';
-import { parseISO, subDays } from 'date-fns';
+import { format, parseISO, subDays } from 'date-fns';
 import {
   ArrowLeft,
   ArrowRight,
@@ -192,13 +193,13 @@ export function OwnerUnitDetail() {
           property_id: owned.id,
           label: `${owned.address.street} ${owned.address.number}`,
           sublabel: owned.tenant?.name,
-          from: new Date().toISOString().slice(0, 10),
+          from: israelToday(),
           until: lease.endDate,
           tone: AVAILABILITY_TONE[kind],
           confidence: owned.availability.confidence,
           marks: [
             {
-              at: subDays(parseISO(lease.endDate), lease.noticePeriodDays).toISOString().slice(0, 10),
+              at: format(subDays(parseISO(lease.endDate), lease.noticePeriodDays), 'yyyy-MM-dd'),
               kind: 'decision',
               label: t.track.decisionPoint,
             },

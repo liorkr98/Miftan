@@ -1,4 +1,4 @@
-import { daysUntil, deriveAvailability, leadScore, type AvailabilityKind, type Expense, type Lead, type Lease, type Property, type RentPayment, type ScreeningPreset, type Ticket, type TrackRow } from '@miftan/shared';
+import { daysUntil, deriveAvailability, leadScore, type AvailabilityKind, type Expense, type Lead, type Lease, type Property, type RentPayment, type ScreeningPreset, type Ticket, type TrackRow, israelToday, israelMonth } from '@miftan/shared';
 import { parseISO, subDays } from 'date-fns';
 
 /* ── Availability, the product's central idea ──────────── */
@@ -67,7 +67,7 @@ export function portfolioStats(
     return d >= 0 && d <= 90;
   }).length;
 
-  const thisMonth = new Date().toISOString().slice(0, 7);
+  const thisMonth = israelMonth();
   const monthRows = payments.filter((p) => p.month === thisMonth);
   const expectedThisMonth = monthRows.reduce((sum, p) => sum + p.due, 0);
   const collectedThisMonth = monthRows.reduce((sum, p) => sum + p.paid, 0);
@@ -113,7 +113,7 @@ export function portfolioTrackRows(properties: Property[], leases: Lease[]): Tra
         property_id: property.id,
         label,
         sublabel: property.address.neighborhood,
-        from: new Date().toISOString().slice(0, 10),
+        from: israelToday(),
         until: property.status === 'renovating' ? property.available_from : undefined,
         tone: property.status === 'renovating' ? 'live' : 'open',
         confidence: property.availability_confidence,
@@ -133,7 +133,7 @@ export function portfolioTrackRows(properties: Property[], leases: Lease[]): Tra
       property_id: property.id,
       label,
       sublabel: property.address.neighborhood,
-      from: new Date().toISOString().slice(0, 10),
+      from: israelToday(),
       until: lease.end_date,
       tone: AVAILABILITY_TONE[kind],
       confidence: property.availability_confidence,

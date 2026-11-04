@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
-import { evaluateLead, t, type AffiliateOffer, type AuditEntry, type AvailabilityInquiry, type ContractScan, type ExtractedField, type ProtocolItem, type ProtocolKind, type ProtocolRun, type RevenueStream, type SeasonalTask, type SeasonalTaskTemplate, type Expense, type Lead, type LeadStage, type Lease, type MessageThread, type Persona, type Property, type RentPayment, type ScreeningCriterion, type ScreeningPreset, type ScreeningProfile, type Seeker, type Severity, type Tenant, type Ticket, type TicketCategory, type Vendor, type RenewalIntent } from '@miftan/shared';
+import { evaluateLead, t, type AffiliateOffer, type AuditEntry, type AvailabilityInquiry, type ContractScan, type ExtractedField, type ProtocolItem, type ProtocolKind, type ProtocolRun, type RevenueStream, type SeasonalTask, type SeasonalTaskTemplate, type Expense, type Lead, type LeadStage, type Lease, type MessageThread, type Persona, type Property, type RentPayment, type ScreeningCriterion, type ScreeningPreset, type ScreeningProfile, type Seeker, type Severity, type Tenant, type Ticket, type TicketCategory, type Vendor, type RenewalIntent, israelToday } from '@miftan/shared';
 import { addMonths } from 'date-fns';
 import { buildSeed } from './reset';
 
@@ -610,7 +610,7 @@ export const useStore = create<Store>((set, get) => ({
             seeker_id: s.currentSeekerId,
             stage: 'new',
             created_at: nowIso(),
-            desired_move_in: property.available_from ?? new Date().toISOString().slice(0, 10),
+            desired_move_in: property.available_from ?? israelToday(),
             queue_position: queue.length + 1,
             screening: seeker.profile,
             screening_flags: [],
@@ -678,7 +678,7 @@ export const useStore = create<Store>((set, get) => ({
             seeker_id: s.currentSeekerId,
             stage: 'new',
             created_at: nowIso(),
-            desired_move_in: property.available_from ?? new Date().toISOString().slice(0, 10),
+            desired_move_in: property.available_from ?? israelToday(),
             queue_position: queue.length + 1,
             screening: seeker.profile,
             screening_flags: [],
@@ -947,7 +947,7 @@ export const useStore = create<Store>((set, get) => ({
       const lease = s.leases.find((l) => l.property_id === scan.property_id);
       const tenant = s.tenants.find((x) => x.id === lease?.tenant_id);
       const rent = lease?.monthly_rent ?? property?.monthly_rent ?? 0;
-      const start = lease?.start_date ?? new Date().toISOString().slice(0, 10);
+      const start = lease?.start_date ?? israelToday();
       const end = lease?.end_date ?? addMonths(new Date(), 12).toISOString().slice(0, 10);
 
       const src = t.contracts.sample;
