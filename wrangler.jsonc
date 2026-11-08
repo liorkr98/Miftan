@@ -55,6 +55,11 @@
     }
   ],
 
+  /* D1 lives in one region (WEUR) and a page's API call makes many queries
+     in a row. Run the Worker beside the database rather than beside the
+     visitor; static assets are still served from the nearest edge. */
+  "placement": { "mode": "smart" },
+
   "observability": { "enabled": true },
 
   "assets": {
