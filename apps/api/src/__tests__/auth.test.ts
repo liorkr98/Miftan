@@ -267,3 +267,11 @@ describe('logout', () => {
     expect(after.statusCode).toBe(401);
   });
 });
+
+describe('demo sign-in', () => {
+  it('tells the sign-in page whether to offer the demo accounts', async () => {
+    const res = await app.inject({ method: 'GET', url: '/auth/demo' });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ enabled: true });
+  });
+});

@@ -1,3 +1,4 @@
+import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/api/auth';
 
 /**
@@ -15,4 +16,18 @@ export const isDemoBuild = import.meta.env.VITE_DEMO === 'true';
 export function useIsDemo(): boolean {
   const { user } = useAuth();
   return isDemoBuild || Boolean(user?.isDemo);
+}
+
+/** The live demo offers its accounts on the sign-in page; a real site does not. */
+export function useDemoSignIn(): boolean {
+  const { data } = useQuery({
+    queryKey: ['auth', 'demo'],
+    queryFn: async () => {
+      const res = await fetch('/api/auth/demo');
+      return res.ok && ((await res.json()) as { enabled?: boolean }).enabled === true;
+    },
+    staleTime: Infinity,
+    retry: false,
+  });
+  return import.meta.env.DEV || isDemoBuild || data === true;
 }
