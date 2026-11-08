@@ -163,8 +163,8 @@ export async function seedScenarios(tx: Tx, passwordHash: string) {
       return {
         id: seedId('rentPayment', `demo-r-${i}`),
         propertyId: pid('demo-r'), leaseId: lid('demo-r'),
-        month: monthKey(offset), dueAgorot: money(11200), paidAgorot: offset === 0 ? 0 : money(11200),
-        paidAt: offset === 0 ? null : monthsOut(offset, 2), method: 'bank_transfer' as const,
+        month: monthKey(offset), dueAgorot: money(11200), paidAgorot: money(11200),
+        paidAt: monthsOut(offset, offset === 0 ? 1 : 2), method: 'bank_transfer' as const,
       };
     }),
   );

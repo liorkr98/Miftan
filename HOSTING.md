@@ -92,6 +92,24 @@ stops deploys from wiping them. Never commit one — the repository is public.
 `API_URL` and `PROXY_SECRET`, left over from when the API ran elsewhere, are
 no longer read and can be deleted.
 
+## Backups and monitoring
+
+- **Backups.** D1 Time Travel is always on: the database can be restored to
+  any minute in the last 7 days (30 on a paid Workers plan). Restoring
+  overwrites the database in place and prints a bookmark to undo it.
+
+  ```
+  npx wrangler d1 time-travel info miftan --timestamp=2026-11-08T09:00:00+02:00
+  npx wrangler d1 time-travel restore miftan --timestamp=2026-11-08T09:00:00+02:00
+  ```
+
+  For a copy that outlives that window: `npx wrangler d1 export miftan --remote --output=miftan.sql`.
+- **Uptime.** `.github/workflows/uptime.yml` checks `/` and `/api/ready`
+  (Worker plus D1) every 30 minutes; GitHub emails a failed run.
+- **Errors.** Worker logs are on (`observability` in `wrangler.jsonc`):
+  Workers → `miftan` → Observability. Every API request is logged with its
+  status and time; a 500 carries the stack.
+
 ## Limits worth knowing
 
 - Passwords are PBKDF2-SHA256 at 50,000 iterations (`src/lib/auth.ts`), sized

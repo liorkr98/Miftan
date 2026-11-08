@@ -180,11 +180,12 @@ export async function seedDemoAccount(tx: Tx, passwordHash: string) {
   ];
   await tx.insert(s.rentPayments).values(
     rent.flatMap(({ key, property, lease, amount }) =>
-      /* Twelve months back. Everything settled except the month in progress,
-         so the collection bar on the dashboard is not a flat 100%. */
+      /* Twelve months back, all settled except ב's rent for the month in
+         progress, so the collection bar is part-way rather than 0% or 100%.
+         Paid on the 1st, which is never in the future. */
       Array.from({ length: 12 }, (_, i) => {
         const offset = -(11 - i);
-        const current = offset === 0;
+        const current = offset === 0 && key === 'b';
         return {
           id: seedId('rentPayment', `demo-${key}-${i}`),
           propertyId: pid(property),
@@ -192,7 +193,7 @@ export async function seedDemoAccount(tx: Tx, passwordHash: string) {
           month: monthKey(offset),
           dueAgorot: money(amount),
           paidAgorot: current ? 0 : money(amount),
-          paidAt: current ? null : monthsOut(offset, 3),
+          paidAt: current ? null : monthsOut(offset, offset === 0 ? 1 : 3),
           method: 'bank_transfer' as const,
         };
       }),

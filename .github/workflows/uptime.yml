@@ -1,0 +1,30 @@
+# Is the live site up? Every 30 minutes, ask the Worker whether it and D1
+# answer. A failed scheduled run is emailed by GitHub to whoever last edited
+# this file — no monitoring account needed.
+name: uptime
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      SITE: https://miftan.liorkr98.workers.dev
+    steps:
+      - name: App and API answer
+        run: |
+          check() {
+            for attempt in 1 2 3; do
+              code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "$1") && [ "$code" = 200 ] && { echo "ok  $1"; return 0; }
+              echo "attempt $attempt: $1 answered ${code:-nothing}"; sleep 20
+            done
+            echo "::error::$1 is down (last answer: ${code:-nothing})"; return 1
+          }
+          check "$SITE/"
+          check "$SITE/api/ready"
