@@ -153,10 +153,11 @@ clears the React Query cache. It does not reseed Postgres.
 Do not attempt to deploy from this repo until the account owner has:
 
 1. A Neon Postgres project in `aws-eu-central-1` (pooled + direct URLs).
-2. `VITE_API_URL` set as a **build** environment variable on Cloudflare.
+2. `API_URL` (and the `PROXY_SECRET` secret) set on the Cloudflare Worker.
 
-Cookie pairing in production is `miftan.co.il` / `api.miftan.co.il` with
-matching `COOKIE_PATH`. Same-origin `/api` proxy is required in development.
+The browser reaches the API through `/api` on the app's own origin: the Vite
+proxy in development, the web Worker when deployed. `COOKIE_PATH` is
+`/api/auth` in both.
 Full detail in `HOSTING.md` and `HANDOFF.md`.
 
 ---

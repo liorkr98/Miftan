@@ -17,11 +17,21 @@ interface Bucket {
 
 const buckets = new Map<string, Bucket>();
 
+/* Every address that ever called leaves a bucket behind; without a sweep the
+   map only grows for the life of the process. */
+const SWEEP_AT = 10_000;
+function sweep(now: number): void {
+  for (const [key, bucket] of buckets) {
+    if (bucket.resetAt <= now) buckets.delete(key);
+  }
+}
+
 export function rateLimit(opts: { windowMs: number; max: number; name: string }) {
   return async function limit(request: FastifyRequest, _reply: FastifyReply): Promise<void> {
     if (env.NODE_ENV === 'test') return;
     const key = `${opts.name}:${clientIp(request)}`;
     const now = Date.now();
+    if (buckets.size >= SWEEP_AT) sweep(now);
     const current = buckets.get(key);
     if (!current || current.resetAt <= now) {
       buckets.set(key, { count: 1, resetAt: now + opts.windowMs });

@@ -14,6 +14,7 @@ import {
   type SeekerLead,
   type SeekerSlot,
   type TrackRow,
+  israelToday,
 } from '@miftan/shared';
 import { AVAILABILITY_TONE } from '@/data/selectors';
 import {
@@ -68,7 +69,7 @@ function amenityLabel(key: string): string {
 }
 
 function todayIso() {
-  return new Date().toISOString().slice(0, 10);
+  return israelToday();
 }
 
 export function SeekerListing() {

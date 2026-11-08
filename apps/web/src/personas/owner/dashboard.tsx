@@ -23,6 +23,8 @@ import {
   type OwnerProperty,
   type TicketView,
   type TrackRow,
+  israelToday,
+  israelMonth,
 } from '@miftan/shared';
 import {
   useBriefings,
@@ -127,7 +129,7 @@ export function OwnerDashboard() {
           property_id: p.id,
           label: `${p.address.street} ${p.address.number}`,
           sublabel: p.address.neighborhood,
-          from: new Date().toISOString().slice(0, 10),
+          from: israelToday(),
           until: p.availability.date ?? undefined,
           tone: AVAILABILITY_TONE[p.availability.kind],
           confidence: p.availability.confidence,
@@ -175,7 +177,7 @@ export function OwnerDashboard() {
   ).length;
   const outstandingExpectedSaving = seasonal?.outstandingExpectedSaving ?? 0;
 
-  const thisMonth = new Date().toISOString().slice(0, 7);
+  const thisMonth = israelMonth();
   const monthPayments = payments.filter((p) => p.scope === 'owner' && p.month === thisMonth);
   const dueThisMonth = monthPayments.reduce((sum, p) => sum + p.dueAgorot, 0);
   const paidThisMonth = monthPayments.reduce((sum, p) => sum + p.paidAgorot, 0);

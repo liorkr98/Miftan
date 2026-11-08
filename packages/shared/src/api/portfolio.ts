@@ -40,9 +40,18 @@ export const portfolioAnalyticsSchema = z.object({
   portfolio: funnelSchema,
 });
 
+/* The shape alone lets 2026-02-31 through, and Postgres then fails with a 500. */
+const calendarDay = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/)
+  .refine((v) => {
+    const d = new Date(`${v}T12:00:00Z`);
+    return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === v;
+  }, 'not a calendar date');
+
 export const analyticsQuerySchema = z.object({
-  from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  from: calendarDay,
+  to: calendarDay,
 });
 
 export const appointmentSchema = z.object({

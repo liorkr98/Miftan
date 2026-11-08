@@ -23,6 +23,7 @@ import {
   type ExpenseView,
   type OwnerRentPayment,
   type TicketCategory,
+  israelMonth,
 } from '@miftan/shared';
 import { useBudget, useExpenses, useMarkRentPaid, useRentPayments, useUpdateBudget } from '@/api/hooks';
 import {
@@ -143,7 +144,7 @@ export function OwnerFinance() {
     return [...map.values()].sort((a, b) => b.amount - a.amount).slice(0, 10);
   }, [scopedExpenses]);
 
-  const thisMonth = new Date().toISOString().slice(0, 7);
+  const thisMonth = israelMonth();
   const currentRows = ownedPayments.filter((p) => p.month === thisMonth);
   const totalExpensesAgorot = scopedExpenses.reduce((sum, e) => sum + e.amountAgorot, 0);
 

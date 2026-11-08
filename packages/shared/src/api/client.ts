@@ -53,12 +53,20 @@ export class MiftanClient {
       headers.set('authorization', `Bearer ${this.#accessToken}`);
     }
 
-    const res = await fetch(`${this.#baseUrl}${path}`, {
-      ...init,
-      headers,
-      /* The refresh token is an httpOnly cookie; it has to ride along. */
-      credentials: 'include',
-    });
+    let res: Response;
+    try {
+      res = await fetch(`${this.#baseUrl}${path}`, {
+        ...init,
+        headers,
+        /* The refresh token is an httpOnly cookie; it has to ride along. */
+        credentials: 'include',
+      });
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') throw err;
+      /* DNS failure, a refused connection, a CORS rejection: fetch throws a
+         bare TypeError, which says nothing to the person at the screen. */
+      throw new ApiError('api_unreachable', `could not reach ${this.#baseUrl}${path}: ${String(err)}`);
+    }
 
     if (res.status === 401 && retry) {
       const refreshed = await this.#refreshOnce();
@@ -188,6 +196,9 @@ async function toApiError(res: Response): Promise<ApiError> {
     if (body?.error?.code) {
       return new ApiError(body.error.code, body.error.message, body.error.details);
     }
+    /* Valid JSON, but not our envelope: someone else's server answered —
+       a hosting platform's {"detail":"Not Found"} for an app that is gone. */
+    return new ApiError('api_unreachable', `expected the API's error shape, got ${res.status}`);
   } catch {
     /* JSON content-type but an unparsable body — genuinely unexpected from
        our own API, so this is the one case left for the generic fallback. */

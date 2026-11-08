@@ -33,3 +33,8 @@ apps/api/uploads/
 
 # local Postgres data directory (embedded-postgres)
 .pgdata/
+
+# Local tool state
+.wrangler/
+.dev.vars
+.playwright-mcp/

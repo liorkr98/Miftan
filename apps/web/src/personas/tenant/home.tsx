@@ -9,6 +9,7 @@ import {
   formatFloor,
   type TenantProperty,
   type TrackRow,
+  israelToday,
 } from '@miftan/shared';
 import { useProperties, useRenewals, useTickets } from '@/api/hooks';
 import { TenantTurnoverNudge } from './turnover';
@@ -22,7 +23,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Meter } from '@/components/shared/meter';
 import { Skeleton } from '@/components/shared/skeleton';
-import { addMonths, parseISO, subDays } from 'date-fns';
+import { addMonths, format, parseISO, subDays } from 'date-fns';
 import { CalendarCheck2, FileText, KeyRound, ListChecks, Star, Wrench } from 'lucide-react';
 
 /** Statuses that still want the tenant's attention. */
@@ -75,13 +76,13 @@ export function TenantHome() {
       property_id: home.id,
       label: `${address.street} ${address.number}`,
       sublabel: t.track.myLease,
-      from: new Date().toISOString().slice(0, 10),
+      from: israelToday(),
       until: lease.endDate,
       tone: lease.renewalIntent === 'extend' ? 'live' : 'signal',
       confidence: 'confirmed',
       marks: [
         {
-          at: subDays(parseISO(lease.endDate), lease.noticePeriodDays).toISOString().slice(0, 10),
+          at: format(subDays(parseISO(lease.endDate), lease.noticePeriodDays), 'yyyy-MM-dd'),
           kind: 'decision',
           label: t.track.decisionPoint,
         },

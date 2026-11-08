@@ -33,29 +33,33 @@ Build settings in the Cloudflare dashboard:
 - **Deploy command:** `npx wrangler deploy`
 - **Root directory:** leave empty — the root `wrangler.jsonc` handles it
 
-## The gap: `VITE_API_URL`
+## How the app reaches the API
 
-**Cloudflare serves the web app only. There is no API behind `/api` there.**
+The browser never calls the API's own hostname. The web Worker
+(`apps/web/worker/index.js`) answers `/api/*` on the app's origin and passes
+the request to `API_URL` with the `/api` prefix removed. The app and the API
+therefore share one origin, so the refresh cookie is first-party: `SameSite=lax`
+is enough, Safari's third-party cookie blocking cannot drop it, and a reload
+stays signed in.
 
-Unset, the app calls `/api` on its own origin. On Cloudflare that path hits the SPA
-fallback and returns `index.html` with a 200. The client now recognises this and
-raises `api_unreachable` (*"אין חיבור לשרת"*) instead of an unexplained JSON parse
-error — but the app still cannot sign anyone in.
+Set these in the Cloudflare dashboard (Workers → `miftan-web` → Settings →
+Variables and Secrets). `keep_vars` in `wrangler.jsonc` stops deploys from
+wiping them:
 
-So: deploy the API first, then set `VITE_API_URL=https://api.miftan.co.il` as a
-Cloudflare build environment variable and redeploy. It is read at build time, not
-run time; changing it needs a rebuild.
+- `API_URL`: the API's address, e.g. the Cloud Run URL printed by the deploy
+  workflow's Health check. Changing it needs no rebuild.
+- `PROXY_SECRET` (secret): 32+ random characters, the same value as the
+  `PROXY_SECRET` GitHub secret the API gets. With it the API rate-limits per
+  user. Without it, everyone behind the Worker shares one address.
 
-Two knock-on settings once the API has a hostname:
+On the API, `COOKIE_PATH` is `/api/auth` (the path the browser sees) and
+`COOKIE_SAMESITE` stays at its default, `lax`. `deploy.yml` sets both.
 
-- `WEB_ORIGIN` on the API must be the Cloudflare origin, for CORS.
-- `COOKIE_PATH` becomes `/auth` when the API is on its own hostname. It is
-  `/api/auth` only because the Vite dev proxy mounts it under `/api`.
+`VITE_API_URL` is no longer read. A value left in the Cloudflare build settings
+is harmless, but it can be deleted.
 
-If the API and the web app end up on different hostnames, the `sameSite=lax`
-refresh cookie will not be sent and every reload will look like a signed-out
-session. Put the API on a subdomain of the same registrable domain
-(`api.miftan.co.il` + `miftan.co.il`) and it works.
+Unset or unreachable, the Worker answers `/api/*` with a JSON
+`api_unreachable` error, which the app shows as *"אין חיבור לשרת"*.
 
 ## Database (Supabase)
 

@@ -378,13 +378,13 @@ export async function viewingRoutes(app: FastifyInstance) {
       if (!to || to.propertyId !== from.propertyId) throw new ApiError('not_found', 'no such slot');
       if (to.startsAt < new Date()) throw new ApiError('forbidden', 'that time has passed');
 
-      const moved = await db.transaction(async (tx) => {
+      await db.transaction(async (tx) => {
         const claimed = await tx
           .update(s.viewingSlots)
           .set({ status: 'open', leadId: null, bookedAt: null, invitedByOwner: false, note: null, updatedAt: new Date() })
           .where(and(eq(s.viewingSlots.id, from.id), eq(s.viewingSlots.status, 'booked')))
           .returning({ id: s.viewingSlots.id });
-        if (claimed.length === 0) return false;
+        if (claimed.length === 0) throw new ApiError('forbidden', 'nobody is booked into that time');
         const took = await tx
           .update(s.viewingSlots)
           .set({
@@ -397,12 +397,9 @@ export async function viewingRoutes(app: FastifyInstance) {
           })
           .where(and(eq(s.viewingSlots.id, to.id), eq(s.viewingSlots.status, 'open')))
           .returning({ id: s.viewingSlots.id });
-        if (took.length === 0) {
-          tx.rollback();
-        }
-        return true;
-      }).catch(() => false);
-      if (!moved) throw new ApiError('forbidden', 'that time has been taken');
+        /* Thrown, so the transaction rolls back the freed time with it. */
+        if (took.length === 0) throw new ApiError('forbidden', 'that time has been taken');
+      });
 
       const [lead] = await db.select().from(s.leads).where(eq(s.leads.id, from.leadId));
       const [property] = await db.select().from(s.properties).where(eq(s.properties.id, from.propertyId));

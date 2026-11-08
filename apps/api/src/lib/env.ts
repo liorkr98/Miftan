@@ -33,11 +33,23 @@ const schema = z.object({
    * fails exactly like a wrong COOKIE_PATH — login appears to work, then the
    * first refresh returns 401 and every reload looks signed out.
    *
-   * `none` is the cross-site value, and browsers accept it only on a Secure
-   * cookie, so it is set by the deploy workflow, where NODE_ENV=production also
-   * makes `secure` true. Setting it in development would be rejected.
+   * The deployed app avoids this by reaching the API through the web Worker's
+   * /api proxy, so `lax` holds there too. `none` remains for a deployment that
+   * really does call the API cross-site; browsers accept it only on a Secure
+   * cookie (NODE_ENV=production), and Safari drops third-party cookies anyway.
    */
   COOKIE_SAMESITE: z.enum(['lax', 'strict', 'none']).default('lax'),
+  /**
+   * Shared with the web Worker that proxies /api to this service. Every
+   * proxied request reaches us from Cloudflare's address, so without this all
+   * users would share one rate-limit bucket. With it, the Worker's
+   * x-bb-client-ip header is believed — but only when it arrives with this
+   * secret, or anyone could name their own address. Unset = never believed.
+   */
+  PROXY_SECRET: z.preprocess(
+    (v) => (v === '' ? undefined : v),
+    z.string().min(32, 'PROXY_SECRET must be at least 32 characters').optional(),
+  ),
   /**
    * Supabase Auth's public signing keys, e.g.
    * https://<ref>.supabase.co/auth/v1/.well-known/jwks.json

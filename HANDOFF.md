@@ -450,10 +450,9 @@ R2 bucket `miftan-uploads` is live with CORS set and verified end to end.
    `apps/api/src/db/client.ts` already detects `-pooler` and disables prepared
    statements — without that the app works until it starts throwing
    `prepared statement "s1" does not exist` under concurrency.
-2. **The Cloudflare project URL**, and `VITE_API_URL` set as a *build*
-   environment variable there. It is baked in at build time, so it needs a
-   rebuild to take effect. Without it the deployed app calls `/api` on its own
-   origin, gets `index.html` back with a 200, and shows *אין חיבור לשרת*.
+2. **`API_URL` on the Cloudflare Worker**, which proxies `/api` to the API.
+   Without it the Worker answers `/api/*` with `api_unreachable` and the app
+   shows *אין חיבור לשרת*. See HOSTING.md.
 
 Full detail in `HOSTING.md`.
 

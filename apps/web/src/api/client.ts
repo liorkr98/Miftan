@@ -9,10 +9,12 @@ import { MiftanClient } from '@miftan/shared';
  * cannot touch that either.
  */
 export const api = new MiftanClient({
-  /* Same-origin by default: Vite proxies /api to the API in development, and
-     in production the two sit behind one hostname. Cross-origin would mean the
-     sameSite=lax refresh cookie never gets sent. */
-  baseUrl: import.meta.env.VITE_API_URL ?? '/api',
+  /* Always this origin. Vite proxies /api to the API in development and the
+     web Worker (apps/web/worker) does it when deployed, so the refresh cookie
+     is first-party everywhere. Calling the API on its own hostname made the
+     cookie third-party: lost on every reload, and blocked outright by Safari.
+     There is deliberately no build-time override any more. */
+  baseUrl: '/api',
   onSignedOut: () => {
     /* Assigned by AuthProvider once it is mounted. */
     signedOutHandler?.();

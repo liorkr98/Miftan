@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { t, formatAge, formatUntil, type SeekerLead, type TrackRow } from '@miftan/shared';
+import { t, formatAge, formatUntil, type SeekerLead, type TrackRow, israelToday } from '@miftan/shared';
 import { useLeads, useLeaveQueue } from '@/api/hooks';
 import { useStore } from '@/data/store';
 import { DepartureTrack } from '@/components/shared/departure-track';
@@ -36,7 +36,7 @@ export function SeekerQueue() {
     property_id: lead.propertyId,
     label: lead.propertyLabel,
     sublabel: lead.neighborhood,
-    from: new Date().toISOString().slice(0, 10),
+    from: israelToday(),
     until: lead.availability.kind === 'now' ? undefined : (lead.availability.date ?? undefined),
     tone: lead.availability.kind === 'now' ? 'open' : lead.watchOnly ? 'muted' : 'signal',
     confidence: lead.availability.confidence,
