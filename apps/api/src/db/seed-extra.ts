@@ -152,12 +152,13 @@ export async function seedExtraDemo(tx: Tx, passwordHash: string) {
         if (offset < f.leaseFrom) return [];
         const current = offset === 0;
         const late = f.key === 'e' && offset >= -1;
-        const paid = current || late ? (late && !current ? Math.round(f.rent / 2) : 0) : f.rent;
+        /* This month: everyone has paid on the 1st except the late payer. */
+        const paid = late ? (current ? 0 : Math.round(f.rent / 2)) : f.rent;
         return [{
           id: seedId('rentPayment', `demo-${f.key}-${i}`),
           propertyId: pid(`demo-${f.key}`), leaseId: lid(`demo-${f.key}`),
           month: monthKey(offset), dueAgorot: money(f.rent), paidAgorot: money(paid),
-          paidAt: paid > 0 ? monthsOut(offset, late ? 18 : 2) : null,
+          paidAt: paid > 0 ? monthsOut(offset, late ? 18 : current ? 1 : 2) : null,
           method: f.key === 'f' ? ('post_dated_checks' as const) : ('bank_transfer' as const),
         }];
       }).flat(),
