@@ -168,7 +168,8 @@ body rather than asserting field by field, so a widened schema fails it.
 
 ### Phase 8 — Pilot readiness · ~2 sessions
 - [ ] Onboarding: a landlord adds their first property and invites a tenant by link
-- [ ] Sentry, basic analytics, database backups, uptime monitoring
+- [x] Database backups (D1 Time Travel) and uptime monitoring (`uptime.yml`) — see HOSTING.md
+- [ ] Sentry, basic analytics
 - [ ] Seed a real portfolio with a real landlord
 
 ### Phase 9 — App stores · optional, later

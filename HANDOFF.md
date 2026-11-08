@@ -59,7 +59,7 @@ three relationships, and it is how you catch the bug class described in §3.1.
 ```bash
 npm run typecheck      # must be clean
 npm run build          # must be clean
-npm run test           # 186 API + 7 shared, must stay green
+npm run test           # API + shared suites, must stay green
 ```
 
 Then open the screen in a browser, signed in as Dana, and confirm the numbers
@@ -193,7 +193,8 @@ For any button that fires a mutation, use the `loading` prop:
 
 ## 4. The work, screen by screen
 
-Do them in this order. Each is independent; commit after each one.
+Every screen below is now on the API. The notes stay as the reference for
+each screen's rules — what it may show, what it must never compute itself.
 
 Pattern for every screen:
 
@@ -224,10 +225,8 @@ curl -s http://127.0.0.1:8787/api/leads -H "authorization: Bearer $TOK" | python
 #### A1. `personas/tenant/documents.tsx` (149 lines)
 
 - Hooks: `useProperties()` → take the `scope: 'tenant'` row for the lease.
-- **Blocked field:** rent payment history has no endpoint. See §5, gap 1.
-  For now, render the lease document and receipts from tickets
-  (`useTickets()` → those with `receiptFile`), and leave the payments tab
-  showing an `EmptyState` until gap 1 is closed.
+- Rent history: `useRentPayments()` → the tenant projection, their own lease
+  only. Receipts come from tickets (`useTickets()` → those with `receiptFile`).
 
 #### A2. `personas/tenant/renewal.tsx` (312 lines)
 
@@ -321,9 +320,9 @@ curl -s http://127.0.0.1:8787/api/leads -H "authorization: Bearer $TOK" | python
 Compose from existing hooks: `useProperties()`, `useTickets()`, `useLeads()`,
 `useInquiries()`, `useSeasonal()`.
 
-- Collection rate needs rent payments → **gap 1**. Until then, hide that tile
-  rather than showing a fixture number. A dashboard that mixes live and fake
-  figures is worse than one that admits a gap.
+- Collection rate: `useRentPayments()`, owner rows for the current Israel
+  month. Never a fixture number — a dashboard that mixes live and fake figures
+  is worse than one that admits a gap.
 - The departures board rows come from `properties.filter(p => p.scope === 'owner')`
   with `availability.date`.
 - `outstandingExpectedSaving` comes straight from `useSeasonal()`. Do not
@@ -370,11 +369,12 @@ because it is five screens wearing a trenchcoat.
 
 #### B5. `personas/seeker/profile.tsx` (271 lines)
 
-**Blocked.** The renter profile has no endpoint. See §5, gap 2.
+`useRenterProfile()` / `GET`+`PATCH /me/renter-profile`. Show what is still
+missing: `POST /leads` refuses an incomplete profile.
 
 #### B6. `personas/owner/finance.tsx` (367 lines)
 
-**Partly blocked.** `useExpenses()` exists; rent payments do not. See gap 1.
+`useExpenses()` and `useRentPayments()` (owner projection).
 
 #### B7. `personas/owner/revenue.tsx` + `components/shared/revenue.tsx`
 
@@ -396,40 +396,18 @@ unless asked.
 
 ---
 
-## 5. Missing endpoints you may need to build
+## 5. Endpoints that used to be missing
 
-These are genuine gaps. Build them in `apps/api` following the existing
-patterns, **with tests**, before wiring the screens that need them.
+All three are built, tested and wired:
 
-### Gap 1 — rent payments
+- **Rent payments** — `GET /rent-payments?propertyId=&from=&to=`: an owner
+  projection (all their units) and a tenant projection (their own lease only).
+- **Renter profile** — `GET` / `PATCH /me/renter-profile`, with `complete`.
+- **Property create / update** — `POST` / `PATCH /properties`
+  (`personas/owner/property-form.tsx`), photos via `PUT /properties/:id/photos`.
 
-Blocks: owner dashboard collection rate, owner finance, tenant payment history.
-
-```
-GET /rent-payments?propertyId=&from=&to=
-```
-
-Table exists: `rent_payments` (`month` as `yyyy-MM`, `dueAgorot`, `paidAgorot`,
-`paidAt`, `method`). Needs an owner projection (all their units) and a tenant
-projection (their own lease only). Follow `apps/api/src/routes/directory.ts`
-for the shape and `policy/properties.ts` for the scoping.
-
-### Gap 2 — renter profile
-
-Blocks: seeker profile screen.
-
-```
-GET   /me/renter-profile
-PATCH /me/renter-profile
-```
-
-Table exists: `renter_profiles`. Note `complete: boolean` — `POST /leads`
-refuses an incomplete profile, so the screen must show what is still missing.
-
-### Gap 3 — property create / update
-
-There is no way to add a property through the API. `PUT /properties/:id/photos`
-exists; nothing else does. Needed eventually for a real owner onboarding.
+New endpoints follow the same pattern: `apps/api/src/routes/directory.ts` for
+the shape, `policy/properties.ts` for the scoping, and tests before the screen.
 
 ---
 
