@@ -9,7 +9,7 @@ import { Field, Input } from '@/components/ui/field';
 import { cn } from '@/lib/utils';
 import { LogIn } from 'lucide-react';
 import { Wordmark } from '@/components/shared/wordmark';
-import { isDemoBuild } from '@/lib/demo';
+import { useDemoSignIn } from '@/lib/demo';
 
 /**
  * Seeded accounts, so the three sides of the product are one click apart.
@@ -47,6 +47,7 @@ export function SignIn() {
   const [password, setPassword] = React.useState('');
   const [error, setError] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
+  const demoSignIn = useDemoSignIn();
 
   const submit = async (withEmail = email, withPassword = password) => {
     setBusy(true);
@@ -142,7 +143,7 @@ export function SignIn() {
           </p>
         </form>
 
-        {import.meta.env.DEV || isDemoBuild ? (
+        {demoSignIn ? (
           <section className="mt-5">
             <h2 className="text-xs font-bold text-ink">{t.auth.demoTitle}</h2>
             <p className="mb-2 text-2xs text-muted">{t.auth.demoHint}</p>

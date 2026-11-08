@@ -129,6 +129,10 @@ export async function authRoutes(app: FastifyInstance) {
     },
   );
 
+  /* Whether the sign-in page offers one-click demo accounts. Follows
+     DEMO_MODE, so removing it from the Worker hides them with no rebuild. */
+  r.get('/auth/demo', async () => ({ enabled: !isProd || env.DEMO_MODE === 'true' }));
+
   r.post(
     '/auth/login',
     { onRequest: [authBurst], schema: { body: loginSchema, response: { 200: authResultSchema } } },
