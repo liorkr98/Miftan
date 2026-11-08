@@ -2,153 +2,108 @@
 
 ## The shape of it
 
-Three things have to live somewhere, and they cannot all live in the same place:
+Everything runs in one Cloudflare Worker, `miftan`:
 
-| Piece | Where | Why not elsewhere |
-|---|---|---|
-| Web app (`apps/web`) | Cloudflare | Static files. Nothing to run. |
-| API (`apps/api`) | A Node host — Fly.io, Railway, Render | Fastify holds a Postgres connection pool and uses argon2 (native). Cloudflare Workers run neither. |
-| Database | Neon, or the Node host's own Postgres | — |
-| Uploads | Cloudflare R2 | Photos of a leak and receipts must outlive a container. |
-
-## Live state
-
-| Thing | Status |
+| Piece | Where |
 |---|---|
-| Fly app `miftan` (fra) | created, image builds, **not deployed — needs a database** |
-| R2 bucket `miftan-uploads` (WEUR) | live, public read + CORS set, verified end to end |
-| Fly secrets (JWT, all five R2) | staged, apply on first deploy |
-| Postgres | **not provisioned** — Neon, region eu-central-1, both connection strings needed |
-| Cloudflare web build | building from GitHub |
+| Web app (`apps/web`) | The Worker's static assets |
+| API (`apps/api`) | The same Worker, under `/api/*` (`apps/web/worker/index.js` → `apps/api/src/worker.ts`) |
+| Database | D1 database `miftan` (binding `DB`) |
+| Uploads | R2 bucket `miftan-uploads` (binding `FILES`) |
 
-## What is already wired
+There is no second host, no connection string and no API address to keep in
+sync. The app and the API share one origin, so the refresh cookie is
+first-party (`SameSite=lax`, path `/api/auth`) and a reload stays signed in.
 
-Cloudflare builds from GitHub. The root `wrangler.jsonc` tells it which app in the
-workspace to ship — without that it stops at *"application detection logic has been
-run in the root of a workspace"*, which is the error you hit.
+## Deploying
 
-Build settings in the Cloudflare dashboard:
+Cloudflare Workers Builds deploys every push to main:
 
 - **Build command:** `npm run build`
 - **Deploy command:** `npx wrangler deploy`
 - **Root directory:** leave empty — the root `wrangler.jsonc` handles it
 
-## How the app reaches the API
+`npm run build` also renders the demo portfolio
+(`apps/api/scripts/render-demo-seed.ts`) that the Worker bundles.
 
-The browser never calls the API's own hostname. The web Worker
-(`apps/web/worker/index.js`) answers `/api/*` on the app's origin and passes
-the request to `API_URL` with the `/api` prefix removed. The app and the API
-therefore share one origin, so the refresh cookie is first-party: `SameSite=lax`
-is enough, Safari's third-party cookie blocking cannot drop it, and a reload
-stays signed in.
+CI (`verify.yml`) bundles the Worker with `wrangler deploy --dry-run`, so an
+import the Workers runtime cannot load fails the PR, not the deploy.
 
-Set these in the Cloudflare dashboard (Workers → `miftan-web` → Settings →
-Variables and Secrets). `keep_vars` in `wrangler.jsonc` stops deploys from
-wiping them:
+## Database (D1)
 
-- `API_URL`: the API's address, e.g. the Cloud Run URL printed by the deploy
-  workflow's Health check. Changing it needs no rebuild.
-- `PROXY_SECRET` (secret): 32+ random characters, the same value as the
-  `PROXY_SECRET` GitHub secret the API gets. With it the API rate-limits per
-  user. Without it, everyone behind the Worker shares one address.
-
-On the API, `COOKIE_PATH` is `/api/auth` (the path the browser sees) and
-`COOKIE_SAMESITE` stays at its default, `lax`. `deploy.yml` sets both.
-
-`VITE_API_URL` is no longer read. A value left in the Cloudflare build settings
-is harmless, but it can be deleted.
-
-Unset or unreachable, the Worker answers `/api/*` with a JSON
-`api_unreachable` error, which the app shows as *"אין חיבור לשרת"*.
-
-## Database (Supabase)
-
-The shared database is the Supabase project `kpyzuzlgdfbkacoqmqtb` (region
-ap-southeast-2, Sydney). The app talks to it as plain Postgres — it does not use
-Supabase's Data API or keys.
-
-Two GitHub secrets, both from **Connect** in the Supabase dashboard, with the
-database password filled in (URL-encode any special characters) and
-`?sslmode=require` appended:
-
-- `DATABASE_DIRECT_URL` — the **session pooler**, port **5432**
-  (`postgresql://postgres.kpyzuzlgdfbkacoqmqtb:<password>@aws-0-ap-southeast-2.pooler.supabase.com:5432/postgres?sslmode=require`).
-  Migrations and seeding use it. The direct `db.<ref>.supabase.co` host is
-  IPv6-only and GitHub's runners cannot reach it.
-- `DATABASE_POOLED_URL` — the **transaction pooler**: the same address on port
-  **6543**. The running app uses it; `db/client.ts` recognises it and turns off
-  prepared statements.
-
-The `database` job in `deploy.yml` applies every migration on main to it after
-each green build, so a table anyone adds reaches the shared database without
-anybody connecting by hand. To load the demo data: Actions → deploy → Run
-workflow → data `reset-demo`, confirm `erase-demo-database`.
-
-Every table gets row-level security with no policies (`db/migrate.ts`), so the
-Data API — reachable with the project's public key — sees nothing. The app's own
-connection owns the tables and is unaffected.
-
-`.mcp.json` registers Supabase's MCP server for Claude Code, for inspecting the
-database; it carries the project id only, no credentials.
-
-## Database (Neon)
-
-Create the project in **AWS eu-central-1 (Frankfurt)** — the same city as the API,
-and inside the EU.
-
-Neon gives you two connection strings and they are not interchangeable:
-
-- The **pooled** one, with `-pooler` in the hostname. This is `DATABASE_URL` for
-  the running app. It is PgBouncer in transaction mode, so `db/client.ts` detects
-  the `-pooler` host and turns off prepared statements. Without that the app works
-  fine until it starts reporting `prepared statement "s1" does not exist` under
-  concurrency.
-- The **direct** one, without `-pooler`. Use this for migrations and for
-  `db:seed`. DDL through a transaction pooler is a bad idea.
-
-Both need `?sslmode=require`, which Neon's copy button already includes.
-
-## R2
-
-The driver is `apps/api/src/storage/r2.ts`. It signs a 15-minute PUT so the bytes
-go straight from the client to R2 and never through the API process.
-
-Five variables, all required together (`apps/api/.env.example` has them):
+The schema is `apps/api/src/db/schema.ts`. After changing it:
 
 ```
-S3_ENDPOINT  S3_BUCKET  S3_ACCESS_KEY_ID  S3_SECRET_ACCESS_KEY  S3_REGION  S3_PUBLIC_URL
+npm run db:generate -w @miftan/api
 ```
 
-The bucket is `miftan-uploads`, in WEUR, reading publicly from
-`https://pub-ac84dd5958724504aa061dcd3959715c.r2.dev`. CORS lists the app's
-origins explicitly rather than `*`, because a wildcard would let any site on the
-internet spend a leaked upload URL.
+That writes SQL to `apps/api/migrations` and bundles it into
+`src/db/migrations.gen.ts`. CI fails if the two drift.
 
-Verified against the real bucket: a signed PUT returns 200, the object reads back
-from the public origin with the right content type, and a PUT whose content type
-does not match the one that was signed is rejected with 403.
+Nobody runs migrations by hand. On its first request each Worker isolate
+applies whatever is missing (`src/db/migrate.ts`, tracked in `__migrations`).
 
-`S3_ENDPOINT` is what selects the provider — `https://<account>.r2.cloudflarestorage.com`
-for R2, `https://<ref>.supabase.co/storage/v1/s3` for Supabase, whose keys come from
-**Storage → S3 Access Keys**. `S3_REGION` is `auto` for R2 and the project's region for
-Supabase.
+D1 has no interactive transactions. Writes that must land together go through
+one `db.batch` (`src/db/atomic.ts`); "only if nobody beat me to it" is a
+conditional update followed by `expectChanged()`, which fails the whole batch
+if the update matched nothing.
 
-On R2, `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` come from **R2 → Manage R2 API Tokens →
-Create API token → Object Read & Write**. A Cloudflare API token (`cfut_…`) is a
-different credential and cannot sign an S3 request.
+### The demo data
 
-The bucket needs a public read origin for `S3_PUBLIC_URL` — either a custom domain
-on the bucket, or its `r2.dev` subdomain. Uploads are keyed by UUID, so filenames
-never come from the client.
+`wrangler.jsonc` sets `DEMO_DATABASE=true` and `DEMO_MODE=true`. With
+`DEMO_DATABASE`, a Worker that finds **no users at all** loads the demo
+portfolio in one batch (`src/db/demo-seed.ts`). It never touches a database
+with even one account in it.
 
-With none of these set the API writes to `apps/api/uploads` in development, and
-**refuses to boot** in production rather than writing a tenant's evidence to a
-filesystem that the next deploy throws away.
+To reset the live demo, empty the D1 database (Cloudflare dashboard → D1 →
+`miftan` → Console, or `wrangler d1 execute miftan --remote`) and drop its
+tables; the next request migrates and reseeds.
+
+**Before the first real user:** remove `DEMO_DATABASE` and `DEMO_MODE` from
+`wrangler.jsonc`, and empty the database of the demo accounts — they share a
+published password.
+
+Locally, `npm run dev:api` runs the same Worker on a local D1 under
+`.wrangler/state`. `npm run db:reset` and `npm run db:seed` act on that local
+copy only.
+
+## Uploads (R2)
+
+The client asks the API for an upload; the API answers with a signed,
+15-minute, same-origin `PUT /api/uploads/<key>` link and the Worker writes the
+bytes to the `FILES` bucket. Files are read back through signed
+`/api/files/<key>` links. The bucket needs no public access and no CORS.
+
+The S3 driver (`src/storage/s3.ts`) is still there: setting `S3_ENDPOINT`,
+`S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_REGION` and
+`S3_PUBLIC_URL` switches to direct-to-bucket uploads instead.
+
+## Secrets
+
+All optional. Set them with `npx wrangler secret put <NAME>` or in the
+dashboard (Workers → `miftan` → Settings → Variables and Secrets). `keep_vars`
+stops deploys from wiping them. Never commit one — the repository is public.
+
+- `RESEND_API_KEY` — unset, mail is printed to the Worker log.
+- `JWT_SECRET` — unset, the Worker generates one on first start and keeps it
+  in D1 (`app_meta`). Setting it later signs everyone out once.
+- `DEEPSEEK_API_KEY` — unset, the built-in rule parser reads search requests.
+
+`API_URL` and `PROXY_SECRET`, left over from when the API ran elsewhere, are
+no longer read and can be deleted.
+
+## Limits worth knowing
+
+- Passwords are PBKDF2-SHA256 at 50,000 iterations (`src/lib/auth.ts`), sized
+  for the free plan's CPU allowance. On a paid Workers plan raise
+  `PBKDF2_ITERATIONS`. The count is stored in each hash, so existing
+  passwords keep verifying; they get the new count when next changed.
+- D1 allows 100 bound parameters per statement. Bulk inserts go through
+  `insertChunks`, and long `IN` lists through `src/db/in-list.ts`.
+- Each Worker isolate builds the Fastify app on its first request; that one
+  request is slower.
 
 ## Email (Resend)
-
-`RESEND_API_KEY` lives in Fly secrets, never in the repo. Unset, the API prints
-mail to the console (dev, tests, demo).
 
 After `baalabait.co.il` is on Cloudflare, add these DNS records from the Resend
 dashboard (Domain → baalabait.co.il):
@@ -161,10 +116,3 @@ dashboard (Domain → baalabait.co.il):
 
 From: `בעל הבית <noreply@baalabait.co.il>`. Forward `support@`, `privacy@` and
 `accessibility@` with Cloudflare Email Routing.
-
-## Agent tracing
-
-Cloudflare's `agent-setup/tracing.md` configures `observability.traces` for a
-**Worker running agent code**. Miftan's Cloudflare deployment is static assets with
-no `main` — there is no Worker and no agent turn to trace. Enabling it here would
-be configuration that does nothing. If the API ever moves onto Workers, revisit it.

@@ -1,4 +1,5 @@
-import { and, asc, eq, inArray, isNull } from 'drizzle-orm';
+import { and, asc, eq, isNull } from 'drizzle-orm';
+import { inArray } from '../db/in-list.ts';
 import type { OwnerTicket, TenantTicket, TicketView } from '@miftan/shared';
 import { db, schema as s } from '../db/client.ts';
 import { availableActions } from './ticket-state.ts';

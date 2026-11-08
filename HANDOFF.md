@@ -17,7 +17,7 @@ mistakes are deliberate.
 
 ```
 miftan/
-  apps/api/          Fastify 5 + Drizzle + Postgres. Complete. 186 tests passing.
+  apps/api/          Fastify 5 + Drizzle on Cloudflare D1. Runs inside the web Worker.
   apps/web/          Vite + React 18 + Tailwind. This is where your work is.
   packages/shared/   Domain logic + Zod schemas, imported by BOTH sides.
   packages/fixtures/ Seed data only. Not a runtime dependency of the web app.
@@ -26,17 +26,17 @@ miftan/
 ### Running it
 
 ```bash
-# 1. Postgres must be up (Postgres.app). Then, once:
-cd apps/api && npm run db:reset && npm run db:migrate && npm run db:seed
+# 1. Once: demo accounts into the local D1 (.wrangler/state)
+npm run db:seed
 
-# 2. API — leave running
-cd apps/api && npm run dev          # http://127.0.0.1:4000
+# 2. API — the Worker, leave running
+npm run dev:api                     # http://127.0.0.1:8787/api
 
 # 3. Web — leave running, separate terminal
 npm run dev -w @miftan/web          # http://localhost:5178
 ```
 
-The web dev server proxies `/api` → `127.0.0.1:4000`, so the app and API are
+The web dev server proxies `/api` → `127.0.0.1:8787`, so the app and API are
 same-origin. **Do not change that** — the refresh cookie is `sameSite=lax` and
 a cross-origin setup silently breaks session persistence on reload.
 
@@ -209,12 +209,12 @@ Pattern for every screen:
 To curl as Dana:
 
 ```bash
-TOK=$(curl -s -X POST http://127.0.0.1:4000/auth/login \
+TOK=$(curl -s -X POST http://127.0.0.1:8787/api/auth/login \
   -H 'content-type: application/json' \
   -d '{"email":"dana@demo.baalabait.invalid","password":"miftan-dev-2026"}' \
   | python3 -c "import sys,json;print(json.load(sys.stdin)['accessToken'])")
 
-curl -s http://127.0.0.1:4000/leads -H "authorization: Bearer $TOK" | python3 -m json.tool
+curl -s http://127.0.0.1:8787/api/leads -H "authorization: Bearer $TOK" | python3 -m json.tool
 ```
 
 ---
@@ -433,28 +433,19 @@ exists; nothing else does. Needed eventually for a real owner onboarding.
 
 ---
 
-## 6. Deployment — currently blocked
+## 6. Deployment
 
-Do not attempt to deploy. It is waiting on two things the account owner must
-provide, and neither is a code problem.
+A push to main deploys: Cloudflare Workers Builds runs `npm run build` and
+`npx wrangler deploy`, shipping one Worker, `miftan`, with the web app, the API
+under `/api`, D1 database `miftan` and R2 bucket `miftan-uploads`. Nothing
+external is needed.
 
-**Ready:** Fly app `miftan` exists in `fra`, `fly.toml` and `Dockerfile` are
-committed and the image builds (77 MB). JWT and all five R2 secrets are staged.
-R2 bucket `miftan-uploads` is live with CORS set and verified end to end.
+The Worker migrates D1 on its first request. While `DEMO_DATABASE=true` is set
+in `wrangler.jsonc` it also loads the demo portfolio into a database that has
+no users — never into one that has any. Remove `DEMO_DATABASE` and `DEMO_MODE`
+before the first real user.
 
-**Blocked on:**
-
-1. **A Neon Postgres project** (region `aws-eu-central-1`). Two connection
-   strings are needed: the **pooled** one (with `-pooler` in the host) for the
-   running app, and the **direct** one for migrations and seeding.
-   `apps/api/src/db/client.ts` already detects `-pooler` and disables prepared
-   statements — without that the app works until it starts throwing
-   `prepared statement "s1" does not exist` under concurrency.
-2. **`API_URL` on the Cloudflare Worker**, which proxies `/api` to the API.
-   Without it the Worker answers `/api/*` with `api_unreachable` and the app
-   shows *אין חיבור לשרת*. See HOSTING.md.
-
-Full detail in `HOSTING.md`.
+Full detail, including secrets and limits, in `HOSTING.md`.
 
 ---
 
@@ -468,7 +459,7 @@ Full detail in `HOSTING.md`.
   is included so the API client can use `fetch`.
 - **Access token lives in memory, never `localStorage`.** Surviving a reload is
   the refresh cookie's job.
-- **`db:seed` is not idempotent.** Run `db:reset && db:migrate && db:seed`.
+- **`db:seed` is not idempotent.** Run `db:reset && db:seed`.
 - **Screening flags are recomputed on every read, never stored.** A stored flag
   would be a claim about a rule that no longer exists.
 - **The contract "AI scan" is a pattern extractor, not an LLM.** It sits behind

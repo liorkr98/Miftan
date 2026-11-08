@@ -17,6 +17,7 @@ import {
   toAgorot,
 } from '@miftan/shared';
 import { db, schema as s } from '../db/client.ts';
+import { atomically, expectChanged } from '../db/atomic.ts';
 import { newId } from '../lib/ids.ts';
 import { requireOwner, resolveViewer } from '../policy/viewer.ts';
 import { joinBurst } from '../lib/rate-limit.ts';
@@ -127,11 +128,11 @@ export async function inviteRoutes(app: FastifyInstance) {
       const token = randomBytes(24).toString('base64url');
       const id = newId('invite');
 
-      await db.transaction(async (tx) => {
+      await atomically([
         /* One live link per unit: a new invite retires the previous one, so an
            old message in someone's WhatsApp cannot be used after the owner
            changed the terms. */
-        await tx
+        db
           .update(s.tenantInvites)
           .set({ revokedAt: new Date() })
           .where(
@@ -140,9 +141,9 @@ export async function inviteRoutes(app: FastifyInstance) {
               isNull(s.tenantInvites.acceptedAt),
               isNull(s.tenantInvites.revokedAt),
             ),
-          );
+          ),
 
-        await tx.insert(s.tenantInvites).values({
+        db.insert(s.tenantInvites).values({
           id,
           propertyId: request.params.id,
           createdBy: viewer.userId,
@@ -155,8 +156,8 @@ export async function inviteRoutes(app: FastifyInstance) {
           tenantName: b.tenantName ?? null,
           leaseId: takeover,
           expiresAt: new Date(Date.now() + INVITE_TTL_DAYS * 86_400_000),
-        });
-      });
+        }),
+      ]);
 
       const [row] = await db.select().from(s.tenantInvites).where(eq(s.tenantInvites.id, id));
       return reply.code(201).send({ invite: ownerView(row), token });
@@ -249,83 +250,96 @@ export async function inviteRoutes(app: FastifyInstance) {
       const userId = request.currentUser!.id;
       const tokenHash = hashToken(request.params.token);
 
-      return db.transaction(async (tx) => {
-        /* Locked, so two people opening the same link at once cannot both
-           become the tenant. */
-        const [invite] = await tx
-          .select()
-          .from(s.tenantInvites)
-          .where(eq(s.tenantInvites.tokenHash, tokenHash))
-          .for('update');
-        if (!invite) throw new ApiError('not_found', 'no such invite');
+      const [invite] = await db.select().from(s.tenantInvites).where(eq(s.tenantInvites.tokenHash, tokenHash));
+      if (!invite) throw new ApiError('not_found', 'no such invite');
 
-        const status = statusOf(invite);
-        if (status !== 'open') throw new ApiError('forbidden', `invite is ${status}`);
-        if (invite.createdBy === userId) throw new ApiError('forbidden', 'an owner cannot rent their own unit');
+      const status = statusOf(invite);
+      if (status !== 'open') throw new ApiError('forbidden', `invite is ${status}`);
+      if (invite.createdBy === userId) throw new ApiError('forbidden', 'an owner cannot rent their own unit');
 
-        /* An invite made for a recorded tenant takes over that lease. */
-        if (invite.leaseId) {
-          const [lease] = await tx
-            .select()
-            .from(s.leases)
-            .where(and(eq(s.leases.id, invite.leaseId), isNull(s.leases.deletedAt)))
-            .for('update');
-          if (!lease || !isOfflineTenant(lease.tenantId)) {
-            throw new ApiError('forbidden', 'this lease already belongs to an account');
-          }
-          await tx
-            .update(s.leases)
-            .set({ tenantId: userId, updatedAt: new Date() })
-            .where(eq(s.leases.id, lease.id));
-          await tx
-            .update(s.tenantInvites)
-            .set({ acceptedAt: new Date(), acceptedBy: userId })
-            .where(eq(s.tenantInvites.id, invite.id));
-          return { propertyId: invite.propertyId, leaseId: lease.id };
-        }
-
-        const [overlap] = await tx
-          .select({ id: s.leases.id })
-          .from(s.leases)
-          .where(
-            and(
-              eq(s.leases.propertyId, invite.propertyId),
-              isNull(s.leases.deletedAt),
-              lte(s.leases.startDate, invite.endDate),
-              gte(s.leases.endDate, invite.startDate),
-            ),
-          )
-          .limit(1);
-        if (overlap) throw new ApiError('forbidden', 'the unit already has a lease in those dates');
-
-        const leaseId = newId('lease');
-        await tx.insert(s.leases).values({
-          id: leaseId,
-          propertyId: invite.propertyId,
-          tenantId: userId,
-          startDate: invite.startDate,
-          endDate: invite.endDate,
-          monthlyRentAgorot: invite.monthlyRentAgorot,
-          depositAgorot: invite.depositAgorot,
-          paymentMethod: invite.paymentMethod,
-        });
-
-        await tx
+      /* Claiming the invite is conditional on it still being open, so two
+         people opening the same link at once cannot both become the tenant:
+         the second batch matches nothing and rolls back whole. */
+      const claim = (leaseId: string) => [
+        db
           .update(s.tenantInvites)
           .set({ acceptedAt: new Date(), acceptedBy: userId, leaseId })
-          .where(eq(s.tenantInvites.id, invite.id));
+          .where(
+            and(
+              eq(s.tenantInvites.id, invite.id),
+              isNull(s.tenantInvites.acceptedAt),
+              isNull(s.tenantInvites.revokedAt),
+            ),
+          ),
+        expectChanged(),
+      ];
+      const taken = () => new ApiError('forbidden', 'invite is accepted');
 
-        /* A lease that has already started makes the unit occupied now; a
-           future one leaves today's status alone. */
-        if (invite.startDate <= today()) {
-          await tx
-            .update(s.properties)
-            .set({ status: 'occupied', listed: false, availableFrom: null, updatedAt: new Date() })
-            .where(eq(s.properties.id, invite.propertyId));
+      /* An invite made for a recorded tenant takes over that lease. */
+      if (invite.leaseId) {
+        const [lease] = await db
+          .select()
+          .from(s.leases)
+          .where(and(eq(s.leases.id, invite.leaseId), isNull(s.leases.deletedAt)));
+        if (!lease || !isOfflineTenant(lease.tenantId)) {
+          throw new ApiError('forbidden', 'this lease already belongs to an account');
         }
+        await atomically(
+          [
+            ...claim(lease.id),
+            db
+              .update(s.leases)
+              .set({ tenantId: userId, updatedAt: new Date() })
+              .where(and(eq(s.leases.id, lease.id), eq(s.leases.tenantId, lease.tenantId))),
+            expectChanged(),
+          ],
+          taken,
+        );
+        return { propertyId: invite.propertyId, leaseId: lease.id };
+      }
 
-        return { propertyId: invite.propertyId, leaseId };
-      });
+      const [overlap] = await db
+        .select({ id: s.leases.id })
+        .from(s.leases)
+        .where(
+          and(
+            eq(s.leases.propertyId, invite.propertyId),
+            isNull(s.leases.deletedAt),
+            lte(s.leases.startDate, invite.endDate),
+            gte(s.leases.endDate, invite.startDate),
+          ),
+        )
+        .limit(1);
+      if (overlap) throw new ApiError('forbidden', 'the unit already has a lease in those dates');
+
+      const leaseId = newId('lease');
+      await atomically(
+        [
+          /* The lease first: the claim points at it. If the claim then finds
+             the invite already taken, the lease goes with the rollback. */
+          db.insert(s.leases).values({
+            id: leaseId,
+            propertyId: invite.propertyId,
+            tenantId: userId,
+            startDate: invite.startDate,
+            endDate: invite.endDate,
+            monthlyRentAgorot: invite.monthlyRentAgorot,
+            depositAgorot: invite.depositAgorot,
+            paymentMethod: invite.paymentMethod,
+          }),
+          ...claim(leaseId),
+          /* A lease that has already started makes the unit occupied now; a
+             future one leaves today's status alone. */
+          invite.startDate <= today() &&
+            db
+              .update(s.properties)
+              .set({ status: 'occupied', listed: false, availableFrom: null, updatedAt: new Date() })
+              .where(eq(s.properties.id, invite.propertyId)),
+        ],
+        taken,
+      );
+
+      return { propertyId: invite.propertyId, leaseId };
     },
   );
 
@@ -354,15 +368,15 @@ export async function inviteRoutes(app: FastifyInstance) {
       const tenantId = `${OFFLINE_TENANT_PREFIX}${randomUUID().replace(/-/g, '')}`;
       const leaseId = newId('lease');
 
-      await db.transaction(async (tx) => {
-        await tx.insert(s.users).values({
+      await atomically([
+        db.insert(s.users).values({
           id: tenantId,
           name: b.tenantName,
           phone: b.tenantPhone ?? null,
           email: `${tenantId}@offline.invalid`,
           passwordHash: null,
-        });
-        await tx.insert(s.leases).values({
+        }),
+        db.insert(s.leases).values({
           id: leaseId,
           propertyId: request.params.id,
           tenantId,
@@ -374,14 +388,13 @@ export async function inviteRoutes(app: FastifyInstance) {
           ...(b.noticePeriodDays !== undefined ? { noticePeriodDays: b.noticePeriodDays } : {}),
           hasExtensionOption: b.hasExtensionOption ?? false,
           extensionMonths: b.extensionMonths ?? null,
-        });
-        if (b.startDate <= today()) {
-          await tx
+        }),
+        b.startDate <= today() &&
+          db
             .update(s.properties)
             .set({ status: 'occupied', listed: false, availableFrom: null, updatedAt: new Date() })
-            .where(eq(s.properties.id, request.params.id));
-        }
-      });
+            .where(eq(s.properties.id, request.params.id)),
+      ]);
 
       return reply.code(201).send({ leaseId });
     },

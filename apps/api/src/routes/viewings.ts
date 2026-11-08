@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
-import { and, asc, eq, gte, inArray, isNull } from 'drizzle-orm';
+import { and, asc, eq, gte, isNull } from 'drizzle-orm';
+import { inArray } from '../db/in-list.ts';
 import { z } from 'zod';
 import {
   ApiError,
@@ -26,6 +27,7 @@ import {
 } from '@miftan/shared';
 import { mailUser } from '../email/notify.ts';
 import { db, schema as s } from '../db/client.ts';
+import { atomically, insertChunks, transaction } from '../db/atomic.ts';
 import { newId } from '../lib/ids.ts';
 import { resolveViewer, scopeFor, type Viewer } from '../policy/viewer.ts';
 import { activeCriteria, evaluate, loadLeadContexts } from '../policy/leads.ts';
@@ -162,14 +164,17 @@ export async function viewingRoutes(app: FastifyInstance) {
       const fresh = wanted.filter((d) => !taken.has(d.getTime()));
 
       if (fresh.length) {
-        await db.insert(s.viewingSlots).values(
-          fresh.map((startsAt) => ({
-            id: newId('viewingSlot'),
-            propertyId,
-            ownerId: viewer.userId,
-            startsAt,
-            durationMinutes,
-          })),
+        await atomically(
+          insertChunks(
+            s.viewingSlots,
+            fresh.map((startsAt) => ({
+              id: newId('viewingSlot'),
+              propertyId,
+              ownerId: viewer.userId,
+              startsAt,
+              durationMinutes,
+            })),
+          ),
         );
       }
 
@@ -218,8 +223,11 @@ export async function viewingRoutes(app: FastifyInstance) {
       const taken = new Set(existing.map((e) => e.startsAt.getTime()));
       const fresh = wanted.filter((d) => !taken.has(d.getTime()));
       if (fresh.length) {
-        await db.insert(s.viewingSlots).values(
-          fresh.map((startsAt) => ({ id: newId('viewingSlot'), propertyId, ownerId: viewer.userId, startsAt, durationMinutes: VIEWING_MINUTES })),
+        await atomically(
+          insertChunks(
+            s.viewingSlots,
+            fresh.map((startsAt) => ({ id: newId('viewingSlot'), propertyId, ownerId: viewer.userId, startsAt, durationMinutes: VIEWING_MINUTES })),
+          ),
         );
       }
 
@@ -378,14 +386,13 @@ export async function viewingRoutes(app: FastifyInstance) {
       if (!to || to.propertyId !== from.propertyId) throw new ApiError('not_found', 'no such slot');
       if (to.startsAt < new Date()) throw new ApiError('forbidden', 'that time has passed');
 
-      await db.transaction(async (tx) => {
-        const claimed = await tx
+      await transaction(async (tx) => {
+        await tx
           .update(s.viewingSlots)
           .set({ status: 'open', leadId: null, bookedAt: null, invitedByOwner: false, note: null, updatedAt: new Date() })
-          .where(and(eq(s.viewingSlots.id, from.id), eq(s.viewingSlots.status, 'booked')))
-          .returning({ id: s.viewingSlots.id });
-        if (claimed.length === 0) throw new ApiError('forbidden', 'nobody is booked into that time');
-        const took = await tx
+          .where(and(eq(s.viewingSlots.id, from.id), eq(s.viewingSlots.status, 'booked')));
+        tx.expectChanged();
+        await tx
           .update(s.viewingSlots)
           .set({
             status: 'booked',
@@ -395,11 +402,10 @@ export async function viewingRoutes(app: FastifyInstance) {
             note: from.note,
             updatedAt: new Date(),
           })
-          .where(and(eq(s.viewingSlots.id, to.id), eq(s.viewingSlots.status, 'open')))
-          .returning({ id: s.viewingSlots.id });
-        /* Thrown, so the transaction rolls back the freed time with it. */
-        if (took.length === 0) throw new ApiError('forbidden', 'that time has been taken');
-      });
+          .where(and(eq(s.viewingSlots.id, to.id), eq(s.viewingSlots.status, 'open')));
+        /* Either guard failing rolls back the freed time with it. */
+        tx.expectChanged();
+      }, () => new ApiError('forbidden', 'that time has been taken'));
 
       const [lead] = await db.select().from(s.leads).where(eq(s.leads.id, from.leadId));
       const [property] = await db.select().from(s.properties).where(eq(s.properties.id, from.propertyId));
@@ -428,7 +434,7 @@ export async function viewingRoutes(app: FastifyInstance) {
       const slot = await ownedSlot(viewer, request.params.id);
       if (!slot.leadId) throw new ApiError('forbidden', 'nobody was booked into that time');
 
-      await db.transaction(async (tx) => {
+      await transaction(async (tx) => {
         await tx
           .update(s.viewingSlots)
           .set({ status: request.body.status, updatedAt: new Date() })
@@ -538,22 +544,20 @@ export async function viewingRoutes(app: FastifyInstance) {
 const label = (p: PropertyRow) => `${p.street} ${p.houseNumber}`;
 
 async function claim(slotId: string, leadId: string, extra: { invitedByOwner: boolean; note: string | null }) {
-  await db.transaction(async (tx) => {
+  await transaction(async (tx) => {
     /* Guarded on `status = 'open'` inside the write, not only checked before
        it: two applicants tapping the same time at once must not both get it. */
-    const claimed = await tx
+    await tx
       .update(s.viewingSlots)
       .set({ status: 'booked', leadId, bookedAt: new Date(), updatedAt: new Date(), ...extra })
-      .where(and(eq(s.viewingSlots.id, slotId), eq(s.viewingSlots.status, 'open')))
-      .returning({ id: s.viewingSlots.id });
-
-    if (claimed.length === 0) throw new ApiError('forbidden', 'that time has been taken');
+      .where(and(eq(s.viewingSlots.id, slotId), eq(s.viewingSlots.status, 'open')));
+    tx.expectChanged();
 
     await tx
       .update(s.leads)
       .set({ stage: 'viewing_scheduled', updatedAt: new Date() })
       .where(and(eq(s.leads.id, leadId), eq(s.leads.stage, 'new')));
-  });
+  }, () => new ApiError('forbidden', 'that time has been taken'));
 }
 
 async function eligibilityOf(

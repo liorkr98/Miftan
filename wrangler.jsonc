@@ -1,28 +1,62 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "miftan-web",
-  "compatibility_date": "2026-08-01",
+  "name": "miftan",
+  /* Node's HTTP modules and a populated process.env come with nodejs_compat
+     from this date on; the API (Fastify) needs both. */
+  "compatibility_date": "2026-11-01",
+  "compatibility_flags": ["nodejs_compat"],
 
   /**
-   * A small Worker in front of the files, for two jobs: passing /api/* to the
-   * API, so the app and the API share one origin, and writing the preview card
-   * (og: tags) into public listing pages, which WhatsApp reads without running
-   * any JavaScript. Every other path goes straight to the files.
+   * One Worker for the whole product: the built web app, the API under /api
+   * (apps/api/src/worker.ts, run in-process), and the preview card written
+   * into public listing pages, which WhatsApp reads without running any
+   * JavaScript.
    */
   "main": "./apps/web/worker/index.js",
-  /**
-   * API_URL (the API's address, e.g. the Cloud Run service URL) and the secret
-   * PROXY_SECRET are set in the Cloudflare dashboard — Workers → miftan-web →
-   * Settings → Variables and Secrets — not here. keep_vars stops each deploy
-   * from wiping them, so moving the API never needs a commit or a rebuild.
-   */
-  "keep_vars": true,
+  /* The bundler would otherwise take pino's browser build, which lacks what
+     Fastify's logger reads from it. */
+  "alias": {
+    "pino": "./node_modules/pino/pino.js"
+  },
 
   /**
-   * Cloudflare ran `wrangler deploy` from the repository root and could not
-   * work out which app in the workspace to ship. This file answers that: the
-   * built web app, and nothing else.
+   * Optional settings and secrets (JWT_SECRET, RESEND_API_KEY, WEB_ORIGIN,
+   * DEEPSEEK_API_KEY …) are set in the Cloudflare dashboard — Workers →
+   * miftan → Settings → Variables and Secrets — never here. keep_vars stops
+   * each deploy from wiping them. None is required to sign in.
    */
+  "keep_vars": true,
+  "vars": {
+    "NODE_ENV": "production",
+    /* This is the demo: an empty database is filled with the demo portfolio
+       on first start (apps/api/src/db/demo-seed.ts), and the demo badge
+       shows. Remove both before the first real user. */
+    "DEMO_DATABASE": "true",
+    "DEMO_MODE": "true"
+  },
+
+  /* The database. The Worker brings its schema up to date by itself on the
+     first request after a deploy (apps/api/src/db/migrate.ts). */
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "miftan",
+      "database_id": "a1fd7db5-0041-4a3a-a4ae-939a1ec190dd",
+      "migrations_dir": "./apps/api/migrations"
+    }
+  ],
+
+  /* Uploaded photos, receipts and contracts. Private: files are only ever
+     read through the API's signed links. */
+  "r2_buckets": [
+    {
+      "binding": "FILES",
+      "bucket_name": "miftan-uploads"
+    }
+  ],
+
+  "observability": { "enabled": true },
+
   "assets": {
     "directory": "./apps/web/dist",
     "binding": "ASSETS",

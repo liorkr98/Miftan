@@ -22,7 +22,7 @@ export async function budgetRoutes(app: FastifyInstance) {
     startOfMonth.setHours(0, 0, 0, 0);
 
     const [{ n }] = await db
-      .select({ n: sql<number>`count(*)::int` })
+      .select({ n: sql<number>`count(*)` })
       .from(s.tickets)
       .innerJoin(s.properties, eq(s.properties.id, s.tickets.propertyId))
       .where(

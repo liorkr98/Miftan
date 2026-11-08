@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
-import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, desc, eq, isNull, sql } from 'drizzle-orm';
+import { inArray } from '../db/in-list.ts';
 import { z } from 'zod';
 import {
   ApiError,
@@ -14,6 +15,7 @@ import {
   type ScreeningCriterion,
 } from '@miftan/shared';
 import { db, schema as s } from '../db/client.ts';
+import { transaction } from '../db/atomic.ts';
 import { newId } from '../lib/ids.ts';
 import { resolveViewer, scopeFor } from '../policy/viewer.ts';
 import { activeCriteria, evaluate, loadLeadContexts, projectLead } from '../policy/leads.ts';
@@ -132,7 +134,7 @@ export async function leadRoutes(app: FastifyInstance) {
       const [ctx] = await loadLeadContexts([lead], { criteria, withIdentities: true });
       const { flags } = evaluate(ctx);
 
-      await db.transaction(async (tx) => {
+      await transaction(async (tx) => {
         await tx
           .update(s.leads)
           .set({ stage: request.body.stage, updatedAt: new Date() })
@@ -191,7 +193,7 @@ export async function leadRoutes(app: FastifyInstance) {
       }
 
       const [{ n }] = await db
-        .select({ n: sql<number>`count(*)::int` })
+        .select({ n: sql<number>`count(*)` })
         .from(s.leads)
         .where(and(eq(s.leads.propertyId, propertyId), isNull(s.leads.deletedAt)));
 
@@ -249,7 +251,7 @@ export async function leadRoutes(app: FastifyInstance) {
       if (!profile?.complete) throw new ApiError('forbidden', 'complete your renter profile before applying');
 
       const [{ n }] = await db
-        .select({ n: sql<number>`count(*)::int` })
+        .select({ n: sql<number>`count(*)` })
         .from(s.leads)
         .where(and(eq(s.leads.propertyId, lead.propertyId), isNull(s.leads.deletedAt), eq(s.leads.watchOnly, false)));
 
@@ -296,7 +298,7 @@ export async function leadRoutes(app: FastifyInstance) {
         lead && (lead.seekerId === viewer.userId || scopeFor(viewer, lead.propertyId) === 'owner');
       if (!mayRemove) throw new ApiError('not_found', 'no such lead');
 
-      await db.transaction(async (tx) => {
+      await transaction(async (tx) => {
         await tx.delete(s.leads).where(eq(s.leads.id, lead.id));
         /* Everyone behind them moves up. A queue with holes in it is not a
            queue anybody can trust. */
@@ -398,7 +400,7 @@ export async function leadRoutes(app: FastifyInstance) {
         .where(and(eq(s.screeningPresets.id, request.params.id), eq(s.screeningPresets.ownerId, ownerId)));
       if (!preset) throw new ApiError('not_found', 'no such preset');
 
-      await db.transaction(async (tx) => {
+      await transaction(async (tx) => {
         await tx
           .update(s.screeningPresets)
           .set({ isActive: false })
@@ -458,7 +460,7 @@ export async function leadRoutes(app: FastifyInstance) {
           .orderBy(desc(s.screeningAuditLog.at))
           .limit(request.query.limit),
         db
-          .select({ total: sql<number>`count(*)::int` })
+          .select({ total: sql<number>`count(*)` })
           .from(s.screeningAuditLog)
           .where(eq(s.screeningAuditLog.ownerId, ownerId)),
       ]);

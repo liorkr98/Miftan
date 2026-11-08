@@ -1,12 +1,9 @@
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
-import { createReadStream } from 'node:fs';
-import { stat } from 'node:fs/promises';
-import { resolve, sep } from 'node:path';
 import { z } from 'zod';
 import { ApiError } from '@miftan/shared';
-import { MAX_UPLOAD_BYTES, assertSize, assertUploadable, createStorage, localDriver } from '../storage/index.ts';
-import { env } from '../lib/env.ts';
+import { MAX_UPLOAD_BYTES, assertSize, assertUploadable, createStorage, fileBucket } from '../storage/index.ts';
+import { verifyFileUrl } from '../storage/files.ts';
 import { uploadBurst } from '../lib/rate-limit.ts';
 
 const signSchema = z.object({
@@ -38,31 +35,49 @@ export async function uploadRoutes(app: FastifyInstance) {
     },
   );
 
-  /* The next two exist only for the local driver. Against R2 the client PUTs
-     straight to object storage and neither route is reachable. */
-  if (env.NODE_ENV === 'production') return;
-
+  /* The next two serve the bound bucket. With S3 keys configured the client
+     talks to object storage directly and nothing it holds points here. */
   app.addContentTypeParser(
     ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'application/pdf'],
     { parseAs: 'buffer', bodyLimit: MAX_UPLOAD_BYTES },
     (_req, body, done) => done(null, body),
   );
 
-  app.put<{ Params: { '*': string } }>('/uploads/*', async (request, reply) => {
-    const key = request.params['*'];
-    if (!Buffer.isBuffer(request.body)) throw new ApiError('validation_failed', 'expected a file body');
-    await localDriver.write(key, request.body);
-    return reply.code(204).send();
-  });
+  const fileQuery = z.record(z.string(), z.string().optional());
 
-  app.get<{ Params: { '*': string } }>('/files/*', async (request, reply) => {
-    const target = resolve(localDriver.root, request.params['*']);
-    if (!target.startsWith(localDriver.root + sep)) throw new ApiError('not_found', 'no such file');
-    try {
-      await stat(target);
-    } catch {
-      throw new ApiError('not_found', 'no such file');
-    }
-    return reply.send(createReadStream(target));
-  });
+  app.put<{ Params: { '*': string }; Querystring: Record<string, string | undefined> }>(
+    '/uploads/*',
+    { schema: { querystring: fileQuery } },
+    async (request, reply) => {
+      const key = request.params['*'];
+      const q = request.query;
+      if (!verifyFileUrl('uploads', key, q, ['ct', 'size'])) {
+        throw new ApiError('forbidden', 'this upload link is not valid');
+      }
+      if (!Buffer.isBuffer(request.body)) throw new ApiError('validation_failed', 'expected a file body');
+      /* The link was issued for one type and one size, and is good for nothing else. */
+      if (request.headers['content-type'] !== q.ct || request.body.length !== Number(q.size)) {
+        throw new ApiError('validation_failed', 'the file does not match the upload link');
+      }
+      await fileBucket().put(key, request.body, { httpMetadata: { contentType: q.ct } });
+      return reply.code(204).send();
+    },
+  );
+
+  app.get<{ Params: { '*': string }; Querystring: Record<string, string | undefined> }>(
+    '/files/*',
+    { schema: { querystring: fileQuery } },
+    async (request, reply) => {
+      const key = request.params['*'];
+      if (!verifyFileUrl('files', key, request.query)) throw new ApiError('not_found', 'no such file');
+      const file = await fileBucket().get(key);
+      if (!file) throw new ApiError('not_found', 'no such file');
+      return reply
+        .header('content-type', file.httpMetadata?.contentType ?? 'application/octet-stream')
+        /* Links are aligned to the hour, so the same URL comes back all hour. */
+        .header('cache-control', 'private, max-age=3600')
+        .header('x-content-type-options', 'nosniff')
+        .send(Buffer.from(await file.arrayBuffer()));
+    },
+  );
 }

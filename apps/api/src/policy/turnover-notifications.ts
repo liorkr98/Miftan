@@ -1,4 +1,5 @@
-import { and, eq, gt, inArray, isNotNull, isNull } from 'drizzle-orm';
+import { and, eq, gt, isNotNull, isNull } from 'drizzle-orm';
+import { inArray } from '../db/in-list.ts';
 import { passesScreening, type NotificationView, type RenewalView } from '@miftan/shared';
 import { db, schema as s } from '../db/client.ts';
 import { loadRenewalViews } from './renewals.ts';

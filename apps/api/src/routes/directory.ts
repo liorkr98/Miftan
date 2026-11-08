@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
-import { and, desc, eq, inArray, isNull, or } from 'drizzle-orm';
+import { and, desc, eq, isNull, or } from 'drizzle-orm';
+import { inArray } from '../db/in-list.ts';
 import { z } from 'zod';
 import { ApiError, createVendorSchema, expenseListSchema, vendorListSchema, vendorSchema } from '@miftan/shared';
 import { db, schema as s } from '../db/client.ts';

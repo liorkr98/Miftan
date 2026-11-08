@@ -1,4 +1,5 @@
-import { and, eq, inArray, isNull } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
+import { inArray } from '../db/in-list.ts';
 import {
   deriveAvailability,
   effectiveCriteria,

@@ -1,12 +1,11 @@
 /**
- * The web app's Worker. Everything is served as static files except two paths
- * that run through here first:
+ * The web app's Worker: the static files, the API, and the listing preview.
  *
- * /api/*  is passed to the API (API_URL) with the /api prefix taken off, so the
- * browser only ever talks to this one origin. That is what lets sign-in survive
- * a reload: the refresh cookie is first-party, so SameSite=lax is enough and no
- * browser's third-party cookie blocking (Safari blocks them outright) can drop
- * it. It also means moving the API is a change to API_URL, not a rebuild.
+ * /api/*  is the API itself, run in-process (apps/api/src/worker.ts) against
+ * the D1 database and R2 bucket bound below in wrangler.jsonc. The browser
+ * only ever talks to this one origin, so the refresh cookie is first-party,
+ * SameSite=lax is enough, and no browser's third-party cookie blocking
+ * (Safari blocks them outright) can drop it.
  *
  * /l/:id  is the public listing page.
  *
@@ -17,6 +16,13 @@
  * writes the title, description and cover photo into index.html before it
  * leaves. If anything fails, the plain page is served unchanged.
  */
+
+import { handleApi } from '../../api/src/worker.ts';
+/* Rendered by `npm run build` (apps/api/scripts/render-demo-seed.ts). Loaded
+   only into an empty database, and only with DEMO_DATABASE=true. */
+import demoSeed from '../../api/.demo/seed.json';
+
+const bindingsOf = (env) => ({ ...env, DEMO_SEED: demoSeed });
 
 const LISTING = /^\/l\/([A-Za-z0-9_-]{3,64})\/?$/;
 
@@ -41,11 +47,13 @@ function dateHe(iso) {
   return `${d}/${m}/${y}`;
 }
 
-async function listingCard(env, id) {
-  const res = await fetch(`${env.API_URL}/properties/${encodeURIComponent(id)}`, {
-    headers: { accept: 'application/json' },
-    cf: { cacheTtl: 300, cacheEverything: true },
-  });
+async function listingCard(request, env, url, id) {
+  const path = `/properties/${encodeURIComponent(id)}`;
+  const res = await handleApi(
+    new Request(new URL(`/api${path}`, url), { headers: { accept: 'application/json', 'cf-connecting-ip': request.headers.get('cf-connecting-ip') ?? '' } }),
+    bindingsOf(env),
+    path,
+  );
   if (!res.ok) return null;
   const p = await res.json();
   if (p.scope !== 'public') return null;
@@ -59,44 +67,25 @@ async function listingCard(env, id) {
   const description = [a.neighborhood, `${p.sqm} מ״ר`, `קומה ${p.floor}`, availability]
     .filter(Boolean)
     .join(' · ');
-  return { title, description, image: p.photos[0] ?? null };
+  /* Stored photos come back as same-origin links; a crawler needs the whole URL. */
+  const image = p.photos[0] ? new URL(p.photos[0], url).toString() : null;
+  return { title, description, image };
 }
 
-const unreachable = (message) =>
-  new Response(JSON.stringify({ error: { code: 'api_unreachable', message } }), {
+const unavailable = () =>
+  new Response(JSON.stringify({ error: { code: 'api_unreachable', message: 'the API could not start' } }), {
     status: 503,
     headers: { 'content-type': 'application/json', 'cache-control': 'no-store' },
   });
 
-/* Set only by this Worker. A copy arriving from the browser is dropped, or a
-   caller could pick their own address and walk around the API's rate limits. */
-const CLIENT_IP = 'x-bb-client-ip';
-const PROXY_SECRET = 'x-bb-proxy-secret';
-
-async function proxyToApi(request, env, url) {
-  if (!env.API_URL) return unreachable('API_URL is not set on the web Worker');
-
-  const target = new URL(env.API_URL.replace(/\/$/, '') + (url.pathname.slice(4) || '/'));
-  target.search = url.search;
-
-  const headers = new Headers(request.headers);
-  headers.delete(CLIENT_IP);
-  headers.delete(PROXY_SECRET);
-  headers.delete('host');
-  if (env.PROXY_SECRET) {
-    headers.set(CLIENT_IP, request.headers.get('cf-connecting-ip') ?? '');
-    headers.set(PROXY_SECRET, env.PROXY_SECRET);
-  }
-
+async function api(request, env, url) {
   try {
-    return await fetch(target, {
-      method: request.method,
-      headers,
-      body: request.method === 'GET' || request.method === 'HEAD' ? undefined : request.body,
-      redirect: 'manual',
-    });
-  } catch {
-    return unreachable(`could not reach ${target.origin}`);
+    return await handleApi(request, bindingsOf(env), (url.pathname.slice(4) || '/') + url.search);
+  } catch (err) {
+    /* Migrations or the signing key failed to load: say so as JSON, which
+       the client shows as "no connection" rather than a blank page. */
+    console.error('api failed before handling the request', err);
+    return unavailable();
   }
 }
 
@@ -104,7 +93,7 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (url.pathname === '/api' || url.pathname.startsWith('/api/')) {
-      return proxyToApi(request, env, url);
+      return api(request, env, url);
     }
     const match = url.pathname.match(LISTING);
     if (!match) return env.ASSETS.fetch(request);
@@ -114,7 +103,7 @@ export default {
 
     let card = null;
     try {
-      card = await listingCard(env, match[1]);
+      card = await listingCard(request, env, url, match[1]);
     } catch {
       card = null;
     }

@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
-import { and, arrayContains, asc, desc, eq, gte, inArray, isNull, lte, sql, type SQL } from 'drizzle-orm';
+import { and, arrayContains, asc, desc, eq, gte, isNull, lte, sql, type SQL } from 'drizzle-orm';
+import { inArray } from '../db/in-list.ts';
 import { z } from 'zod';
 import {
   deriveAvailability,
@@ -117,7 +118,7 @@ export async function searchRoutes(app: FastifyInstance) {
 
       const queues = rows.length
         ? await db
-            .select({ propertyId: s.leads.propertyId, n: sql<number>`count(*)::int` })
+            .select({ propertyId: s.leads.propertyId, n: sql<number>`count(*)` })
             .from(s.leads)
             .where(and(inArray(s.leads.propertyId, rows.map((p) => p.id)), isNull(s.leads.deletedAt)))
             .groupBy(s.leads.propertyId)
@@ -230,17 +231,13 @@ export async function searchRoutes(app: FastifyInstance) {
     async (request) => {
       const ninetyDaysAgo = new Date(Date.now() - 90 * 86_400_000);
 
-      const supply = await db
+      const units = await db
         .select({
           city: s.properties.city,
           district: s.properties.district,
           rooms: s.properties.rooms,
-          /* Median, not mean: one penthouse should not move a neighbourhood. */
-          median: sql<number>`percentile_cont(0.5) within group (order by ${s.properties.monthlyRentAgorot})::int`,
-          p25: sql<number>`percentile_cont(0.25) within group (order by ${s.properties.monthlyRentAgorot})::int`,
-          p75: sql<number>`percentile_cont(0.75) within group (order by ${s.properties.monthlyRentAgorot})::int`,
-          perSqm: sql<number>`percentile_cont(0.5) within group (order by (${s.properties.monthlyRentAgorot}::numeric / nullif(${s.properties.sqm}, 0)))::int`,
-          n: sql<number>`count(*)::int`,
+          rent: s.properties.monthlyRentAgorot,
+          sqm: s.properties.sqm,
         })
         .from(s.properties)
         .where(
@@ -248,13 +245,34 @@ export async function searchRoutes(app: FastifyInstance) {
             isNull(s.properties.deletedAt),
             request.query.district ? eq(s.properties.district, request.query.district) : undefined,
           ),
-        )
-        .groupBy(s.properties.city, s.properties.district, s.properties.rooms);
+        );
+
+      /* SQLite has no percentile function, so the groups are summarised here.
+         Median, not mean: one penthouse should not move a neighbourhood. */
+      const groups = new Map<string, typeof units>();
+      for (const u of units) {
+        const key = `${u.city}|${u.district}|${Number(u.rooms)}`;
+        groups.set(key, [...(groups.get(key) ?? []), u]);
+      }
+      const supply = [...groups.values()].map((group) => {
+        const rents = group.map((u) => u.rent);
+        const perSqm = group.filter((u) => u.sqm > 0).map((u) => u.rent / u.sqm);
+        return {
+          city: group[0].city,
+          district: group[0].district,
+          rooms: group[0].rooms,
+          median: percentile(rents, 0.5),
+          p25: percentile(rents, 0.25),
+          p75: percentile(rents, 0.75),
+          perSqm: percentile(perSqm, 0.5),
+          n: group.length,
+        };
+      });
 
       const demand = await db
         .select({
           city: s.searchEvents.city,
-          n: sql<number>`count(*)::int`,
+          n: sql<number>`count(*)`,
         })
         .from(s.searchEvents)
         .where(gte(s.searchEvents.at, ninetyDaysAgo))
@@ -286,6 +304,16 @@ export async function searchRoutes(app: FastifyInstance) {
       return { rows, minimumSample: MINIMUM_SAMPLE, generatedAt: new Date().toISOString() };
     },
   );
+}
+
+/** Postgres's percentile_cont: linear between the two nearest ranks, rounded. */
+export function percentile(values: readonly number[], p: number): number {
+  if (values.length === 0) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const rank = p * (sorted.length - 1);
+  const lo = Math.floor(rank);
+  const hi = Math.ceil(rank);
+  return Math.round(sorted[lo] + (sorted[hi] - sorted[lo]) * (rank - lo));
 }
 
 async function recordSearch(seekerId: string | null, f: SearchFilters, resultCount: number) {

@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
-import { and, desc, eq, inArray, isNull } from 'drizzle-orm';
+import { and, desc, eq, isNull } from 'drizzle-orm';
+import { inArray } from '../db/in-list.ts';
 import { z } from 'zod';
 import {
   ApiError,
@@ -13,6 +14,7 @@ import {
   type ExtractedField,
 } from '@miftan/shared';
 import { db, schema as s } from '../db/client.ts';
+import { transaction } from '../db/atomic.ts';
 import { newId } from '../lib/ids.ts';
 import { resolveViewer, scopeFor } from '../policy/viewer.ts';
 import { createExtractor } from '../extract/patterns.ts';
@@ -192,7 +194,7 @@ export async function contractRoutes(app: FastifyInstance) {
         });
       }
 
-      await db.transaction(async (tx) => {
+      await transaction(async (tx) => {
         await tx.update(s.leases).set({ ...patch, updatedAt: new Date() }).where(eq(s.leases.id, lease.id));
 
         /* The rent lives on the property too, and a lease that disagrees with

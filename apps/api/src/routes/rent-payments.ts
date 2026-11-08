@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
-import { and, desc, eq, gte, inArray, isNull, lte } from 'drizzle-orm';
+import { and, desc, eq, gte, isNull, lte } from 'drizzle-orm';
+import { inArray } from '../db/in-list.ts';
 import { z } from 'zod';
 import {
   ApiError,
@@ -13,6 +14,7 @@ import {
   type RentPaymentView,
 } from '@miftan/shared';
 import { db, schema as s } from '../db/client.ts';
+import { atomically, insertChunks } from '../db/atomic.ts';
 import { requireOwner, resolveViewer, scopeFor } from '../policy/viewer.ts';
 import { newId } from '../lib/ids.ts';
 
@@ -64,9 +66,11 @@ export async function ensureRentRows(propertyIds: string[]): Promise<void> {
     }));
   });
   if (rows.length === 0) return;
-  await db.insert(s.rentPayments).values(rows).onConflictDoNothing({
-    target: [s.rentPayments.leaseId, s.rentPayments.month],
-  });
+  await atomically(
+    insertChunks(s.rentPayments, rows, (insert) =>
+      insert.onConflictDoNothing({ target: [s.rentPayments.leaseId, s.rentPayments.month] }),
+    ),
+  );
 }
 
 /**

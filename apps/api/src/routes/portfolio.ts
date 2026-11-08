@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
-import { and, count, countDistinct, eq, gte, inArray, isNotNull, isNull, lt, lte } from 'drizzle-orm';
+import { and, count, countDistinct, eq, gte, isNotNull, isNull, lt, lte } from 'drizzle-orm';
+import { inArray } from '../db/in-list.ts';
 import {
   ApiError,
   analyticsQuerySchema,

@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
-import { and, desc, eq, inArray, isNull, or } from 'drizzle-orm';
+import { and, desc, eq, isNull, or } from 'drizzle-orm';
+import { inArray } from '../db/in-list.ts';
 import { z } from 'zod';
 import {
   ApiError,
@@ -13,6 +14,7 @@ import {
   tenantAnswerSchema,
 } from '@miftan/shared';
 import { db, schema as s } from '../db/client.ts';
+import { transaction } from '../db/atomic.ts';
 import { newId } from '../lib/ids.ts';
 import { isCurrentTenant, resolveViewer, scopeFor } from '../policy/viewer.ts';
 import { pickLease } from '../policy/properties.ts';
@@ -169,7 +171,7 @@ export async function inquiryRoutes(app: FastifyInstance) {
       /* You cannot answer a question that was never put to you. */
       if (!row.askedTenantAt) throw new ApiError('not_found', 'no such inquiry');
 
-      await db.transaction(async (tx) => {
+      await transaction(async (tx) => {
         await tx
           .update(s.availabilityInquiries)
           .set({
@@ -224,7 +226,7 @@ export async function inquiryRoutes(app: FastifyInstance) {
       const row = await loadOwned(viewer, request.params.id);
       const { reply, availableFrom, confidence } = request.body;
 
-      await db.transaction(async (tx) => {
+      await transaction(async (tx) => {
         await tx
           .update(s.availabilityInquiries)
           .set({

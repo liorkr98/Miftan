@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { eq, sql } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { REVIEW_WINDOW_DAYS } from '@miftan/shared';
 import { buildApp } from '../app.ts';
 import { db, schema as s } from '../db/client.ts';
@@ -160,7 +160,7 @@ describe('the seal', () => {
        a review simply by never replying — the seal would be a veto. */
     await db
       .update(s.reviews)
-      .set({ createdAt: sql`now() - interval '${sql.raw(String(REVIEW_WINDOW_DAYS + 1))} days'` })
+      .set({ createdAt: new Date(Date.now() - (REVIEW_WINDOW_DAYS + 1) * 86_400_000) })
       .where(eq(s.reviews.leaseId, endedLease));
 
     const about = (await req('GET', `/reviews?userId=${tenant.id}`, tenant.token)).json();

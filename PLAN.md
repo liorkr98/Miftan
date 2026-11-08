@@ -10,7 +10,7 @@ Working document. We tick items off as we go. Two tracks — **CC** is Claude Co
 | | |
 |---|---|
 | **Shape** | **Web first.** One responsive app, three personas, role from the account |
-| **Backend** | Fastify + Postgres + Drizzle, our own API. No BaaS lock-in |
+| **Backend** | Fastify + Drizzle on Cloudflare D1, our own API in the web Worker. No BaaS lock-in |
 | **First vertical slice** | Maintenance ticket flow, end to end |
 | **App stores** | Later and optional, via **Capacitor** — not React Native |
 
@@ -37,7 +37,7 @@ iOS web push only works if the user adds the site to their Home Screen. For this
 ```
 miftan/
   apps/
-    api/        Fastify · Drizzle · Postgres · Zod
+    api/        Fastify · Drizzle · D1 · Zod
     web/        the current Vite app → the product
   packages/
     shared/     types · i18n · money · format · screening · API client

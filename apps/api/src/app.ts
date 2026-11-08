@@ -7,8 +7,9 @@ import {
   hasZodFastifySchemaValidationErrors,
 } from 'fastify-type-provider-zod';
 import { ApiError } from '@miftan/shared';
-import { sql } from './db/client.ts';
-import { env, isProd } from './lib/env.ts';
+import { db } from './db/client.ts';
+import { sql } from 'drizzle-orm';
+import { env } from './lib/env.ts';
 import { logSerializers } from './lib/log.ts';
 import { authenticatePlugin } from './plugins/authenticate.ts';
 import { authRoutes } from './routes/auth.ts';
@@ -40,14 +41,13 @@ import { contractTemplateRoutes } from './routes/contract-templates.ts';
 export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({
     /* Silent under test — a request log line per assertion buries the results.
-       Structured JSON in production, human-readable in development. Either way
-       URLs and errors go through lib/log.ts, which strips tokens and values. */
+       Otherwise one JSON line per entry on the console, which is what Workers
+       Logs collects. URLs and errors go through lib/log.ts, which strips
+       tokens and values. */
     logger:
       env.NODE_ENV === 'test'
         ? false
-        : isProd
-          ? { serializers: logSerializers }
-          : { serializers: logSerializers, transport: { target: 'pino-pretty', options: { translateTime: 'HH:MM:ss', ignore: 'pid,hostname' } } },
+        : { serializers: logSerializers, stream: { write: (line: string) => console.log(line.trimEnd()) } },
     /* Fastify does not interpret X-Forwarded-For; clientIp() reads the one
        entry the platform wrote and a caller cannot forge. trustProxy: true
        would let a caller pick their own IP. */
@@ -91,7 +91,7 @@ export async function buildApp(): Promise<FastifyInstance> {
        API sat on different hosts. */
     methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE'],
   });
-  await app.register(cookie, { secret: env.JWT_SECRET });
+  await app.register(cookie);
   await app.register(authenticatePlugin);
 
   /**
@@ -142,10 +142,10 @@ export async function buildApp(): Promise<FastifyInstance> {
      something a public URL needs to advertise. */
   app.get('/health', async () => ({ ok: true }));
 
-  /* Readiness for the uptime monitor: the process is up and Postgres answers. */
+  /* Readiness for the uptime monitor: the Worker is up and D1 answers. */
   app.get('/ready', async (_request, reply) => {
     try {
-      await sql`select 1`;
+      await db.run(sql`select 1`);
       return { ok: true };
     } catch {
       return reply.code(503).send({ ok: false });

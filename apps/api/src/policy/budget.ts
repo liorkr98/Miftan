@@ -49,7 +49,7 @@ export async function autoApprovedThisMonth(ownerId: string): Promise<number> {
   startOfMonth.setHours(0, 0, 0, 0);
 
   const [row] = await db
-    .select({ total: sql<number>`coalesce(sum(${s.tickets.estimateAgorot}), 0)::int` })
+    .select({ total: sql<number>`coalesce(sum(${s.tickets.estimateAgorot}), 0)` })
     .from(s.tickets)
     .innerJoin(s.properties, eq(s.properties.id, s.tickets.propertyId))
     .where(

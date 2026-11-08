@@ -29,7 +29,7 @@ const pid = (k: string) => seedId('property', k);
 const lid = (k: string) => seedId('lease', k);
 const money = (shekels: number) => toAgorot(shekels);
 
-type Tx = Parameters<Parameters<typeof import('./client.ts').db.transaction>[0]>[0];
+type Tx = import('./seed-writer.ts').SeedTx;
 
 export async function seedDemoAccount(tx: Tx, passwordHash: string) {
   const dana = uid('demo-dana');

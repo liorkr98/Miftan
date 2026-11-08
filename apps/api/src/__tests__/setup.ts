@@ -1,25 +1,42 @@
-import { afterAll, beforeEach } from 'vitest';
-import { sql } from '../db/client.ts';
+import { afterAll, beforeAll, beforeEach } from 'vitest';
+import { Miniflare } from 'miniflare';
+import { bindDatabase, rawDatabase } from '../db/client.ts';
+import { migrate } from '../db/migrate.ts';
 import { sentMail } from '../email/index.ts';
 
 /**
- * Every test starts from an empty database.
- *
- * TRUNCATE … CASCADE rather than dropping and re-migrating: it is far faster,
- * and it resets the tables in dependency order without anyone having to
- * maintain a list of what references what.
+ * A real D1 — Miniflare runs the same SQLite engine the Worker gets — fresh
+ * for each test file, and emptied before every test.
  */
+let mf: Miniflare | null = null;
+let tables: string[] = [];
+
+/* Module level, so files that build the app at import time find a database. */
+mf = new Miniflare({
+  modules: true,
+  script: 'export default { fetch() { return new Response(null, { status: 404 }) } }',
+  d1Databases: { DB: 'test' },
+});
+const d1 = (await mf.getD1Database('DB')) as unknown as D1Database;
+bindDatabase(d1);
+await migrate(d1);
+tables = (
+  await d1
+    .prepare("select name from sqlite_master where type = 'table' and name not like 'sqlite_%' and name not in ('__migrations', '_cf_KV', '_cf_METADATA')")
+    .all<{ name: string }>()
+).results.map((r) => r.name);
+
+beforeAll(() => {
+  bindDatabase(d1);
+});
+
 beforeEach(async () => {
-  const tables = await sql<{ tablename: string }[]>`
-    select tablename from pg_tables
-    where schemaname = 'public' and tablename <> '__drizzle_migrations'
-  `;
   sentMail.length = 0;
-  if (tables.length === 0) return;
-  const names = tables.map((t) => `"public"."${t.tablename}"`).join(', ');
-  await sql.unsafe(`truncate ${names} restart identity cascade`);
+  const db = rawDatabase();
+  await db.batch([db.prepare('PRAGMA defer_foreign_keys = on'), ...tables.map((t) => db.prepare(`delete from "${t}"`))]);
 });
 
 afterAll(async () => {
-  await sql.end();
+  await mf?.dispose();
+  mf = null;
 });

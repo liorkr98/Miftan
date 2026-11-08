@@ -1,4 +1,5 @@
-import { and, count, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, count, eq, isNull, sql } from 'drizzle-orm';
+import { inArray } from '../db/in-list.ts';
 import {
   deriveAvailability,
   israelToday,

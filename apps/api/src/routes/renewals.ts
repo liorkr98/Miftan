@@ -25,6 +25,7 @@ import {
   type Amenity,
 } from '@miftan/shared';
 import { db, schema as s } from '../db/client.ts';
+import { atomically, insertChunks, transaction } from '../db/atomic.ts';
 import { newId } from '../lib/ids.ts';
 import { resolveViewer, type Viewer } from '../policy/viewer.ts';
 import { answerByFor, canChange, cycleForWrite, loadRenewalViews, type CycleAccess } from '../policy/renewals.ts';
@@ -110,7 +111,7 @@ export async function renewalRoutes(app: FastifyInstance) {
         if (!ownerMay) throw new ApiError('forbidden', 'the tenant decides this');
       }
 
-      await db.transaction(async (tx) => {
+      await transaction(async (tx) => {
         await tx
           .update(s.renewalCycles)
           .set({
@@ -278,10 +279,13 @@ export async function renewalRoutes(app: FastifyInstance) {
         throw new ApiError('validation_failed', 'none of these times are in the future', { windows: ['pick a future time'] });
       }
 
-      await db
-        .insert(s.renewalMeetingSlots)
-        .values(times.map((startsAt) => ({ id: newId('meetingSlot'), cycleId: access.cycle.id, startsAt, durationMinutes: MEETING_MINUTES })))
-        .onConflictDoNothing();
+      await atomically(
+        insertChunks(
+          s.renewalMeetingSlots,
+          times.map((startsAt) => ({ id: newId('meetingSlot'), cycleId: access.cycle.id, startsAt, durationMinutes: MEETING_MINUTES })),
+          (insert) => insert.onConflictDoNothing(),
+        ),
+      );
 
       await mailUser(access.lease.tenantId, t.turnoverMail.timesOffered, '/tenant/renewal');
       return viewOf(viewer, access.lease.id);
@@ -305,18 +309,17 @@ export async function renewalRoutes(app: FastifyInstance) {
       requireStage(access, ['staying']);
       if (slot.startsAt < new Date()) throw new ApiError('forbidden', 'that time has passed');
 
-      await db.transaction(async (tx) => {
+      await transaction(async (tx) => {
         await tx
           .update(s.renewalMeetingSlots)
           .set({ status: 'open', bookedAt: null, updatedAt: new Date() })
           .where(and(eq(s.renewalMeetingSlots.cycleId, cycle.id), eq(s.renewalMeetingSlots.status, 'booked'), ne(s.renewalMeetingSlots.id, slot.id)));
-        const claimed = await tx
+        await tx
           .update(s.renewalMeetingSlots)
           .set({ status: 'booked', bookedAt: new Date(), updatedAt: new Date() })
-          .where(and(eq(s.renewalMeetingSlots.id, slot.id), eq(s.renewalMeetingSlots.status, 'open')))
-          .returning({ id: s.renewalMeetingSlots.id });
-        if (claimed.length === 0) throw new ApiError('forbidden', 'that time is no longer available');
-      });
+          .where(and(eq(s.renewalMeetingSlots.id, slot.id), eq(s.renewalMeetingSlots.status, 'open')));
+        tx.expectChanged();
+      }, () => new ApiError('forbidden', 'that time is no longer available'));
 
       const [tenant] = await db.select({ name: s.users.name }).from(s.users).where(eq(s.users.id, access.lease.tenantId));
       await mailUser(access.property.ownerId, t.turnoverMail.meetingBooked, `/owner/properties/${access.property.id}`, {
@@ -383,18 +386,17 @@ export async function renewalRoutes(app: FastifyInstance) {
       if (!to || to.cycleId !== cycle.id) throw new ApiError('not_found', 'no such time');
       if (to.startsAt < new Date()) throw new ApiError('forbidden', 'that time has passed');
 
-      await db.transaction(async (tx) => {
-        const took = await tx
+      await transaction(async (tx) => {
+        await tx
           .update(s.renewalMeetingSlots)
           .set({ status: 'booked', bookedAt: new Date(), updatedAt: new Date() })
-          .where(and(eq(s.renewalMeetingSlots.id, to.id), eq(s.renewalMeetingSlots.status, 'open')))
-          .returning({ id: s.renewalMeetingSlots.id });
-        if (took.length === 0) throw new ApiError('forbidden', 'that time is no longer available');
+          .where(and(eq(s.renewalMeetingSlots.id, to.id), eq(s.renewalMeetingSlots.status, 'open')));
+        tx.expectChanged();
         await tx
           .update(s.renewalMeetingSlots)
           .set({ status: 'open', bookedAt: null, updatedAt: new Date() })
           .where(eq(s.renewalMeetingSlots.id, slot.id));
-      });
+      }, () => new ApiError('forbidden', 'that time is no longer available'));
 
       await mailUser(access.lease.tenantId, t.turnoverMail.meetingMoved, '/tenant/renewal', {
         date: formatDateTime(to.startsAt.toISOString()),
@@ -428,7 +430,7 @@ export async function renewalRoutes(app: FastifyInstance) {
       if (b.furnished !== undefined) (b.furnished ? amenities.add('furnished') : amenities.delete('furnished'));
 
       const firstOpen = !cycle.watchersInvitedAt;
-      await db.transaction(async (tx) => {
+      await transaction(async (tx) => {
         await tx
           .update(s.properties)
           .set({
@@ -479,7 +481,7 @@ export async function renewalRoutes(app: FastifyInstance) {
       }
       const now = new Date();
 
-      await db.transaction(async (tx) => {
+      await transaction(async (tx) => {
         await tx
           .update(s.leases)
           .set({

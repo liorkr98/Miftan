@@ -1,4 +1,5 @@
-import { and, desc, eq, inArray, isNull } from 'drizzle-orm';
+import { and, desc, eq, isNull } from 'drizzle-orm';
+import { inArray } from '../db/in-list.ts';
 import { israelToday, type InquiryView, type OwnerInquiry, type SeekerInquiry, type TenantInquiry } from '@miftan/shared';
 import { db, schema as s } from '../db/client.ts';
 import { scopeFor, type Viewer } from './viewer.ts';

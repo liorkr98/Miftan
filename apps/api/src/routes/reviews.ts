@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
-import { and, desc, eq, inArray, isNotNull, isNull, lt, or } from 'drizzle-orm';
+import { and, desc, eq, isNotNull, isNull, lt, or } from 'drizzle-orm';
+import { inArray } from '../db/in-list.ts';
 import { z } from 'zod';
 import {
   ApiError,
@@ -11,6 +12,7 @@ import {
   writeReviewSchema,
 } from '@miftan/shared';
 import { db, schema as s } from '../db/client.ts';
+import { transaction } from '../db/atomic.ts';
 import { newId } from '../lib/ids.ts';
 
 /** Below this, an average identifies the reviewer as much as the reviewed. */
@@ -111,8 +113,8 @@ export async function reviewRoutes(app: FastifyInstance) {
       const subjectId = authorRole === 'tenant' ? property.ownerId : lease.tenantId;
 
       const id = newId('review');
-      await db.transaction(async (tx) => {
-        const inserted = await tx
+      await transaction(async (tx) => {
+        await tx
           .insert(s.reviews)
           .values({
             id, leaseId, authorId: me, subjectId, authorRole,
@@ -123,12 +125,8 @@ export async function reviewRoutes(app: FastifyInstance) {
           })
           /* The unique index on (lease, role) is what actually enforces one
              review per side; catching it here turns a 500 into a sentence. */
-          .onConflictDoNothing()
-          .returning({ id: s.reviews.id });
-
-        if (inserted.length === 0) {
-          throw new ApiError('forbidden', 'you have already reviewed this tenancy');
-        }
+          .onConflictDoNothing();
+        tx.expectChanged();
 
         /* If the other side has already written, the pair is complete and both
            are released at the same instant. */
@@ -149,7 +147,7 @@ export async function reviewRoutes(app: FastifyInstance) {
             .set({ publishedAt: now })
             .where(and(eq(s.reviews.leaseId, leaseId), isNull(s.reviews.publishedAt)));
         }
-      });
+      }, () => new ApiError('forbidden', 'you have already reviewed this tenancy'));
 
       const [row] = await db.select().from(s.reviews).where(eq(s.reviews.id, id));
       const [author] = await db

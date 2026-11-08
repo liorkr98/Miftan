@@ -48,7 +48,7 @@ describe('registration', () => {
     await openAccount();
     const [row] = await db.select().from(s.users).where(eq(s.users.email, CREDENTIALS.email));
     expect(row.passwordHash).not.toContain(CREDENTIALS.password);
-    expect(row.passwordHash?.startsWith('$argon2id$')).toBe(true);
+    expect(row.passwordHash).toMatch(/^pbkdf2_sha256\$\d+\$[A-Za-z0-9+/=]+\$[A-Za-z0-9+/=]+$/);
   });
 
   it('gives the same answer when the email already exists, and mails that address', async () => {
