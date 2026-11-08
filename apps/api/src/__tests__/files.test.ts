@@ -15,7 +15,8 @@ describe('stored file references', () => {
   it('refuses outside URLs, paths that escape, and made-up keys', () => {
     for (const bad of [
       'https://tracker.example/pixel.gif',
-      'http://127.0.0.1:4000/files/../../etc/passwd',
+      '/api/files/../../etc/passwd',
+      'https://elsewhere.example/api/files/tickets/33333333-3333-4333-8333-333333333333.jpg',
       'tickets/not-a-uuid.jpg',
       'secrets/33333333-3333-4333-8333-333333333333.jpg',
       'javascript:alert(1)',

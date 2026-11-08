@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { toAgorot } from '@miftan/shared';
 import { buildApp } from '../app.ts';
+import { fileLink } from '../storage/files.ts';
 import { db, schema as s } from '../db/client.ts';
 import { newId } from '../lib/ids.ts';
 import { hashPassword } from '../lib/auth.ts';
@@ -108,10 +109,10 @@ describe('PUT /properties/:id/photos', () => {
   it('replaces the whole array, because order is the cover', async () => {
     const created = await req('POST', '/properties', owner.token, createBody);
     const id = created.json().id as string;
-    /* The links the upload flow hands back (the local driver, under test). */
+    /* The links the upload flow hands back (the bucket driver, under test). */
     const photos = [
-      'http://127.0.0.1:4000/files/properties/44444444-4444-4444-8444-444444444444.jpg',
-      'http://127.0.0.1:4000/files/properties/55555555-5555-4555-8555-555555555555.jpg',
+      fileLink('properties/44444444-4444-4444-8444-444444444444.jpg'),
+      fileLink('properties/55555555-5555-4555-8555-555555555555.jpg'),
     ];
     const res = await req('PUT', `/properties/${id}/photos`, owner.token, { photos });
     expect(res.statusCode).toBe(200);

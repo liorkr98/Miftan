@@ -1,6 +1,9 @@
 import { z } from 'zod';
 import { contactSchema } from './views';
 
+/** A link this service handed out for an upload; the API reduces it to a stored key or refuses it. */
+const fileRef = z.string().min(1).max(2000);
+
 /**
  * Ticket views.
  *
@@ -90,7 +93,7 @@ export const createTicketSchema = z.object({
   severity: severitySchema,
   title: z.string().trim().min(3).max(200),
   description: z.string().trim().max(4000).default(''),
-  photos: z.array(z.string().url()).max(10).default([]),
+  photos: z.array(fileRef).max(10).default([]),
   /** Windows the tenant can be home, as ISO datetimes */
   availability: z.array(z.string().datetime()).max(10).default([]),
 });
@@ -102,12 +105,12 @@ export const assignVendorSchema = z.object({
 
 export const uploadReceiptSchema = z.object({
   amountAgorot: z.number().int().positive().max(100_000_000),
-  file: z.string().url().nullable().default(null),
+  file: fileRef.nullable().default(null),
 });
 
 export const postMessageSchema = z.object({
   body: z.string().trim().min(1).max(4000),
-  photos: z.array(z.string().url()).max(10).default([]),
+  photos: z.array(fileRef).max(10).default([]),
 });
 
 export type TicketView = z.infer<typeof ticketViewSchema>;

@@ -1,5 +1,7 @@
+import { createHmac, timingSafeEqual } from 'node:crypto';
 import { ApiError } from '@miftan/shared';
 import { env } from '../lib/env.ts';
+import { serverSecretSync } from '../lib/auth.ts';
 import { objectPath, s3ConfigFromEnv } from './s3-config.ts';
 import { presignGet } from './presign.ts';
 
@@ -14,6 +16,9 @@ import { presignGet } from './presign.ts';
  * it belongs to, and a link that leaks stops working within two hours.
  *
  * The R2 bucket itself should have public access turned OFF.
+ *
+ * Without S3 keys, files live in the bucket bound to the Worker and are read
+ * and written through this API, under URLs signed with the server secret.
  */
 
 const KEY = /^(tickets|receipts|protocol|properties|contracts)\/[0-9a-f-]{36}(\.[a-z0-9]{1,5})?$/;
@@ -24,6 +29,49 @@ const ALIGN_SECONDS = 60 * 60;
 
 export function isFileKey(value: string): boolean {
   return KEY.test(value);
+}
+
+/* ── URLs this API signs for the bound bucket ───────────── */
+
+type FileRoute = 'files' | 'uploads';
+
+function signature(route: FileRoute, key: string, expires: number, extra: Record<string, string>): string {
+  const fields = Object.keys(extra)
+    .sort()
+    .map((k) => `${k}=${extra[k]}`);
+  return createHmac('sha256', serverSecretSync())
+    .update([route, key, String(expires), ...fields].join('|'))
+    .digest('base64url');
+}
+
+/** A same-origin URL under the API, good until `expires` (unix seconds). */
+export function signFileUrl(route: FileRoute, key: string, expires: number, extra: Record<string, string> = {}): string {
+  const params = new URLSearchParams({ ...extra, exp: String(expires), sig: signature(route, key, expires, extra) });
+  return `${env.PUBLIC_API_PATH}/${route}/${key}?${params}`;
+}
+
+/**
+ * Whether a request carries a valid, unexpired signature for this key.
+ * HUMAN REVIEW: this is the whole access check for reading a stored file.
+ */
+export function verifyFileUrl(
+  route: FileRoute,
+  key: string,
+  query: Record<string, string | undefined>,
+  extraKeys: readonly string[] = [],
+): boolean {
+  if (!isFileKey(key)) return false;
+  const expires = Number(query.exp);
+  if (!Number.isInteger(expires) || expires < Date.now() / 1000) return false;
+  const extra: Record<string, string> = {};
+  for (const k of extraKeys) {
+    const v = query[k];
+    if (typeof v !== 'string') return false;
+    extra[k] = v;
+  }
+  const given = Buffer.from(query.sig ?? '');
+  const expected = Buffer.from(signature(route, key, expires, extra));
+  return given.length === expected.length && timingSafeEqual(given, expected);
 }
 
 /**
@@ -37,7 +85,8 @@ export function toStoredKey(value: string): string {
 
   let url: URL;
   try {
-    url = new URL(value);
+    /* The bucket driver hands out same-origin links, which are relative. */
+    url = new URL(value, 'http://relative.invalid');
   } catch {
     throw new ApiError('validation_failed', 'not a file this service stored');
   }
@@ -52,8 +101,9 @@ export function toStoredKey(value: string): string {
   if (env.S3_PUBLIC_URL && value.startsWith(env.S3_PUBLIC_URL.replace(/\/$/, '') + '/')) {
     candidates.push(path.replace(/^\//, ''));
   }
-  /* The local development driver serves files from this API. */
-  if (!config && path.startsWith('/files/')) candidates.push(path.slice('/files/'.length));
+  /* The bucket driver serves files from this API. */
+  const served = `${env.PUBLIC_API_PATH}/files/`;
+  if (!config && url.host === 'relative.invalid' && path.startsWith(served)) candidates.push(path.slice(served.length));
 
   const key = candidates.find(isFileKey);
   if (!key) throw new ApiError('validation_failed', 'not a file this service stored');
@@ -81,10 +131,10 @@ export function fileLink(stored: string, now: Date = new Date()): string {
     if (!isFileKey(key)) return stored;
   }
 
-  const config = s3ConfigFromEnv();
-  if (!config) return `http://127.0.0.1:${env.PORT}/files/${key}`;
-
   const aligned = new Date(Math.floor(now.getTime() / (ALIGN_SECONDS * 1000)) * ALIGN_SECONDS * 1000);
+  const config = s3ConfigFromEnv();
+  if (!config) return signFileUrl('files', key, Math.floor(aligned.getTime() / 1000) + LINK_SECONDS);
+
   return presignGet({
     host: config.host,
     path: objectPath(config, key),

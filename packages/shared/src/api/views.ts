@@ -1,5 +1,8 @@
 import { z } from 'zod';
 
+/** A link this service handed out for an upload; the API reduces it to a stored key or refuses it. */
+const fileRef = z.string().min(1).max(2000);
+
 /**
  * Per-scope views of a property.
  *
@@ -125,5 +128,5 @@ export type PropertyView = z.infer<typeof propertyViewSchema>;
  * presigned-upload flow, so nothing here touches bytes.
  */
 export const setPhotosSchema = z.object({
-  photos: z.array(z.string().url()).max(20),
+  photos: z.array(fileRef).max(20),
 });
