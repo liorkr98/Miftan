@@ -20,24 +20,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: miftan_test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-
-    env:
-      TEST_DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/miftan_test
-
     steps:
       - uses: actions/checkout@v7
 
@@ -73,15 +55,23 @@ jobs:
       - name: Test
         run: npm test
 
+      # The schema and the committed migrations must agree: a schema change
+      # without `npm run db:generate -w @miftan/api` leaves new SQL here.
+      - name: Migrations up to date
+        working-directory: apps/api
+        run: |
+          npx drizzle-kit generate --name ci-check
+          git status --porcelain migrations
+          test -z "$(git status --porcelain migrations)"
+
+      # The Worker that Cloudflare deploys, bundled exactly as it will be —
+      # an import the Workers runtime cannot resolve fails here, not live.
+      - name: Bundle the Worker
+        run: npx wrangler deploy --dry-run --outdir /tmp/worker
+
       # The seed is not covered by the tests, and a broken seed is only found
-      # the day someone resets the demo. Run it against a clean database here.
+      # the day someone resets the demo. Run it against a clean local D1 here.
       - name: Seed smoke test
         run: |
-          npm run db:reset -w @miftan/api
-          npm run db:migrate -w @miftan/api
-          npm run db:seed -w @miftan/api
-        env:
-          DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/miftan_test
-          JWT_SECRET: seed-only-placeholder-that-is-long-enough-to-validate
-          DEMO_DATABASE: 'true'
-          CONFIRM_RESET: erase-demo-database
+          npm run db:reset
+          npm run db:seed

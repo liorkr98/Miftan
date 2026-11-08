@@ -6,7 +6,7 @@ Yad2 shows flights already boarding; מפתן shows the schedule. Occupied units
 with a known free-date are the inventory. Privacy is shape, not a filter:
 seeker → owner → tenant → owner → seeker, and the two ends never meet.
 
-The API (Fastify + Postgres) and the privacy layer are in place. Most screens
+The API (Fastify on Cloudflare D1) and the privacy layer are in place. Most screens
 read the API. Revenue (`/owner/revenue`) stays on fixtures on purpose — wiring
 it would imply the numbers are measured.
 
@@ -14,23 +14,24 @@ it would imply the numbers are measured.
 
 ## Run it
 
-Postgres must be up. Then, once:
+No database to install: the API runs in the same Worker as in production, on
+a local D1 under `.wrangler/state`. Once:
 
 ```bash
 npm install
-cd apps/api && npm run db:reset && npm run db:migrate && npm run db:seed
+npm run db:seed                     # demo accounts into the local D1
 ```
 
 ```bash
-# API
-cd apps/api && npm run dev          # http://127.0.0.1:4000
+# API (the Worker, from the repo root)
+npm run dev:api                     # http://127.0.0.1:8787/api
 
 # Web (separate terminal, from the repo root)
 npm run dev -w @miftan/web          # http://localhost:5178
 ```
 
-The web dev server proxies `/api` → `127.0.0.1:4000`, so the app and API are
-same-origin. **Do not change that** — the refresh cookie is `sameSite=lax` and
+`npm run db:reset` empties the local D1. The web dev server proxies `/api` →
+`127.0.0.1:8787`, so the app and API are same-origin. **Do not change that** — the refresh cookie is `sameSite=lax` and
 a cross-origin setup silently breaks session persistence on reload.
 
 Password for every seeded account: `miftan-dev-2026`
@@ -114,9 +115,9 @@ reactive work.
 
 | Area | Now |
 |---|---|
-| **Persistence** | Postgres. Mixed-scope lists; money as integer agorot. |
+| **Persistence** | Cloudflare D1 (SQLite). Mixed-scope lists; money as integer agorot. |
 | **Auth** | Refresh-rotating sessions. Roles are relationships, not a column. |
-| **Photo & receipt uploads** | Presigned R2 (or local disk in development). |
+| **Photo & receipt uploads** | R2 through the Worker binding, behind signed same-origin links. |
 | **Rent payments** | `GET /rent-payments` — owner roll and tenant history. Nothing charges anything. |
 | **Renter profile** | `GET/PATCH /me/renter-profile`. Completeness gates queue join. |
 | **Property create / listed** | `POST/PATCH /properties`. Photos via `PUT /properties/:id/photos`. |
@@ -127,7 +128,7 @@ reactive work.
 | **Affiliate fulfilment** | `requestOffer()` is still a toast. Provider names are placeholders. |
 
 `resetDemo()` (top bar → אפס הדגמה) restores the in-memory fixture store **and**
-clears the React Query cache. It does not reseed Postgres.
+clears the React Query cache. It does not reseed the database.
 
 ---
 
@@ -150,14 +151,11 @@ clears the React Query cache. It does not reseed Postgres.
 
 ## Deploying
 
-Do not attempt to deploy from this repo until the account owner has:
-
-1. A Neon Postgres project in `aws-eu-central-1` (pooled + direct URLs).
-2. `API_URL` (and the `PROXY_SECRET` secret) set on the Cloudflare Worker.
-
-The browser reaches the API through `/api` on the app's own origin: the Vite
-proxy in development, the web Worker when deployed. `COOKIE_PATH` is
-`/api/auth` in both.
+A push to main deploys. Cloudflare Workers Builds builds the app and ships one
+Worker, `miftan`, that serves the web app, the API under `/api`, the D1
+database and the R2 bucket. No external secrets are required. The Worker
+migrates D1 itself and, while `DEMO_DATABASE=true` is set in `wrangler.jsonc`,
+loads the demo accounts into an empty database.
 Full detail in `HOSTING.md` and `HANDOFF.md`.
 
 ---
@@ -165,7 +163,7 @@ Full detail in `HOSTING.md` and `HANDOFF.md`.
 ## Structure
 
 ```
-apps/api/          Fastify 5 + Drizzle + Postgres
+apps/api/          Fastify 5 + Drizzle + Cloudflare D1
 apps/web/          Vite + React 18 + Tailwind (dev server on 5178)
 packages/shared/   Domain + Zod contracts + Hebrew dictionary
 packages/fixtures/ Seed data only
