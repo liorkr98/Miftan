@@ -9,13 +9,19 @@
   ],
   "scripts": {
     "dev": "npm run dev -w @miftan/web",
-    "build": "npm run build -w @miftan/web",
+    "dev:api": "npm run render:demo -w @miftan/api && wrangler dev --port 8787 --ip 127.0.0.1",
+    "db:seed": "DEMO_DATABASE=true npm run db:seed -w @miftan/api",
+    "db:reset": "DEMO_DATABASE=true CONFIRM_RESET=erase-demo-database npm run db:reset -w @miftan/api",
+    "build": "npm run render:demo -w @miftan/api && npm run build -w @miftan/web",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
-    "test": "npm run test --workspaces --if-present"
+    "test": "npm run test --workspaces --if-present",
+    "postinstall": "patch-package"
   },
   "devDependencies": {
     "drizzle-orm": "^0.45.4",
-    "typescript": "~6.0.2"
+    "patch-package": "^8.0.1",
+    "typescript": "~6.0.2",
+    "wrangler": "^4.158.0"
   }
 }

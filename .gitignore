@@ -38,3 +38,6 @@ apps/api/uploads/
 .wrangler/
 .dev.vars
 .playwright-mcp/
+
+# Rendered at build time by apps/api/scripts/render-demo-seed.ts
+.demo/

@@ -1,21 +1,25 @@
 import 'dotenv/config';
-import { sql } from './client.ts';
 import { assertSafeToErase } from './demo-guard.ts';
+import { openLocalDatabase } from './local.ts';
 
 /**
- * Drops and recreates the public schema. Demo only — this is how the demo
- * database gets back to a clean slate before re-seeding. It will not run
- * against a database that holds real accounts.
+ * Drops every table in the local D1 and migrates it back to empty. Demo only —
+ * this is how the demo database gets back to a clean slate before re-seeding.
+ * It will not run against a database that holds real accounts.
  */
-await assertSafeToErase();
-
-/* Drizzle keeps its migration journal in its own `drizzle` schema, so dropping
-   only `public` leaves the journal behind — migrate then believes everything is
-   already applied and silently creates nothing. Both schemas have to go. */
-await sql.unsafe(`
-  drop schema if exists public cascade;
-  drop schema if exists drizzle cascade;
-  create schema public;
-`);
-console.log('schema dropped and recreated');
-await sql.end();
+const local = await openLocalDatabase();
+try {
+  await assertSafeToErase();
+  const tables = (
+    await local.d1
+      .prepare("select name from sqlite_master where type = 'table' and name not like 'sqlite_%' and name not like '_cf_%'")
+      .all<{ name: string }>()
+  ).results.map((r) => r.name);
+  await local.d1.batch([
+    local.d1.prepare('PRAGMA defer_foreign_keys = on'),
+    ...tables.map((t) => local.d1.prepare(`drop table if exists "${t}"`)),
+  ]);
+  console.log(`dropped ${tables.length} tables`);
+} finally {
+  await local.close();
+}

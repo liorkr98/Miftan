@@ -1,0 +1,21 @@
+# Copy to .dev.vars (repo root) for `npm run dev:api`. Never commit the real file.
+#
+# Everything here is optional: with nothing set, the local Worker runs on a
+# local D1 and R2 (.wrangler/state), prints mail to the console, and keeps its
+# own signing secret in the database. In production the same names are Worker
+# secrets: `npx wrangler secret put <NAME>`.
+
+# Resend. Leave empty in development — mail is printed to the console.
+RESEND_API_KEY=
+EMAIL_FROM=בעל הבית <noreply@baalabait.co.il>
+
+# DeepSeek, for reading free-text search requests. Leave empty and the built-in
+# rule parser answers instead.
+DEEPSEEK_API_KEY=
+
+# 32+ characters (openssl rand -base64 48). Unset, the Worker generates one
+# and stores it in D1 (app_meta).
+JWT_SECRET=
+
+# Defaults to the origin the request arrived on.
+WEB_ORIGIN=http://localhost:5178

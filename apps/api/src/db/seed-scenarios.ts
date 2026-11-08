@@ -1,4 +1,5 @@
-import { and, eq, inArray, notLike } from 'drizzle-orm';
+import { and, eq, notLike } from 'drizzle-orm';
+import { inArray } from './in-list.ts';
 import { districtOf, israelToday, toAgorot, zonedWallTime } from '@miftan/shared';
 import { apartmentPhotos, monthKey, monthsOut } from '@miftan/fixtures';
 import { schema as s } from './client.ts';
@@ -27,7 +28,7 @@ import { seedId } from '../lib/ids.ts';
  * seed runs, so the scenarios stay "live" whenever the database is reset.
  */
 
-type Tx = Parameters<Parameters<typeof import('./client.ts').db.transaction>[0]>[0];
+type Tx = import('./seed-writer.ts').SeedTx;
 
 const uid = (k: string) => seedId('user', k);
 const pid = (k: string) => seedId('property', k);

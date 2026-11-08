@@ -4,21 +4,18 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
     "typecheck": "tsc --noEmit",
-    "db:generate": "drizzle-kit generate",
-    "db:migrate": "tsx src/db/migrate.ts",
+    "db:generate": "drizzle-kit generate && tsx scripts/bundle-migrations.ts",
     "db:seed": "tsx src/db/seed.ts",
     "db:reset": "tsx src/db/reset.ts",
     "test": "vitest run",
-    "start": "tsx src/index.ts"
+    "render:demo": "tsx scripts/render-demo-seed.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^11.1.3",
     "@fastify/cors": "^11.3.1",
     "@miftan/fixtures": "*",
     "@miftan/shared": "*",
-    "@node-rs/argon2": "^2.2.2",
     "aws4fetch": "^1.0.20",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.4",
@@ -26,14 +23,14 @@
     "fastify-plugin": "^6.0.1",
     "fastify-type-provider-zod": "^7.0.0",
     "jose": "^6.2.13",
-    "postgres": "^3.4.7",
     "tsx": "^4.23.15",
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260702.1",
     "@types/node": "^24.19.2",
     "drizzle-kit": "^0.31.11",
-    "pino-pretty": "^13.2.0",
+    "miniflare": "^4.20260730.0",
     "typescript": "~6.0.2",
     "vitest": "^4.1.12"
   }

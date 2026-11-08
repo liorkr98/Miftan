@@ -1,4 +1,4 @@
-import { sql } from './client.ts';
+import { rawDatabase } from './client.ts';
 
 /** The only value that marks a database as safe to erase and re-seed. */
 export const DEMO_MARKER_KEY = 'environment';
@@ -46,21 +46,16 @@ export async function assertDemoSeedAllowed(): Promise<void> {
 }
 
 async function assertNoRealAccounts(action: 'seed' | 'erase'): Promise<void> {
-  const [reg] = await sql<{ users: string | null }[]>`
-    select to_regclass('public.users')::text as users
-  `;
-  if (!reg?.users) return;
+  const d1 = rawDatabase();
+  const hasTable = async (name: string) =>
+    Boolean(await d1.prepare("select 1 from sqlite_master where type = 'table' and name = ?").bind(name).first());
+  if (!(await hasTable('users'))) return;
 
-  const rows = await sql<IdRow[]>`select id from users`;
+  const rows = (await d1.prepare('select id from users').all<IdRow>()).results;
   if (rows.length === 0) return;
 
-  const [metaReg] = await sql<{ meta: string | null }[]>`
-    select to_regclass('public.app_meta')::text as meta
-  `;
-  if (metaReg?.meta) {
-    const [marker] = await sql<{ value: string }[]>`
-      select value from app_meta where key = ${DEMO_MARKER_KEY}
-    `;
+  if (await hasTable('app_meta')) {
+    const marker = await d1.prepare('select value from app_meta where key = ?').bind(DEMO_MARKER_KEY).first<{ value: string }>();
     if (marker?.value === DEMO_MARKER_VALUE) return;
   }
 
