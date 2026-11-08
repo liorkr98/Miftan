@@ -139,14 +139,13 @@ describe('claiming a row for a supabase account', () => {
   let app: FastifyInstance;
   let db: typeof import('../db/client.ts')['db'];
   let s: typeof import('../db/client.ts')['schema'];
-  let sql: typeof import('../db/client.ts')['sql'];
   let newId: typeof import('../lib/ids.ts')['newId'];
 
   beforeAll(async () => {
     vi.resetModules();
     vi.stubEnv('SUPABASE_JWKS_URL', jwksUrl);
     vi.stubEnv('SUPABASE_ANON_KEY', 'test-anon-key');
-    ({ db, schema: s, sql } = await import('../db/client.ts'));
+    ({ db, schema: s } = await import('../db/client.ts'));
     ({ newId } = await import('../lib/ids.ts'));
     const { buildApp } = await import('../app.ts');
     app = await buildApp();
@@ -155,12 +154,6 @@ describe('claiming a row for a supabase account', () => {
 
   afterAll(async () => {
     await app.close();
-    /* resetModules gave this file its own copy of db/client, and so its own
-       connection pool. setup.ts closes the original module's pool, not this
-       one, so without this the suite leaks a pool per run — which is the kind
-       of thing that shows up later as one flaky file rather than a clear
-       failure here. */
-    await sql.end();
   });
 
   const BODY = { name: 'דנה לוי', acceptedTerms: true as const };

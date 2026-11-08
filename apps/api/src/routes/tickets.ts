@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
-import { and, desc, eq, inArray, isNull } from 'drizzle-orm';
+import { and, desc, eq, isNull } from 'drizzle-orm';
+import { inArray } from '../db/in-list.ts';
 import { z } from 'zod';
 import {
   ApiError,
@@ -14,6 +15,7 @@ import {
   uploadReceiptSchema,
 } from '@miftan/shared';
 import { db, schema as s } from '../db/client.ts';
+import { transaction } from '../db/atomic.ts';
 import { newId } from '../lib/ids.ts';
 import { decideAutoApproval } from '../policy/budget.ts';
 import { resolveViewer, scopeFor, tenantMaySeeTicket, type Viewer } from '../policy/viewer.ts';
@@ -131,7 +133,7 @@ export async function ticketRoutes(app: FastifyInstance) {
         severity,
       });
 
-      await db.transaction(async (tx) => {
+      await transaction(async (tx) => {
         await tx.insert(s.tickets).values({
           id,
           propertyId,
@@ -230,7 +232,7 @@ export async function ticketRoutes(app: FastifyInstance) {
         ticket.receiptAmountAgorot != null &&
         ticket.receiptUploadedBy === 'tenant';
 
-      await db.transaction(async (tx) => {
+      await transaction(async (tx) => {
         await tx.update(s.tickets).set(patch).where(eq(s.tickets.id, ticket.id));
         if (!bookTenantReceipt) return;
         const [already] = await tx
@@ -343,7 +345,7 @@ export async function ticketRoutes(app: FastifyInstance) {
         ? (await db.select().from(s.vendors).where(eq(s.vendors.id, ticket.vendorId)))[0]
         : null;
 
-      await db.transaction(async (tx) => {
+      await transaction(async (tx) => {
         await tx
           .update(s.tickets)
           .set({

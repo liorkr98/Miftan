@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
-import { and, eq, inArray, isNull } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
+import { inArray } from '../db/in-list.ts';
 import { z } from 'zod';
 import {
   ApiError,
@@ -16,6 +17,7 @@ import {
   type SeasonalTaskView,
 } from '@miftan/shared';
 import { db, schema as s } from '../db/client.ts';
+import { atomically, insertChunks, transaction } from '../db/atomic.ts';
 import { newId } from '../lib/ids.ts';
 import { resolveViewer, scopeFor } from '../policy/viewer.ts';
 
@@ -84,9 +86,9 @@ export async function seasonalRoutes(app: FastifyInstance) {
       const missing = wanted.filter((w) => !seen.has(`${w.templateId}|${w.propertyId}|${w.year}`));
 
       if (missing.length) {
-        await db
-          .insert(s.seasonalTasks)
-          .values(
+        await atomically(
+          insertChunks(
+            s.seasonalTasks,
             missing.map((m) => ({
               id: newId('seasonalTask'),
               templateId: m.templateId,
@@ -95,9 +97,10 @@ export async function seasonalRoutes(app: FastifyInstance) {
               year: m.year,
               status: 'due' as const,
             })),
-          )
-          /* Two tabs opening the page at once must not collide. */
-          .onConflictDoNothing();
+            /* Two tabs opening the page at once must not collide. */
+            (insert) => insert.onConflictDoNothing(),
+          ),
+        );
       }
 
       const rows = await db
@@ -179,7 +182,7 @@ export async function seasonalRoutes(app: FastifyInstance) {
       if (task.ticketId) throw new ApiError('forbidden', 'already scheduled');
 
       const ticketId = newId('ticket');
-      await db.transaction(async (tx) => {
+      await transaction(async (tx) => {
         await tx.insert(s.tickets).values({
           id: ticketId,
           propertyId: task.propertyId,

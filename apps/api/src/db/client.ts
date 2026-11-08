@@ -1,41 +1,38 @@
-import { drizzle } from 'drizzle-orm/postgres-js';
-import postgres from 'postgres';
+import { drizzle, type DrizzleD1Database } from 'drizzle-orm/d1';
 import * as schema from './schema.ts';
 
-const url = process.env.DATABASE_URL;
-if (!url) {
-  throw new Error('DATABASE_URL is not set. Copy apps/api/.env.example to apps/api/.env');
+/**
+ * Cloudflare D1. The Worker binds it per isolate (worker.ts), tests and the
+ * seed script bind a local one through Miniflare. Everything else imports
+ * `db` and does not care which.
+ */
+export type Db = DrizzleD1Database<typeof schema>;
+
+/* On globalThis so a test that re-imports this module still finds the
+   database bound before it. */
+const state = ((globalThis as Record<symbol, unknown>)[Symbol.for('miftan.db')] ??= {
+  current: null,
+  raw: null,
+}) as { current: Db | null; raw: D1Database | null };
+
+export function bindDatabase(d1: D1Database): void {
+  if (state.raw === d1) return;
+  state.raw = d1;
+  state.current = drizzle(d1, { schema });
 }
 
-/**
- * Neon (and any PgBouncer) hands out a *pooled* endpoint that runs in
- * transaction mode: a connection is handed back to the pool at the end of every
- * transaction. A prepared statement does not survive that, and postgres.js
- * prepares by default — so against a pooler the app works until it suddenly
- * reports `prepared statement "s1" does not exist` under load, which is a
- * miserable thing to debug at 2am.
- *
- * Providers name the pooled host differently — Neon uses `<id>-pooler.<...>`,
- * Supabase (Supavisor) uses `aws-0-<region>.pooler.supabase.com` — so match the
- * `pooler.` label either way rather than one vendor's hyphen. Supabase also
- * serves transaction mode on 6543 specifically, which is worth treating as
- * pooled on its own: a hostname check that quietly misses is how this bug
- * comes back.
- */
-const isPooled = /(^|[.-])pooler\./.test(url) || /:6543(\/|$|\?)/.test(url);
+export function rawDatabase(): D1Database {
+  if (!state.raw) throw new Error('no database bound: call bindDatabase() first');
+  return state.raw;
+}
 
-/** One connection pool per process. Scripts close it explicitly. */
-export const sql = postgres(url, {
-  /* The pooler is doing the real pooling; ours just needs to reach it. */
-  max: isPooled ? 20 : 10,
-  prepare: !isPooled,
-  /* A hung Neon connection should fail the request, not pin a worker. */
-  connect_timeout: 10,
-  idle_timeout: 20,
-  max_lifetime: 60 * 30,
+export const db: Db = new Proxy({} as Db, {
+  get(_target, prop) {
+    const current = state.current;
+    if (!current) throw new Error('no database bound: call bindDatabase() first');
+    const value = Reflect.get(current, prop, current);
+    return typeof value === 'function' ? value.bind(current) : value;
+  },
 });
 
-export const db = drizzle(sql, { schema });
-
-export type Db = typeof db;
 export { schema };

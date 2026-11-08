@@ -1,4 +1,5 @@
-import { and, eq, gt, gte, inArray, isNull, lte, or } from 'drizzle-orm';
+import { and, eq, gt, gte, isNull, lte, or } from 'drizzle-orm';
+import { inArray } from '../db/in-list.ts';
 import {
   ApiError,
   applicantsOpenAt,

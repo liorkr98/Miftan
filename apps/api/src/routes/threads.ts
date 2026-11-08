@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
-import { and, desc, eq, inArray, or } from 'drizzle-orm';
+import { and, desc, eq, or } from 'drizzle-orm';
+import { inArray } from '../db/in-list.ts';
 import { z } from 'zod';
 import {
   ApiError,
@@ -11,6 +12,7 @@ import {
   type ThreadView,
 } from '@miftan/shared';
 import { db, schema as s } from '../db/client.ts';
+import { transaction } from '../db/atomic.ts';
 import { newId } from '../lib/ids.ts';
 import { resolveViewer, type Viewer } from '../policy/viewer.ts';
 
@@ -182,7 +184,7 @@ export async function threadRoutes(app: FastifyInstance) {
       }
 
       const id = newId('thread');
-      await db.transaction(async (tx) => {
+      await transaction(async (tx) => {
         await tx.insert(s.messageThreads).values({
           id,
           ownerId: viewer.userId,
@@ -224,7 +226,7 @@ export async function threadRoutes(app: FastifyInstance) {
       const thread = await loadThread(viewer, request.params.id);
       const side = sideOf(viewer, thread)!;
 
-      await db.transaction(async (tx) => {
+      await transaction(async (tx) => {
         await tx.insert(s.threadMessages).values({
           id: newId('threadMessage'),
           threadId: thread.id,

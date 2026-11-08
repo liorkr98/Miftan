@@ -50,7 +50,7 @@ describe('plan', () => {
 
   it('reads anything unrecognised as free', async () => {
     const u = await signedIn();
-    await db.execute(dsql`update users set plan = 'gold' where id = ${u.id}`);
+    await db.run(dsql`update users set plan = 'gold' where id = ${u.id}`);
     expect((await me(u.token)).user.plan).toBe('free');
   });
 

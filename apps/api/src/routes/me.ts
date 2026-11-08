@@ -126,7 +126,7 @@ export async function meRoutes(app: FastifyInstance) {
       await db
         .update(s.users)
         .set({
-          onboardingDismissed: sql`array(select distinct unnest(array_append(${s.users.onboardingDismissed}, ${role}::text)))`,
+          onboardingDismissed: sql`case when exists (select 1 from json_each(${s.users.onboardingDismissed}) where value = ${role}) then ${s.users.onboardingDismissed} else json_insert(${s.users.onboardingDismissed}, '$[#]', ${role}) end`,
         })
         .where(eq(s.users.id, id));
       return { ok: true as const };

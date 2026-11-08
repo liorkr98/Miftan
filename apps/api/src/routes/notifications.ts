@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
-import { and, eq, gte, inArray, isNotNull, isNull, lt, lte, ne, or, sql } from 'drizzle-orm';
+import { and, eq, gte, isNotNull, isNull, lt, lte, ne, or } from 'drizzle-orm';
+import { inArray } from '../db/in-list.ts';
 import { israelMonth, notificationFeedSchema, okSchema, zonedWallTime, type NotificationView } from '@miftan/shared';
 import { db, schema as s } from '../db/client.ts';
 import { isCurrentTenant, resolveViewer } from '../policy/viewer.ts';
@@ -310,7 +311,7 @@ export async function notificationRoutes(app: FastifyInstance) {
     async (request) => {
       await db
         .update(s.users)
-        .set({ notificationsSeenAt: sql`now()` })
+        .set({ notificationsSeenAt: new Date() })
         .where(eq(s.users.id, request.currentUser!.id));
       return { ok: true as const };
     },
