@@ -36,7 +36,7 @@ export default defineConfig({
      * is actually used, so testing on one cannot be a special setup.
      *
      * The proxy below still points at 127.0.0.1 on purpose: that resolves on
-     * the machine running Vite, which is where the API is.
+     * the machine running Vite, which is where the Worker is.
      */
     host: true,
 
@@ -57,17 +57,11 @@ export default defineConfig({
        explicit permission to serve from it. */
     fs: { allow: [path.resolve(here, '../..')] },
 
-    /* The API is proxied under /api rather than called on its own origin.
-       The refresh cookie is sameSite=lax, and localhost:5178 → 127.0.0.1:4000
-       is cross-site, so the browser would refuse to send it and every reload
-       would look like a signed-out session. Proxying makes the app and the API
-       same-origin in development, which is also how they will be deployed. */
+    /* /api goes to the Worker (`npm run dev:api`, wrangler dev on 8787),
+       which serves the API under /api exactly as it does in production. Same
+       origin, so the sameSite=lax refresh cookie is sent on every reload. */
     proxy: {
-      '/api': {
-        target: 'http://127.0.0.1:4000',
-        changeOrigin: true,
-        rewrite: (p) => p.replace(/^\/api/, ''),
-      },
+      '/api': { target: 'http://127.0.0.1:8787' },
     },
   },
 });
