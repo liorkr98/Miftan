@@ -1,16 +1,13 @@
+import { sql } from 'drizzle-orm';
 import {
-  boolean,
-  date,
-  integer,
-  jsonb,
-  numeric,
-  pgEnum,
-  pgTable,
-  text,
-  timestamp,
-  uniqueIndex,
+  customType,
   index,
-} from 'drizzle-orm/pg-core';
+  integer,
+  numeric as sqliteNumeric,
+  sqliteTable,
+  text,
+  uniqueIndex,
+} from 'drizzle-orm/sqlite-core';
 
 /**
  * Miftan schema.
@@ -31,9 +28,59 @@ import {
  *
  * Deliberately *not* here: protocol item templates, seasonal task templates,
  * revenue streams and affiliate offers. Those are configuration, they ship with
- * the code in `@miftan/shared`, and putting them in Postgres would only mean
+ * the code in `@miftan/shared`, and putting them in the database would only mean
  * migrating them every time we edit a sentence.
  */
+
+/* ── Column types ──────────────────────────────────────────
+   The database is Cloudflare D1, which is SQLite. These helpers keep the
+   shapes the code reads identical to what Postgres returned: dates as
+   'yyyy-MM-dd' strings, decimals as strings, timestamps as Date, arrays and
+   JSON as values. */
+
+const pgTable = sqliteTable;
+
+/** An enum is a text column limited to its values. */
+function pgEnum<const T extends readonly [string, ...string[]]>(_name: string, values: T) {
+  const column = (name: string) => text(name, { enum: values as unknown as [T[number], ...T[number][]] });
+  return Object.assign(column, { enumValues: values });
+}
+
+const nowMs = sql`(cast(unixepoch('subsec') * 1000 as integer))`;
+
+function timestamp(name: string, _opts?: { withTimezone: boolean }) {
+  return integer(name, { mode: 'timestamp_ms' });
+}
+
+/** 'yyyy-MM-dd'. Text compares correctly in that format. */
+function date(name: string) {
+  return text(name);
+}
+
+/** NUMERIC affinity: compared as a number in SQL, read back as a string. */
+function numeric(name: string, _opts?: { precision: number; scale: number }) {
+  return sqliteNumeric(name);
+}
+
+function boolean(name: string) {
+  return integer(name, { mode: 'boolean' });
+}
+
+function jsonb(name: string) {
+  return text(name, { mode: 'json' }).$type<unknown>();
+}
+
+function textArray(name: string) {
+  return text(name, { mode: 'json' }).$type<string[]>();
+}
+
+const timestampArray = customType<{ data: Date[]; driverData: string }>({
+  dataType: () => 'text',
+  toDriver: (value) => JSON.stringify(value.map((d) => d.getTime())),
+  fromDriver: (value) => (JSON.parse(value) as number[]).map((ms) => new Date(ms)),
+});
+
+const emptyJsonArray = sql`'[]'`;
 
 /* ── Enums ─────────────────────────────────────────────── */
 
@@ -60,8 +107,8 @@ export const meetingSlotStatus = pgEnum('meeting_slot_status', ['open', 'booked'
 
 /* ── Shared column shapes ──────────────────────────────── */
 
-const createdAt = timestamp('created_at', { withTimezone: true }).notNull().defaultNow();
-const updatedAt = timestamp('updated_at', { withTimezone: true }).notNull().defaultNow();
+const createdAt = timestamp('created_at', { withTimezone: true }).notNull().default(nowMs);
+const updatedAt = timestamp('updated_at', { withTimezone: true }).notNull().default(nowMs);
 /** Soft delete. Nothing a landlord or tenant can see is ever hard-deleted. */
 const deletedAt = timestamp('deleted_at', { withTimezone: true });
 
@@ -98,7 +145,7 @@ export const users = pgTable(
     /** Everything in the notification feed newer than this is unread. */
     notificationsSeenAt: timestamp('notifications_seen_at', { withTimezone: true }),
     /** Roles whose onboarding checklist this account has closed. */
-    onboardingDismissed: text('onboarding_dismissed').array().notNull().default([]),
+    onboardingDismissed: textArray('onboarding_dismissed').notNull().default(emptyJsonArray),
     /** Set at registration. Required — the register route refuses to create
         an account without it, so this is never null for a real user; it stays
         nullable only because a handful of seeded rows predate the column. */
@@ -185,8 +232,8 @@ export const properties = pgTable(
     sqm: integer('sqm').notNull(),
     floor: integer('floor').notNull(),
     totalFloors: integer('total_floors').notNull(),
-    amenities: text('amenities').array().notNull().default([]),
-    photos: text('photos').array().notNull().default([]),
+    amenities: textArray('amenities').notNull().default(emptyJsonArray),
+    photos: textArray('photos').notNull().default(emptyJsonArray),
 
     monthlyRentAgorot: integer('monthly_rent_agorot').notNull(),
     arnonaBimonthlyAgorot: integer('arnona_bimonthly_agorot').notNull().default(0),
@@ -305,7 +352,7 @@ export const vendors = pgTable('vendors', {
   name: text('name').notNull(),
   trade: trade('trade').notNull(),
   phone: text('phone').notNull(),
-  areas: text('areas').array().notNull().default([]),
+  areas: textArray('areas').notNull().default(emptyJsonArray),
   rating: numeric('rating', { precision: 2, scale: 1 }).notNull().default('0'),
   jobsDone: integer('jobs_done').notNull().default(0),
   avgResponseHours: integer('avg_response_hours').notNull().default(24),
@@ -330,12 +377,12 @@ export const tickets = pgTable(
     status: ticketStatus('status').notNull().default('new'),
     title: text('title').notNull(),
     description: text('description').notNull().default(''),
-    photos: text('photos').array().notNull().default([]),
+    photos: textArray('photos').notNull().default(emptyJsonArray),
 
     vendorId: text('vendor_id').references(() => vendors.id),
     scheduledAt: timestamp('scheduled_at', { withTimezone: true }),
     /** Windows the tenant said they can be home */
-    tenantAvailability: timestamp('tenant_availability', { withTimezone: true }).array().notNull().default([]),
+    tenantAvailability: timestampArray('tenant_availability').notNull().default(emptyJsonArray),
     tenantConfirmedSlot: boolean('tenant_confirmed_slot').notNull().default(false),
 
     /* What this kind of job typically costs, recorded at creation. It decides
@@ -367,8 +414,8 @@ export const ticketMessages = pgTable(
     authorUserId: text('author_user_id').references(() => users.id),
     authorName: text('author_name').notNull(),
     body: text('body').notNull(),
-    photos: text('photos').array().notNull().default([]),
-    at: timestamp('at', { withTimezone: true }).notNull().defaultNow(),
+    photos: textArray('photos').notNull().default(emptyJsonArray),
+    at: timestamp('at', { withTimezone: true }).notNull().default(nowMs),
   },
   (t) => [index('ticket_messages_ticket_idx').on(t.ticketId)],
 );
@@ -512,7 +559,7 @@ export const threadMessages = pgTable(
     authorName: text('author_name').notNull(),
     body: text('body').notNull(),
     read: boolean('read').notNull().default(false),
-    at: timestamp('at', { withTimezone: true }).notNull().defaultNow(),
+    at: timestamp('at', { withTimezone: true }).notNull().default(nowMs),
   },
   (t) => [index('thread_messages_thread_idx').on(t.threadId)],
 );
@@ -525,7 +572,7 @@ export const protocolRuns = pgTable('protocol_runs', {
   leaseId: text('lease_id').references(() => leases.id),
   tenantId: text('tenant_id').references(() => users.id),
   kind: protocolKind('kind').notNull(),
-  startedAt: timestamp('started_at', { withTimezone: true }).notNull().defaultNow(),
+  startedAt: timestamp('started_at', { withTimezone: true }).notNull().default(nowMs),
   completedAt: timestamp('completed_at', { withTimezone: true }),
   signed: boolean('signed').notNull().default(false),
 });
@@ -539,7 +586,7 @@ export const protocolEntries = pgTable(
     itemId: text('item_id').notNull(),
     done: boolean('done').notNull().default(false),
     value: text('value'),
-    photos: text('photos').array().notNull().default([]),
+    photos: textArray('photos').notNull().default(emptyJsonArray),
     note: text('note'),
   },
   (t) => [uniqueIndex('protocol_entries_run_item_key').on(t.runId, t.itemId)],
@@ -601,7 +648,7 @@ export const contractTemplates = pgTable(
     useWhen: text('use_when').notNull().default(''),
     body: text('body').notNull(),
     /** TemplateVariable[] */
-    variables: jsonb('variables').notNull().default([]),
+    variables: jsonb('variables').notNull().default(emptyJsonArray),
     archived: boolean('archived').notNull().default(false),
     createdAt,
     updatedAt,
@@ -719,7 +766,7 @@ export const searchEvents = pgTable(
     maxPriceAgorot: integer('max_price_agorot'),
     /** How many units matched. Zero is the most interesting value here. */
     resultCount: integer('result_count').notNull(),
-    at: timestamp('at', { withTimezone: true }).notNull().defaultNow(),
+    at: timestamp('at', { withTimezone: true }).notNull().default(nowMs),
   },
   (t) => [
     index('search_events_city_at_idx').on(t.city, t.at),
@@ -745,7 +792,7 @@ export const listingViews = pgTable(
       .references(() => properties.id, { onDelete: 'cascade' }),
     viewerKey: text('viewer_key').notNull(),
     day: date('day').notNull(),
-    at: timestamp('at', { withTimezone: true }).notNull().defaultNow(),
+    at: timestamp('at', { withTimezone: true }).notNull().default(nowMs),
   },
   (t) => [
     uniqueIndex('listing_views_property_viewer_day_key').on(t.propertyId, t.viewerKey, t.day),
@@ -768,13 +815,13 @@ export const renewalCycles = pgTable(
     leaseId: text('lease_id').notNull().references(() => leases.id, { onDelete: 'cascade' }),
     propertyId: text('property_id').notNull().references(() => properties.id),
     stage: renewalStage('stage').notNull().default('awaiting_tenant'),
-    openedAt: timestamp('opened_at', { withTimezone: true }).notNull().defaultNow(),
+    openedAt: timestamp('opened_at', { withTimezone: true }).notNull().default(nowMs),
 
     /** [{ topic, text }] — what the tenant asked */
-    questions: jsonb('questions').notNull().default([]),
+    questions: jsonb('questions').notNull().default(emptyJsonArray),
     questionsAt: timestamp('questions_at', { withTimezone: true }),
     /** [{ topic, answer }] — the owner's own words */
-    answers: jsonb('answers').notNull().default([]),
+    answers: jsonb('answers').notNull().default(emptyJsonArray),
     answersAt: timestamp('answers_at', { withTimezone: true }),
     decisionDeadline: timestamp('decision_deadline', { withTimezone: true }),
 
@@ -817,7 +864,7 @@ export const budgetPolicies = pgTable('budget_policies', {
   perTicketCeilingAgorot: integer('per_ticket_ceiling_agorot').notNull().default(50_000),
   monthlyCapAgorot: integer('monthly_cap_agorot').notNull().default(200_000),
   /** TicketCategory[] — empty means nothing is in scope */
-  categories: text('categories').array().notNull().default([]),
+  categories: textArray('categories').notNull().default(emptyJsonArray),
   includeUrgent: boolean('include_urgent').notNull().default(false),
   createdAt,
   updatedAt,
@@ -844,7 +891,7 @@ export const screeningAuditLog = pgTable(
   {
     id: text('id').primaryKey(),
     ownerId: text('owner_id').notNull().references(() => users.id),
-    at: timestamp('at', { withTimezone: true }).notNull().defaultNow(),
+    at: timestamp('at', { withTimezone: true }).notNull().default(nowMs),
     leadId: text('lead_id'),
     leadName: text('lead_name').notNull(),
     propertyId: text('property_id'),
@@ -852,7 +899,7 @@ export const screeningAuditLog = pgTable(
     action: auditAction('action').notNull(),
     detail: text('detail').notNull(),
     /** ScreeningFlag[] as evaluated at that moment */
-    flags: jsonb('flags').notNull().default([]),
+    flags: jsonb('flags').notNull().default(emptyJsonArray),
   },
   (t) => [index('audit_owner_at_idx').on(t.ownerId, t.at)],
 );
@@ -865,9 +912,9 @@ export const contractScans = pgTable('contract_scans', {
   fileUrl: text('file_url'),
   status: contractScanStatus('status').notNull().default('uploading'),
   /** ExtractedField[] with confidence scores and source hints */
-  fields: jsonb('fields').notNull().default([]),
-  missing: text('missing').array().notNull().default([]),
-  uploadedAt: timestamp('uploaded_at', { withTimezone: true }).notNull().defaultNow(),
+  fields: jsonb('fields').notNull().default(emptyJsonArray),
+  missing: textArray('missing').notNull().default(emptyJsonArray),
+  uploadedAt: timestamp('uploaded_at', { withTimezone: true }).notNull().default(nowMs),
   committedAt: timestamp('committed_at', { withTimezone: true }),
 });
 
