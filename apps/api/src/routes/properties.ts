@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
-import { and, desc, eq, inArray, isNull } from 'drizzle-orm';
+import { and, desc, eq, isNull } from 'drizzle-orm';
+import { inArray } from '../db/in-list.ts';
 import { z } from 'zod';
 import {
   ApiError,
@@ -21,7 +22,7 @@ import { loadPropertyContexts, projectProperty } from '../policy/properties.ts';
 import { toStoredKey } from '../storage/files.ts';
 import { geocodeAddress } from '../lib/geocode.ts';
 import { createHash } from 'node:crypto';
-import { env } from '../lib/env.ts';
+import { serverSecretSync } from '../lib/auth.ts';
 import { clientIp } from '../lib/http.ts';
 import { viewBurst } from '../lib/rate-limit.ts';
 
@@ -132,7 +133,7 @@ export async function propertyRoutes(app: FastifyInstance) {
         const viewerKey = request.currentUser
           ? `u:${request.currentUser.id}`
           : `a:${createHash('sha256')
-              .update(`${env.JWT_SECRET}|${clientIp(request)}|${request.headers['user-agent'] ?? ''}`)
+              .update(`${Buffer.from(serverSecretSync()).toString('hex')}|${clientIp(request)}|${request.headers['user-agent'] ?? ''}`)
               .digest('hex')
               .slice(0, 32)}`;
         await db

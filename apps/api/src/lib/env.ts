@@ -7,9 +7,19 @@ import { z } from 'zod';
 const schema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().default(4000),
-  DATABASE_URL: z.string().min(1),
-  /** 32+ bytes. Rotating it signs everyone out, which is the point. */
-  JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
+  /**
+   * 32+ bytes. Rotating it signs everyone out, which is the point. Optional:
+   * unset, the Worker generates one and keeps it in the database (lib/auth.ts).
+   */
+  JWT_SECRET: z.preprocess(
+    (v) => (v === '' ? undefined : v),
+    z.string().min(32, 'JWT_SECRET must be at least 32 characters').optional(),
+  ),
+  /**
+   * Where the browser reaches this API, as a path on the web app's origin.
+   * Signed file links are built under it.
+   */
+  PUBLIC_API_PATH: z.string().default('/api'),
   /** Where the web app runs, for CORS and cookie scope */
   WEB_ORIGIN: z.string().default('http://localhost:5178'),
   /**
@@ -22,7 +32,7 @@ const schema = z.object({
    * cookie is simply never sent, and every reload looks like a signed-out
    * session.
    */
-  COOKIE_PATH: z.string().default('/auth'),
+  COOKIE_PATH: z.string().default('/api/auth'),
   /**
    * SameSite for the refresh cookie.
    *
