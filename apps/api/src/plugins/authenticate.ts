@@ -3,7 +3,7 @@ import fp from 'fastify-plugin';
 import { and, eq, isNull } from 'drizzle-orm';
 import { ApiError } from '@miftan/shared';
 import { db, schema as s } from '../db/client.ts';
-import { supabaseAuthEnabled, verifyAccessToken, verifySupabaseToken } from '../lib/auth.ts';
+import { verifyAccessToken } from '../lib/auth.ts';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -19,35 +19,13 @@ declare module 'fastify' {
 
 const USER_COLUMNS = { id: s.users.id, name: s.users.name, email: s.users.email };
 
-/**
- * Resolve a bearer token to the row it speaks for, whichever system issued it.
- *
- * Two issuers are accepted. This API's own tokens are tried first: they are
- * verified against a local secret with no network call, and they are what every
- * existing session and every test uses. A token that is not ours is then tried
- * against Supabase Auth, whose subject is matched on `supabaseUserId` rather
- * than `id` — Supabase mints its own uuids and knows nothing about ours.
- *
- * Accepting both is what makes the move to Supabase Auth survivable: accounts
- * migrate one at a time instead of everyone being signed out at once.
- */
+/** Resolve a bearer token to the row it speaks for. */
 async function userForToken(token: string) {
-  try {
-    const userId = await verifyAccessToken(token);
-    const [user] = await db
-      .select(USER_COLUMNS)
-      .from(s.users)
-      .where(and(eq(s.users.id, userId), isNull(s.users.deletedAt)));
-    return user ?? null;
-  } catch (err) {
-    if (!supabaseAuthEnabled()) throw err;
-  }
-
-  const { sub: subject } = await verifySupabaseToken(token);
+  const userId = await verifyAccessToken(token);
   const [user] = await db
     .select(USER_COLUMNS)
     .from(s.users)
-    .where(and(eq(s.users.supabaseUserId, subject), isNull(s.users.deletedAt)));
+    .where(and(eq(s.users.id, userId), isNull(s.users.deletedAt)));
   return user ?? null;
 }
 

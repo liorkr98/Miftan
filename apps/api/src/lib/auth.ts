@@ -1,5 +1,5 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
-import { SignJWT, createRemoteJWKSet, jwtVerify } from 'jose';
+import { SignJWT, jwtVerify } from 'jose';
 import { and, eq, isNull, lt } from 'drizzle-orm';
 import { ApiError } from '@miftan/shared';
 import { db, schema as s } from '../db/client.ts';
@@ -119,86 +119,6 @@ export async function verifyAccessToken(token: string): Promise<string> {
     return payload.sub;
   } catch {
     throw new ApiError('not_authenticated', 'invalid or expired access token');
-  }
-}
-
-/* ── Supabase Auth ─────────────────────────────────────── */
-
-/**
- * Verify a token Supabase Auth issued, and return its subject — the Supabase
- * user id, which `users.supabaseUserId` maps to a row here.
- *
- * Supabase signs with a rotating key pair and publishes the public half at a
- * JWKS endpoint, so there is no shared secret to hold. `createRemoteJWKSet`
- * fetches that set once and caches it, which is what keeps this cheap enough
- * to run per request: a signature check is under a millisecond, against the
- * 50-150ms argon2 costs on purpose. That difference is the whole reason this
- * path exists — Cloudflare's free plan allows 10ms of CPU per request, so the
- * password itself has to be checked somewhere that is not a Worker.
- */
-let jwks: ReturnType<typeof createRemoteJWKSet> | null = null;
-
-export function supabaseAuthEnabled(): boolean {
-  return Boolean(env.SUPABASE_JWKS_URL);
-}
-
-export interface SupabaseIdentity {
-  /** Supabase's own user id. Matched against `users.supabaseUserId`. */
-  sub: string;
-  email: string | null;
-  /**
-   * Whether Supabase has seen this address confirmed. Only an account that
-   * clears this may be linked to an existing row — see the claim route.
-   */
-  emailVerified: boolean;
-}
-
-export async function verifySupabaseToken(token: string): Promise<SupabaseIdentity> {
-  if (!env.SUPABASE_JWKS_URL) {
-    throw new ApiError('not_authenticated', 'supabase auth is not configured');
-  }
-  jwks ??= createRemoteJWKSet(new URL(env.SUPABASE_JWKS_URL));
-  try {
-    const { payload } = await jwtVerify(token, jwks, { audience: 'authenticated' });
-    if (!payload.sub) throw new Error('no subject');
-
-    /* Never user_metadata: a Supabase user can write their own metadata
-       (auth.updateUser({ data })), so "email_verified: true" there proves
-       nothing — it was the way to sign up with a landlord's address and adopt
-       their portfolio. Only a top-level claim counts here, and the claim route
-       asks Supabase itself (supabaseEmailConfirmed) before linking anything. */
-    const verified = payload.email_verified === true;
-    const email = typeof payload.email === 'string' ? payload.email : null;
-
-    return { sub: payload.sub, email, emailVerified: verified };
-  } catch {
-    throw new ApiError('not_authenticated', 'invalid or expired supabase token');
-  }
-}
-
-/**
- * Whether Supabase itself has confirmed this account's address, asked of
- * Supabase rather than read from the token. HUMAN REVIEW: this is what lets a
- * Supabase login take over an existing account.
- *
- * GET /auth/v1/user returns the server's record, including email_confirmed_at,
- * which the user cannot edit. Needs the project's public anon key. Anything
- * that goes wrong — no key, a timeout, an error — answers false: an unconfirmed
- * address can still sign up, it just cannot adopt someone else's account.
- */
-export async function supabaseEmailConfirmed(token: string): Promise<boolean> {
-  if (!env.SUPABASE_JWKS_URL || !env.SUPABASE_ANON_KEY) return false;
-  const base = env.SUPABASE_JWKS_URL.replace(/\/\.well-known\/jwks\.json$/, '').replace(/\/$/, '');
-  try {
-    const res = await fetch(`${base}/user`, {
-      headers: { authorization: `Bearer ${token}`, apikey: env.SUPABASE_ANON_KEY },
-      signal: AbortSignal.timeout(5000),
-    });
-    if (!res.ok) return false;
-    const user = (await res.json()) as { email_confirmed_at?: string | null };
-    return typeof user.email_confirmed_at === 'string' && user.email_confirmed_at.length > 0;
-  } catch {
-    return false;
   }
 }
 

@@ -61,24 +61,6 @@ const schema = z.object({
     z.string().min(32, 'PROXY_SECRET must be at least 32 characters').optional(),
   ),
   /**
-   * Supabase Auth's public signing keys, e.g.
-   * https://<ref>.supabase.co/auth/v1/.well-known/jwks.json
-   *
-   * Unset means the Supabase sign-in path is simply off and only this API's
-   * own tokens are accepted, which is how development and the tests run. An
-   * empty string counts as unset: a GitHub Actions secret that was never
-   * added arrives as `''`, and refusing to boot over that would turn a feature
-   * nobody configured into a dead API.
-   */
-  SUPABASE_JWKS_URL: z
-    .preprocess((v) => (v === '' ? undefined : v), z.string().url().optional()),
-  /**
-   * The project's public anon key. Used only to ask Supabase whether an
-   * address is confirmed before a Supabase login may adopt an existing
-   * account. Unset = no adoption (fail closed).
-   */
-  SUPABASE_ANON_KEY: z.preprocess((v) => (v === '' ? undefined : v), z.string().optional()),
-  /**
    * Set only on the demo API. Production leaves it unset, and seeded account
    * ids are then ordinary users — the demo badge and the revenue lens stay off.
    */
